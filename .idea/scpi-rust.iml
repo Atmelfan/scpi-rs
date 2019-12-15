@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="CPP_MODULE" version="4">
+  <component name="NewModuleRootManager">
+    <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/scpi_derive/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/scpi_derive/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/scpi_derive/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/scpi_derive/benches" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/example_nostd/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/example/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/example/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/example/benches" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/scpi/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/scpi/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/scpi/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/scpi/benches" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/example_nostd/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/example_nostd/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/example_nostd/benches" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/example/src" isTestSource="false" />
+      <excludeFolder url="file://$MODULE_DIR$/example/target" />
+      <excludeFolder url="file://$MODULE_DIR$/example_nostd/target" />
+      <excludeFolder url="file://$MODULE_DIR$/scpi/target" />
+      <excludeFolder url="file://$MODULE_DIR$/scpi_derive/target" />
+      <excludeFolder url="file://$MODULE_DIR$/target" />
+    </content>
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+</module>
