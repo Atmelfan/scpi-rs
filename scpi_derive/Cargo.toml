@@ -3,6 +3,18 @@ name = "scpi_derive"
 version = "0.1.0"
 authors = ["Atmelfan <gustavp@gpa-robotics.com>"]
 edition = "2018"
+license = "MIT"
+license-file = "../LICENSE.txt"
+
+description = "SCPI/IEEE488.2 parser support library"
+keywords = []
+categories = []
+
+homepage = "https://github.com/Atmelfan/scpi-rs"
+documentation = "https://github.com/Atmelfan/scpi-rs"
+repository = "https://github.com/Atmelfan/scpi-rs"
+readme = "../README.md"
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
