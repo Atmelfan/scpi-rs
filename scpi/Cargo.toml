@@ -1,16 +1,21 @@
 [package]
 name = "scpi"
-version = "0.1.0"
+version = "0.1.2"
 authors = ["Atmelfan <gustavp@gpa-robotics.com>"]
 edition = "2018"
 license = "MIT"
+license-file = "../LICENSE.txt"
 
 description = "SCPI/IEEE488.2 parser library"
-keywords = ["SCPI", "IEEE488,2", "parser", "Instrumentation", "Embedded", "Multimeter"]
+keywords = ["SCPI", "parser", "Instrumentation", "Embedded", "Multimeter"]
 categories = ["command-line-interface", "embedded", "parsing", "no-std"]
 
 homepage = "https://github.com/Atmelfan/scpi-rs"
+documentation = "https://docs.rs/crate/scpi"
+repository = "https://github.com/Atmelfan/scpi-rs"
 readme = "../README.md"
 
+
 [dependencies]
-scpi_derive = {path = "../scpi_derive"}
+scpi_derive = {path = "../scpi_derive", version="0.1.0"}
+
