@@ -5,6 +5,8 @@
 //!
 //! It does not require the std library (ie it's `no_std` compatible) or a system allocator (useful for embedded).
 //!
+//! [Documentation (docs.rs)](https://docs.rs/scpi)
+//!
 //! **Everything is subject to change (as of 0.1.0)**
 //!
 //! # Scope
@@ -29,8 +31,8 @@
 //!
 //!  * Response data formatting, currently each command is responsible for formatting their response.
 //!  * Better command data operators with automatic error checking.
+//!  * Optional mnemonics
 //!  * Automatic suffix/special number handling
-//!  * Proper float parser using lexical-core/etc
 //!  * Provide working implementation of all IEEE 488.2 and SCPI-99 mandated commands.
 //!  * Quotation marks inside string data, the parser cannot handle escaping `'` and `"` inside their respective block (eg "bla ""quoted"" bla").
 //!  * Expression data, not handled at all.
@@ -48,12 +50,18 @@
 #[macro_use]
 extern crate scpi_derive;
 
+/* Used to create responses */
+extern crate arrayvec;
+extern crate lexical_core;
+
+
 pub mod error;
 pub mod command;
 pub mod suffix;
 pub mod tokenizer;
 pub mod ieee488;
 pub mod tree;
+pub mod response;
 
 pub use ieee488::*;
 

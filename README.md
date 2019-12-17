@@ -28,8 +28,8 @@ These are the current limitations and differences from SCPI-99 specs (that I can
 They are listed in the rough order of which I care to fix them.
 
  * Response data formatting, currently each command is responsible for formatting their response.
- * Proper float parser using `lexical-core`/etc
  * Better command data operators with automatic error checking.
+ * Optional mnemonics
  * Automatic suffix/special number handling
  * Provide working implementation of all IEEE 488.2 and SCPI-99 mandated commands.
  * Quotation marks inside string data, the parser cannot handle escaping `'` and `"` inside their respective block (eg "bla ""quoted"" bla").

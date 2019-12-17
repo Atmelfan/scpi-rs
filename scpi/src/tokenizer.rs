@@ -291,107 +291,14 @@ impl<'a> Tokenizer<'a> {
     /// <DECIMAL NUMERIC PROGRAM DATA>
     /// See IEEE 488.2-1992 7.7.2
     ///
+    /// TODO: lexical-core does not accept whitespace between exponent separator and exponent <mantissa>E <exponent>.
     fn read_numeric_data(&mut self) -> Result<Token<'a>, Error> {
         /* Read mantissa */
-        let numeric = self.read_mantissa()?;
-
-        if let Some(x) = self.chars.clone().next() {
-            if *x == b'E' || *x == b'e' {
-                let exponent = self.read_exponent()?;
-                //numeric *= 10f32.powf(exponent as f32);'
-                //TODO: powf/powi does not exist in no_std!
-            }
-        }
+        let (f, len) = lexical_core::parse_partial::<f32>(self.chars.as_slice()).map_err(|_|Error::NumericDataError)?;
+        for _ in 0..len { self.chars.next(); };
         self.skip_ws();
 
-        Ok(Token::DecimalNumericProgramData(numeric))
-    }
-
-    /// Digest leading '+' or '-' and returns false if negative
-    fn read_sign(&mut self) -> bool {
-        let e = self.chars.clone().next().unwrap();
-        match e {
-            b'-' => {
-                self.chars.next();
-                false
-            }
-            b'+' => {
-                self.chars.next();
-                true
-            }
-            _=> true
-        }
-    }
-
-    /// Digest a mantissa as specified in 7.7.2.2
-    fn read_mantissa(&mut self) -> Result<f32, Error> {
-        let mut acc = 0f32;
-        let mut frac = false;
-        let mut digits = false;
-        let mut fmultiplier = 10f32;
-
-        let sign = self.read_sign();
-
-        while self.chars.clone().next().map_or(false, |ch| ch.is_ascii_digit() || *ch == b'.') {
-            let c = self.chars.next().unwrap();
-
-            if c.is_ascii_digit() {
-                if frac {
-                    acc += ascii_to_digit(*c, 10).unwrap() as f32 / fmultiplier;
-                    fmultiplier *= 10f32;
-                }else{
-                    acc = ascii_to_digit(*c, 10).unwrap() as f32 + acc * 10f32;
-                }
-                digits = true;
-            } else if *c == b'.' {
-                // Only one decimal allowed
-                if frac {
-                    return Err(Error::NumericDataError)
-                } else {
-                    frac = true;
-                }
-            }
-        }
-
-        if !digits {
-            Err(Error::NumericDataError)
-        }else if sign {
-            Ok(acc)
-        }else{
-            Ok(-acc)
-        }
-    }
-
-    /// Digest a exponent as specified in 7.7.2.2
-    fn read_exponent(&mut self) -> Result<i32, Error> {
-
-        // Digest leading E/e
-        self.chars.next();
-
-        //Digest any whitespace between E/e and number
-        self.skip_ws();
-
-        let mult = self.read_sign();
-        // Read exponent or return error if none
-        let mut acc = 0i32;
-        let mut any = false;
-        while self.chars.clone().next().map_or(false, |ch| ch.is_ascii_digit()) {
-            let c = self.chars.next().unwrap();
-            acc = ascii_to_digit(*c, 10).unwrap() as i32 + acc*10i32;
-            any = true;
-        }
-
-        if acc > 32000 {
-            return Err(Error::ExponentTooLarge)
-        }
-
-        if !any {
-            Err(Error::NumericDataError)
-        }else if mult {
-            Ok(acc)
-        }else{
-            Ok(-acc)
-        }
+        Ok(Token::DecimalNumericProgramData(f))
     }
 
     /// <SUFFIX PROGRAM DATA>
@@ -647,26 +554,26 @@ mod test_parse {
 
         //TODO: FIX EXPONENTS!
 
-//        assert_eq!(Tokenizer::from_str(b"25").read_numeric_data().unwrap(),
-//                   Token::DecimalNumericProgramData(25f32));
-//
-//        assert_eq!(Tokenizer::from_str(b"-10.").read_numeric_data().unwrap(),
-//                   Token::DecimalNumericProgramData(-10f32));
-//
-//        assert_eq!(Tokenizer::from_str(b".2").read_numeric_data().unwrap(),
-//                   Token::DecimalNumericProgramData(0.2f32));
-//
-//        assert_eq!(Tokenizer::from_str(b"1.E5").read_numeric_data().unwrap(),
-//                   Token::DecimalNumericProgramData(1e5f32));
-//
-//        assert_eq!(Tokenizer::from_str(b"-25e5").read_numeric_data().unwrap(),
-//                   Token::DecimalNumericProgramData(-25e5f32));
-//
-//        assert_eq!(Tokenizer::from_str(b"25E-2").read_numeric_data().unwrap(),
-//                   Token::DecimalNumericProgramData(0.25f32));
-//
-//        assert_eq!(Tokenizer::from_str(b".1E2").read_numeric_data().unwrap(),
-//                   Token::DecimalNumericProgramData(10f32));
+        assert_eq!(Tokenizer::from_str(b"25").read_numeric_data().unwrap(),
+                   Token::DecimalNumericProgramData(25f32));
+
+        assert_eq!(Tokenizer::from_str(b"-10.").read_numeric_data().unwrap(),
+                   Token::DecimalNumericProgramData(-10f32));
+
+        assert_eq!(Tokenizer::from_str(b".2").read_numeric_data().unwrap(),
+                   Token::DecimalNumericProgramData(0.2f32));
+
+        assert_eq!(Tokenizer::from_str(b"1.E5").read_numeric_data().unwrap(),
+                   Token::DecimalNumericProgramData(1e5f32));
+
+        assert_eq!(Tokenizer::from_str(b"-25e5").read_numeric_data().unwrap(),
+                   Token::DecimalNumericProgramData(-25e5f32));
+
+        assert_eq!(Tokenizer::from_str(b"25E-2").read_numeric_data().unwrap(),
+                   Token::DecimalNumericProgramData(0.25f32));
+
+        assert_eq!(Tokenizer::from_str(b".1E2").read_numeric_data().unwrap(),
+                   Token::DecimalNumericProgramData(10f32));
 
     }
 
