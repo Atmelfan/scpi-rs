@@ -95,55 +95,6 @@ impl fmt::Write for MyWriter {
     }
 }
 
-macro_rules! node {
-    ($name:literal, $handler:expr) => {
-        Node {name: $name, handler: Some($handler), optional: false, sub: None}
-    };
-    (default $name:literal, $handler:expr) => {
-        Node {name: $name, handler: Some($handler), optional: true, sub: None}
-    };
-    ($name:literal => {$($contents:tt)*} ) => {
-        Node {name: $name, handler: None, optional: false, sub: Some(node!([$($contents)*]))}
-    };
-    ($name:literal, $handler:expr => {$($contents:tt)*} ) => {
-        Node {name: $name, handler: Some($handler), optional: false, sub: Some(node!([$($contents)*]))}
-    };
-    ([$($contents:tt)*]) => {&[$($contents)*]};
-}
-
-macro_rules! root {
-    ($($contents:tt)*) => {
-        Node {name: b"ROOT", handler: None, optional: false, sub: Some(node!([$($contents)*]))}
-    };
-}
-
-macro_rules! idn {
-    ($manufacturer:expr, $model:expr) => {
-        &IdnCommand{
-            manufacturer: $manufacturer,
-            model: $model,
-            serial: b"0",
-            firmware: b"0"
-        }
-    };
-    ($manufacturer:expr, $model:expr, $serial:expr) => {
-        &IdnCommand{
-            manufacturer: $manufacturer,
-            model: $model,
-            serial: $serial,
-            firmware: b"0"
-        }
-    };
-    ($manufacturer:expr, $model:expr, $serial:expr, $firmware:expr) => {
-        &IdnCommand{
-            manufacturer: $manufacturer,
-            model: $model,
-            serial: $serial,
-            firmware: $firmware
-        }
-    };
-}
-
 
 fn main(){
 
