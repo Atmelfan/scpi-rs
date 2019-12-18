@@ -490,10 +490,6 @@ mod test_parse {
 
     use std::fmt;
 
-    impl Copy for Error {
-
-    }
-
     impl fmt::Debug for Error {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             write!(f, "({})", self.clone() as i32)

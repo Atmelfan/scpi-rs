@@ -3,25 +3,14 @@ struct MyDevice;
 //use strum::EnumMessage;
 use scpi::command::Command;
 use scpi::{Context, Device};
-use scpi::commands::IdnCommand;
+use scpi::commands::*;
 use scpi::tree::Node;
 use scpi::tokenizer::Tokenizer;
 use scpi::error::Error;
-use core::fmt;
+use scpi::response::{Formatter, ArrayVecFormatter};
 
 
 
-struct RstCommand;
-impl Command for RstCommand {
-    fn event(&self, context: &mut Context, _args: &mut Tokenizer) -> Result<(), Error> {
-        writeln!(context.writer, "*RST").unwrap();
-        context.device.rst()
-    }
-
-    fn query(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<(), Error> {
-        Err(Error::UndefinedHeader)
-    }
-}
 
 struct SensVoltDcCommand;
 impl Command for SensVoltDcCommand {
@@ -31,8 +20,7 @@ impl Command for SensVoltDcCommand {
     }
 
     fn query(&self, context: &mut Context, _args: &mut Tokenizer) -> Result<(), Error> {
-        writeln!(context.writer, "SENSe:VOLTage:DC?").unwrap();
-        Ok(())
+        context.response.ascii_data(b"[:SENSe]:VOLTage[:DC]?")
     }
 }
 
@@ -43,8 +31,7 @@ impl Command for SensVoltAcCommand {
     }
 
     fn query(&self, context: &mut Context, _args: &mut Tokenizer) -> Result<(), Error> {
-        writeln!(context.writer, "SENSe:VOLTage:AC?").unwrap();
-        Ok(())
+        context.response.ascii_data(b"[:SENSe]:VOLTage:AC?")
     }
 }
 
@@ -54,7 +41,6 @@ impl Device for MyDevice {
     }
 
     fn rst(&mut self) -> Result<(), Error> {
-        println!("Device reset");
         Ok(())
     }
 
@@ -84,27 +70,19 @@ impl Device for MyDevice {
 
 }
 
-struct MyWriter {
-    
-}
-
-impl fmt::Write for MyWriter {
-    fn write_str(&mut self, s: &str) -> Result<(), fmt::Error> {
-       print!("{}", s);
-        Ok(())
-    }
-}
-
 
 fn main(){
 
-    let command = b"VOLT?; *IDN? ; *RST; VOLT:AC?; :sense:voltage:dc?";
-
     let mut my_device = MyDevice { };
 
-    let mut tree = root![
+    let mut tree = Node {name: b"ROOT", optional: true, handler: None, sub: Some(&[
         Node {name: b"*IDN", optional: false,
-            handler: Some(idn!(b"GPA-Robotics", b"SCPI-RS")),
+            handler: Some(&IdnCommand{
+                manufacturer: b"GPA-Robotics",
+                model: b"T800",
+                serial: b"101",
+                firmware: b"0"
+            }),
             sub: None
         },
         Node {name: b"*RST", optional: false,
@@ -112,7 +90,11 @@ fn main(){
             sub: None
         },
         Node {name: b"*CLS", optional: false,
-            handler: Some(&RstCommand{}),
+            handler: Some(&ClsCommand{}),
+            sub: None
+        },
+        Node {name: b"*ESE", optional: false,
+            handler: Some(&EseCommand{}),
             sub: None
         },
         Node {name: b"SENSe", optional: true,
@@ -145,22 +127,20 @@ fn main(){
                     ])
                 }
             ])
-        }
-    ];
+        }])
+    };
 
-    let mut writer = MyWriter{};
+    //
+    let mut buf = ArrayVecFormatter::<[u8; 256]>::new();
 
-    let mut context = Context::new(&mut my_device, &mut writer, &mut tree);
+    let mut context = Context::new(&mut my_device, &mut buf, &mut tree);
 
-    let mut tokenizer = Tokenizer::from_str(command);
+    let mut tokenizer = Tokenizer::from_str(b"VOLT?; *IDN? ; *RST; VOLT:AC?; :sense:voltage:dc?; *ESE 128; *ESE?");
 
     let result = context.exec(&mut tokenizer);
 
-    if let Err(err) = result {
-        println!("Command result: {}", String::from_utf8(err.get_message().unwrap().to_vec()).unwrap());
-    }else{
-        println!("Command result: Success");
-    }
+    use std::str;
+    println!("{}", str::from_utf8(buf.as_slice()).unwrap());
 
 
 

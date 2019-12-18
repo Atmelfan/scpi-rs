@@ -19,7 +19,7 @@
 ///> the offending part of the command.
 ///
 ///
-#[derive(PartialEq, Clone, ScpiError)]
+#[derive(PartialEq, Copy, Clone, ScpiError)]
 pub enum Error {
     ///# 28.8.3 No error [-99, 0]
     ///> This message indicates that the device has no errors or events to report.

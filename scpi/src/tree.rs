@@ -14,8 +14,8 @@ use crate::ieee488::Context;
 /// use scpi::tree::Node;
 /// use scpi::commands::IdnCommand;
 ///
-/// let root = &Node{name: b"ROOT", handler: None, sub: Some(&[
-///     Node{name: b"*IDN?", handler: Some(&IdnCommand{
+/// let root = &Node{name: b"ROOT", optional: false, handler: None, sub: Some(&[
+///     Node{name: b"*IDN?", optional: false,  handler: Some(&IdnCommand{
 ///            manufacturer: b"GPA-Robotics",
 ///            model: b"Potato",
 ///            serial: b"42",
@@ -48,7 +48,9 @@ impl<'a> Node<'a> {
         if let Some(handler) = self.handler {
             //Execute self
             if query {
-                handler.query(context, args)
+                context.response.unit_start()?;
+                handler.query(context, args)?;
+                context.response.unit_end()
             }else{
                 handler.event(context, args)
             }

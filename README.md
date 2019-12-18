@@ -27,16 +27,16 @@ TODO, look at `example` directory for now
 These are the current limitations and differences from SCPI-99 specs (that I can remember) that needs to be addressed before version 1.0.0.
 They are listed in the rough order of which I care to fix them.
 
- * Response data formatting, currently each command is responsible for formatting their response.
+ * Response data formatting, currently each command is responsible for formatting their response. _In progress_
  * Better command data operators with automatic error checking.
- * Optional mnemonics
+ * ~~Optional mnemonics~~ _Done_
  * Automatic suffix/special number handling
- * Provide working implementation of all IEEE 488.2 and SCPI-99 mandated commands.
+ * Provide working implementation of all IEEE 488.2 and SCPI-99 mandated commands. _In progress_
  * Quotation marks inside string data, the parser cannot handle escaping `'` and `"` inside their respective block (eg "bla ""quoted"" bla").
  * Expression data, not handled at all.
  * Provide a reference instrument class implementation
  * Error codes returned by the parser does not follow SCPI-99 accurately (because there's a fucking lot of them!).
-
+ * Working test suite.
  * To be continued...
  
 # Nice to have
