@@ -37,19 +37,30 @@ pub struct Node<'a> {
     /// Subcommands
     /// The node may contain None or an array of subcommands. If a message attempts to traverse
     /// this node and it does not have any subnodes (eg `IMhelping:THISnode:DONTexist), a UndefinedHeaderError will be returned.
-    pub sub: Option<&'a [Node<'a>]>
+    pub sub: Option<&'a [Node<'a>]>,
+    ///Marks the node as being optional
+    pub optional: bool
 }
 
 impl<'a> Node<'a> {
 
     pub(crate) fn exec(&self, context: &mut Context, args: &mut Tokenizer, query: bool) -> Result<(), Error>{
         if let Some(handler) = self.handler {
+            //Execute self
             if query {
-                handler.query(context, args)?;
+                handler.query(context, args)
             }else{
-                handler.event(context, args)?;
+                handler.event(context, args)
             }
-            Ok(())
+        }else if self.sub.is_some() {
+            //No handler, check for a default child
+            for child in self.sub.unwrap() {
+                if child.optional {
+                    return child.exec(context, args, query);
+                }
+            }
+            //No optional child
+            Err(Error::CommandHeaderError)
         }else{
             Err(Error::CommandHeaderError)
         }

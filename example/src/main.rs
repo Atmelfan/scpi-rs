@@ -97,20 +97,23 @@ impl fmt::Write for MyWriter {
 
 macro_rules! node {
     ($name:literal, $handler:expr) => {
-        Node {name: $name, handler: Some($handler), sub: None}
+        Node {name: $name, handler: Some($handler), optional: false, sub: None}
+    };
+    (default $name:literal, $handler:expr) => {
+        Node {name: $name, handler: Some($handler), optional: true, sub: None}
     };
     ($name:literal => {$($contents:tt)*} ) => {
-        Node {name: $name, handler: None, sub: Some(node!([$($contents)*]))}
+        Node {name: $name, handler: None, optional: false, sub: Some(node!([$($contents)*]))}
     };
     ($name:literal, $handler:expr => {$($contents:tt)*} ) => {
-        Node {name: $name, handler: Some($handler), sub: Some(node!([$($contents)*]))}
+        Node {name: $name, handler: Some($handler), optional: false, sub: Some(node!([$($contents)*]))}
     };
     ([$($contents:tt)*]) => {&[$($contents)*]};
 }
 
 macro_rules! root {
     ($($contents:tt)*) => {
-        Node {name: b"ROOT", handler: None, sub: Some(node!([$($contents)*]))}
+        Node {name: b"ROOT", handler: None, optional: false, sub: Some(node!([$($contents)*]))}
     };
 }
 
@@ -144,42 +147,54 @@ macro_rules! idn {
 
 fn main(){
 
-    let command = b"SENS:VOLT:DC?; *IDN? ; *RST; AC?; :SENSe:VOLTage:DC?";
+    let command = b"VOLT?; *IDN? ; *RST; VOLT:AC?; :sense:voltage:dc?";
 
     let mut my_device = MyDevice { };
 
     let mut tree = root![
-        node!(b"*IDN", idn!(b"GPA-Robotics", b"SCPI-RS")),
-        node!(b"*RST", &RstCommand{}),
-        node!(b"*CLS", &RstCommand{}),
-        node!(b"SENSe" => {
-            Node {name: b"VOLTage",
-                handler: None,
-                sub: Some(&[
-                    Node {name: b"DC",
-                        handler: Some(&SensVoltDcCommand{}),
-                        sub: None
-                    },
-                    Node {name: b"AC",
-                        handler: Some(&SensVoltAcCommand{}),
-                        sub: None
-                    }
-                ])
-            },
-            Node {name: b"CURRent",
-                handler: None,
-                sub: Some(&[
-                    Node {name: b"DC",
-                        handler: None,
-                        sub: None
-                    },
-                    Node {name: b"AC",
-                        handler: None,
-                        sub: None
-                    }
-                ])
-            }
-        })
+        Node {name: b"*IDN", optional: false,
+            handler: Some(idn!(b"GPA-Robotics", b"SCPI-RS")),
+            sub: None
+        },
+        Node {name: b"*RST", optional: false,
+            handler: Some(&RstCommand{}),
+            sub: None
+        },
+        Node {name: b"*CLS", optional: false,
+            handler: Some(&RstCommand{}),
+            sub: None
+        },
+        Node {name: b"SENSe", optional: true,
+            handler: None,
+            sub: Some(&[
+                Node {name: b"VOLTage", optional: false,
+                    handler: None,
+                    sub: Some(&[
+                        Node {name: b"DC", optional: true,
+                            handler: Some(&SensVoltDcCommand{}),
+                            sub: None
+                        },
+                        Node {name: b"AC", optional: false,
+                            handler: Some(&SensVoltAcCommand{}),
+                            sub: None
+                        }
+                    ])
+                },
+                Node {name: b"CURRent", optional: false,
+                    handler: None,
+                    sub: Some(&[
+                        Node {name: b"DC", optional: true,
+                            handler: None,
+                            sub: None
+                        },
+                        Node {name: b"AC", optional: false,
+                            handler: None,
+                            sub: None
+                        }
+                    ])
+                }
+            ])
+        }
     ];
 
     let mut writer = MyWriter{};

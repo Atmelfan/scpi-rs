@@ -44,7 +44,7 @@
 //! # Extensions
 //! The parser extends the SCPI-99 standard with some custom syntax:
 //!
-//!  * UTF8 arbitrary data block, `#s"Detta är en utf8 sträng med roliga bokstäver`. Checked by the parser and emits a InvalidBlockData if the UTF8 data is malformed.
+//!  * UTF8 arbitrary data block, `#s"Detta är en utf8 sträng med roliga bokstäver"`. Checked by the parser and emits a InvalidBlockData if the UTF8 data is malformed.
 //!
 
 #[macro_use]

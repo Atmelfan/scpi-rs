@@ -88,23 +88,31 @@ impl<'a> Context<'a> {
 
                     for sub in subcommands {
 
-                        //println!("{} = {}", String::from_utf8_lossy(mnemonic), String::from_utf8_lossy(sub.name));
-                        //Continue to look for match
                         if is_common {
+                            //Common nodes must match mnemonic and start with '*'
                             if sub.name.starts_with(b"*") && tok.eq_mnemonic(&sub.name[1..]) {
                                 node = Some(sub);
                                 continue 'outer;
                             }
                         } else if tok.eq_mnemonic(sub.name) {
+                            //Normal node must match mnemonic
                             node = Some(sub);
                             continue 'outer;
+                        } else if sub.optional && sub.sub.is_some(){
+                            //A optional node may have matching children
+                            for subsub in sub.sub.unwrap() {
+                                if tok.eq_mnemonic(subsub.name) {
+                                    //Normal node must match mnemonic
+                                    node = Some(subsub);
+                                    continue 'outer;
+                                }
+                            }
                         }
                     }
+
                     return Err(Error::UndefinedHeader);
                 }
                 Token::HeaderMnemonicSeparator => {
-                    //Leading ':'
-
                     //This node will be used as branch
                     if let Some(p) = node {
                         branch = p;
@@ -127,6 +135,7 @@ impl<'a> Context<'a> {
                     if let Some(n) = node {
                         if tok == Token::ProgramHeaderSeparator {
                             n.exec(self, tokenstream, is_query)?;
+
                             // Should have a terminator, unit terminator or END after arguments
                             // If, not, the handler has not consumed all arguments (error) or an unexpected token appeared.'
                             // TODO: This should abort above command!
