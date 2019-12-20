@@ -53,7 +53,7 @@ extern crate scpi_derive;
 /* Used to create responses */
 extern crate arrayvec;
 extern crate lexical_core;
-
+extern crate arraydeque;
 
 pub mod error;
 pub mod command;
@@ -62,46 +62,38 @@ pub mod tokenizer;
 pub mod ieee488;
 pub mod tree;
 pub mod response;
+pub mod scpi;
 
-pub use ieee488::*;
+/// Prelude containing the most useful stuff
+///
+pub mod prelude {
+    pub use crate::error::Error;
+    pub use crate::command::Command;
+    pub use crate::tree::Node;
+}
 
 use crate::error::Error;
 
-
+/// A SCPI device
+///
+/// Use this trait and provided mandatory commands to implement the mandatory parts of SCPI for your device.
+///
+///
 pub trait Device {
 
-    /// Called by *CLS command
-    ///
-    ///
+    /// Called by *CLS
     fn cls(&mut self) -> Result<(), Error>;
 
+    /// Called by *RST
     fn rst(&mut self) -> Result<(), Error>;
 
-    /**
-     * Add an item to the error/event queue.
-     * If queue is full, replace last error and return with Error::QueueOverflow
-     */
-    fn error_enqueue(&self, err: Error) -> Result<(), Error>;
+    fn oper_event(&self) -> u16;
 
-    /**
-     * Dequeue an item from the error/event queue.
-     * If empty, return Error::NoError
-     */
-    fn error_dequeue(&self) -> Error;
+    fn oper_condition(&self) -> u16;
 
-    /**
-     * Return current number of error/events in queue
-     */
-    fn error_len(&self) -> u32;
+    fn ques_event(&self) -> u16;
 
-    /**
-     * Clear error/event queue
-     */
-    fn error_clear(&self);
-
-    fn oper_status(&self) -> u16;
-
-    fn ques_status(&self) -> u16;
+    fn ques_condition(&self) -> u16;
 
 }
 

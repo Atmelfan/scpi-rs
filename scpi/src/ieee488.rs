@@ -2,13 +2,11 @@
 //!
 
 
-use crate::error::Error;
+use crate::error::{Error, ErrorQueue};
 use crate::tree::Node;
 use crate::tokenizer::{Tokenizer, Token};
 use crate::Device;
 use crate::response::{ArrayVecFormatter, Formatter};
-
-use core::fmt::Write;
 
 /// Context in which to execute a message.
 ///
@@ -19,14 +17,19 @@ pub struct Context<'a> {
     root: &'a Node<'a>,
     /// Device executed upon
     pub device: &'a mut dyn Device,
-    /// Writer to respond with
-    pub response: &'a mut dyn Formatter,
+    /// Error queue
+    pub errors: &'a mut dyn ErrorQueue,
     /// Event Status Register
     pub esr: u8,
     /// Event Status Enable register
     pub ese: u8,
     /// Service Request Enable register
-    pub sre: u8
+    pub sre: u8,
+
+    /// OPERation:ENABle register
+    pub oper_enable: u16,
+    ///QUEStionable:ENABle register
+    pub ques_enable: u16
 }
 
 impl<'a> Context<'a> {
@@ -36,15 +39,17 @@ impl<'a> Context<'a> {
     /// # Arguments
     ///  * `device` - Device to act upon
     ///  * `writer` - Writer used to write back response messages
-    ///  * `tree` - SCPI command tree to use
-    pub fn new(device: &'a mut dyn Device, response: &'a mut dyn Formatter, tree: &'a Node<'a>) -> Self{
+    ///  * `root` - SCPI command tree to use
+    pub fn new(device: &'a mut dyn Device, errorqueue: &'a mut dyn ErrorQueue, root: &'a Node<'a>) -> Self{
         Context {
             device,
-            response,
-            root: tree,
+            errors: errorqueue,
+            root,
             esr: 0,
             ese: 0,
-            sre: 0
+            sre: 0,
+            oper_enable: 0,
+            ques_enable: 0
         }
     }
 
@@ -58,28 +63,21 @@ impl<'a> Context<'a> {
     ///  * `Ok(())` - If successful
     ///  * `Err(error)` - If parser detected or a command returned an error
     ///
-    pub fn exec(&mut self, tokenstream: &mut Tokenizer) -> Result<(), Error>{
-        self.response.clear();
-        self.execute(tokenstream).map_err(|err| {
+    pub fn exec(&mut self, tokenstream: &mut Tokenizer, response: &mut dyn Formatter) -> Result<(), Error>{
+        response.clear();
+        self.execute(tokenstream, response).map_err(|err| {
             //Set appropriate bits in ESR
             self.esr |= err.clone().esr_mask();
 
-            //Try to queue the error...
-            if let Err(queue_err) = self.device.error_enqueue(err) {
-                self.esr |= queue_err.esr_mask();
-            }
+            //Queue error
+            self.errors.push_back_error(err);
 
-            //Try to push error in response
-            self.response.clear();
-            if let Err(new_err) = self.response.error(err) {
-                self.esr |= err.esr_mask();
-            }
-
+            //Original error
             err
         })
     }
 
-    fn execute(&mut self, tokenstream: &mut Tokenizer) -> Result<(), Error>{
+    fn execute(&mut self, tokenstream: &mut Tokenizer, response: &mut dyn Formatter) -> Result<(), Error>{
         // Point the current branch to root
         let mut is_query = false;
         let mut is_common = false;
@@ -88,7 +86,7 @@ impl<'a> Context<'a> {
         let mut node: Option<&Node> = None;//Current active node
 
         //Start response message
-        self.response.message_start()?;
+        response.message_start()?;
         'outer: while let Some(token) = tokenstream.next() {
             let tok = token?;
             //println!(">>> {:?}", tok);
@@ -153,7 +151,7 @@ impl<'a> Context<'a> {
                         if tok == Token::ProgramHeaderSeparator {
                             //If a header separator was found, pass tokenizer for arguments and
                             // check that the command consumes them all
-                            n.exec(self, tokenstream, is_query)?;
+                            n.exec(self, tokenstream, response, is_query)?;
 
                             // Should have a terminator, unit terminator or END after arguments
                             // If, not, the handler has not consumed all arguments (error) or an unexpected token appeared.'
@@ -175,7 +173,7 @@ impl<'a> Context<'a> {
                             }
                         }else{
                             //No header separator was found = no arguments, pass an empty tokenizer
-                            n.exec(self, &mut Tokenizer::empty(), is_query)?;
+                            n.exec(self, &mut Tokenizer::empty(), response, is_query)?;
                         }
 
                     }else{
@@ -193,11 +191,11 @@ impl<'a> Context<'a> {
 
         //Execute last command if any (never has arguments or would've been executed earlier)
         if let Some(n) = node {
-            n.exec(self, &mut Tokenizer::empty(), is_query)?;
+            n.exec(self, &mut Tokenizer::empty(), response, is_query)?;
         }
 
         //End response message
-        self.response.message_end()?;
+        response.message_end()?;
 
         Ok(())
         //branch.exec(self, tokenstream.clone().borrow_mut(), is_query)?;
@@ -207,11 +205,11 @@ impl<'a> Context<'a> {
     fn get_stb(&self) -> u8 {
         let mut reg = 0u8;
         //Set OPERation status bits
-        if self.device.oper_status() != 0 { reg |= 0x80; }
+        if self.device.oper_condition() != 0 { reg |= 0x80; }
         //Set QUEStionable status bit
-        if self.device.ques_status() != 0 { reg |= 0x08; }
+        if self.device.oper_condition() != 0 { reg |= 0x08; }
         //Set error queue empty bit
-        if self.device.error_len() == 0 { reg |= 0x10; }
+        if self.errors.not_empty() { reg |= 0x10; }
         //Set event bit
         if self.esr & self.ese != 0 { reg |= 0x20; }
         //Set MSS bit
@@ -251,30 +249,13 @@ impl<'a> Context<'a> {
 ///
 /// Note that the comments about the default mandatory commands below are from the IEEE 488.2-1992 document and explain their purpose, not my implementation.
 pub mod commands {
-    use crate::command::Command;
-    use crate::Context;
+    use crate::command::{Command, CommandTypeMeta};
     use crate::error::Error;
     use crate::tokenizer::Tokenizer;
+    use crate::response::Formatter;
+    use crate::ieee488::Context;
+    use crate::{nquery, qonly};
 
-    /// Creates a stub for event()
-    ///
-    macro_rules! qonly {
-        () => {
-            fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<(), Error> {
-                Err(Error::UndefinedHeader)
-            }
-        };
-    }
-
-    /// Creates a stub for query()
-    ///
-    macro_rules! nquery {
-        () => {
-            fn query(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<(), Error> {
-                Err(Error::UndefinedHeader)
-            }
-        };
-    }
 
     ///## 10.3 *CLS, Clear Status Command
     ///> The Clear Status command clears status data structures, see 11.1.2, and forces the device to the Operation Complete
@@ -310,8 +291,8 @@ pub mod commands {
             }
         }
 
-        fn query(&self, context: &mut Context, _args: &mut Tokenizer) -> Result<(), Error> {
-            context.response.u8_data(context.ese)
+        fn query(&self, context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
+            response.u8_data(context.ese)
         }
     }
 
@@ -322,8 +303,10 @@ pub mod commands {
 
     impl Command for EsrCommand { qonly!();
 
-        fn query(&self, context: &mut Context, _args: &mut Tokenizer) -> Result<(), Error> {
-            context.response.u8_data(context.esr)
+        fn query(&self, context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
+            response.u8_data(context.esr)?;
+            context.esr = 0;
+            Ok(())
         }
     }
 
@@ -348,16 +331,16 @@ pub mod commands {
 
     impl<'a> Command for IdnCommand<'a> { qonly!();
 
-        fn query(&self, context: &mut Context, _args: &mut Tokenizer) -> Result<(), Error> {
+        fn query(&self, context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
 
             //TODO: Make this easier
-            context.response.ascii_data(self.manufacturer)?;
-            context.response.separator()?;
-            context.response.ascii_data(self.model)?;
-            context.response.separator()?;
-            context.response.ascii_data(self.serial)?;
-            context.response.separator()?;
-            context.response.ascii_data(self.firmware)?;
+            response.ascii_data(self.manufacturer)?;
+            response.separator()?;
+            response.ascii_data(self.model)?;
+            response.separator()?;
+            response.ascii_data(self.serial)?;
+            response.separator()?;
+            response.ascii_data(self.firmware)?;
 
             Ok(())
         }
@@ -377,8 +360,8 @@ pub mod commands {
             unimplemented!()
         }
 
-        fn query(&self, context: &mut Context, args: &mut Tokenizer) -> Result<(), Error> {
-            context.response.ascii_data(b"1")
+        fn query(&self, context: &mut Context, args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
+            response.ascii_data(b"1")
         }
     }
 
@@ -428,7 +411,7 @@ pub mod commands {
             unimplemented!()
         }
 
-        fn query(&self, context: &mut Context, args: &mut Tokenizer) -> Result<(), Error> {
+        fn query(&self, context: &mut Context, args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
             unimplemented!()
         }
     }
@@ -438,8 +421,8 @@ pub mod commands {
     pub struct StbCommand;
     impl Command for StbCommand { qonly!();
 
-        fn query(&self, context: &mut Context, args: &mut Tokenizer) -> Result<(), Error> {
-            context.response.u8_data(context.get_stb())
+        fn query(&self, context: &mut Context, args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
+            response.u8_data(context.get_stb())
         }
     }
 
@@ -459,7 +442,7 @@ pub mod commands {
     pub struct TstCommand;
     impl Command for TstCommand { qonly!();
 
-        fn query(&self, context: &mut Context, args: &mut Tokenizer) -> Result<(), Error> {
+        fn query(&self, context: &mut Context, args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
             unimplemented!()
         }
     }
@@ -472,7 +455,7 @@ pub mod commands {
     pub struct WaiCommand;
     impl Command for WaiCommand { nquery!();
         fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<(), Error> {
-            unimplemented!()
+            Ok(())
         }
     }
 }

@@ -3,8 +3,12 @@ use crate::error::Error;
 use core::slice::Iter;
 use core::str;
 
+/// SCPI tokens
+///
+///
 #[derive(Debug,PartialEq)]
 pub enum Token<'a> {
+    /// Defined as \<mnemonic separator\> consisting of a single `:` character
     HeaderMnemonicSeparator,    //:
     HeaderCommonPrefix,         //*
     HeaderQuerySuffix,          //?
@@ -172,6 +176,31 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
+    pub fn next_u32_range(&mut self, optional: bool, (min, max): (u32, u32)) -> Result<Option<u32>, Error> {
+        let numeric = self.next_data(optional)?;
+        if let Some(token) = numeric {
+            match token {
+                Token::DecimalNumericProgramData(f) => {
+                    let fr = f;
+                    self.next_separator()?;//Next data, do not allow suffix
+                    if f > max as f32 || f < min as f32 {
+                        return Err(Error::DataOutOfRange)
+                    }
+                    Ok(Some(fr as u32))
+                },
+                Token::NonDecimalNumericProgramData(f) => {
+                    self.next_separator()?;//Next data, do not allow suffix
+                    if f > max || f < min {
+                        return Err(Error::DataOutOfRange)
+                    }
+                    Ok(Some(f as u32))
+                },
+                _ => Err(Error::DataTypeError)
+            }
+        }else{
+            Ok(None)
+        }
+    }
 
     pub fn next_numeric(&mut self, optional: bool) -> Result<Option<Token<'a>>, Error> {
         let val = self.next_data(optional)?;

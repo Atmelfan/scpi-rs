@@ -18,6 +18,11 @@
       <sourceFolder url="file://$MODULE_DIR$/example_nostd/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/example_nostd/benches" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/example/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/example-cortexm/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/example-cortexm/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/example-cortexm/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/example-cortexm/benches" isTestSource="true" />
+      <excludeFolder url="file://$MODULE_DIR$/example-cortexm/target" />
       <excludeFolder url="file://$MODULE_DIR$/example/target" />
       <excludeFolder url="file://$MODULE_DIR$/example_nostd/target" />
       <excludeFolder url="file://$MODULE_DIR$/scpi/target" />

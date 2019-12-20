@@ -2,15 +2,16 @@ struct MyDevice;
 
 //use strum::EnumMessage;
 use scpi::command::Command;
-use scpi::{Context, Device};
-use scpi::commands::*;
+use scpi::Device;
 use scpi::tree::Node;
 use scpi::tokenizer::Tokenizer;
-use scpi::error::Error;
+use scpi::error::{Error, ErrorQueue, ArrayErrorQueue};
 use scpi::response::{Formatter, ArrayVecFormatter};
-
-
-
+use std::io;
+use std::io::BufRead;
+use scpi::ieee488::Context;
+use scpi::ieee488::commands::*;
+use scpi::scpi::commands::*;
 
 struct SensVoltDcCommand;
 impl Command for SensVoltDcCommand {
@@ -19,8 +20,8 @@ impl Command for SensVoltDcCommand {
         Ok(())
     }
 
-    fn query(&self, context: &mut Context, _args: &mut Tokenizer) -> Result<(), Error> {
-        context.response.ascii_data(b"[:SENSe]:VOLTage[:DC]?")
+    fn query(&self, context: &mut Context, _args: &mut Tokenizer, response: &mut dyn Formatter) -> Result<(), Error> {
+        response.ascii_data(b"[:SENSe]:VOLTage[:DC]?")
     }
 }
 
@@ -30,8 +31,8 @@ impl Command for SensVoltAcCommand {
         Err(Error::UndefinedHeader)
     }
 
-    fn query(&self, context: &mut Context, _args: &mut Tokenizer) -> Result<(), Error> {
-        context.response.ascii_data(b"[:SENSe]:VOLTage:AC?")
+    fn query(&self, context: &mut Context, _args: &mut Tokenizer, response: &mut dyn Formatter) -> Result<(), Error> {
+        response.ascii_data(b"[:SENSe]:VOLTage:AC?")
     }
 }
 
@@ -44,30 +45,21 @@ impl Device for MyDevice {
         Ok(())
     }
 
-    fn error_enqueue(&self, _err: Error) -> Result<(), Error> {
-        Ok(())
-    }
-
-    fn error_dequeue(&self) -> Error {
-        Error::NoError
-    }
-
-    fn error_len(&self) -> u32 {
-        0
-    }
-
-    fn error_clear(&self) {
-
-    }
-
-    fn oper_status(&self) -> u16 {
+    fn oper_event(&self) -> u16 {
         unimplemented!()
     }
 
-    fn ques_status(&self) -> u16 {
+    fn oper_condition(&self) -> u16 {
         unimplemented!()
     }
 
+    fn ques_event(&self) -> u16 {
+        unimplemented!()
+    }
+
+    fn ques_condition(&self) -> u16 {
+        unimplemented!()
+    }
 }
 
 
@@ -96,6 +88,40 @@ fn main(){
         Node {name: b"*ESE", optional: false,
             handler: Some(&EseCommand{}),
             sub: None
+        },
+        Node {name: b"*ESR", optional: false,
+            handler: Some(&EsrCommand{}),
+            sub: None
+        },
+        Node {name: b"SYSTem", optional: false,
+            handler: None,
+            sub: Some(&[
+                Node {name: b"ERRor", optional: false,
+                    handler: None,
+                    sub: Some(&[
+                        Node {name: b"ALL", optional: false,
+                            handler: Some(&SystErrAllCommand{}),
+                            sub: None
+                        },
+                        Node {name: b"NEXT", optional: true,
+                            handler: Some(&SystErrNextCommand{}),
+                            sub: None
+                        },
+                        Node {name: b"COUNt", optional: false,
+                            handler: Some(&SystErrCounCommand{}),
+                            sub: None
+                        }
+
+                    ])
+                },
+                Node {name: b"VERSion", optional: false,
+                    handler: Some(&SystVersCommand{
+                        year: 1999,
+                        rev: 0
+                    }),
+                    sub: None
+                }
+            ])
         },
         Node {name: b"SENSe", optional: true,
             handler: None,
@@ -130,17 +156,37 @@ fn main(){
         }])
     };
 
-    //
-    let mut buf = ArrayVecFormatter::<[u8; 256]>::new();
 
-    let mut context = Context::new(&mut my_device, &mut buf, &mut tree);
 
-    let mut tokenizer = Tokenizer::from_str(b"VOLT?; *IDN? ; *RST; VOLT:AC?; :sense:voltage:dc?; *ESE 128; *ESE?");
+    let mut errors = ArrayErrorQueue::<[Error; 10]>::new();
 
-    let result = context.exec(&mut tokenizer);
+    let mut context = Context::new(&mut my_device, &mut errors, &mut tree);
 
-    use std::str;
-    println!("{}", str::from_utf8(buf.as_slice()).unwrap());
+
+    let stdin = io::stdin();
+    for line in stdin.lock().lines() {
+        let message = line.unwrap();
+
+        //Response bytebuffer
+        let mut buf = ArrayVecFormatter::<[u8; 256]>::new();
+
+        //SCPI tokenizer
+        let mut tokenizer = Tokenizer::from_str(message.as_bytes());
+
+        //Result
+        let result = context.exec(&mut tokenizer, &mut buf);
+
+        //Looka like a lot of stuff being allocated but everything is on the stack and lightweight
+        use std::str;
+        if let Err(err) = result {
+            println!("{}", str::from_utf8(err.get_message().unwrap()).unwrap());
+        } else if !buf.is_empty() {
+            println!("{}", str::from_utf8(buf.as_slice()).unwrap());
+        }
+
+
+    }
+
 
 
 

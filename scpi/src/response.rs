@@ -96,6 +96,13 @@ pub trait Formatter {
     /// Clear buffer
     fn clear(&mut self);
 
+    /// Returns length of buffer
+    fn len(&self) -> usize;
+
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /* Control */
 
     /// Start a response message
@@ -196,6 +203,13 @@ pub trait Formatter {
     push_x_radix!(u64_hex_data, u64, 16);
     push_x_radix!(u64_oct_data, u64, 8);
     push_x_radix!(u64_bin_data, u64, 2);
+    /* i16 */
+    push_x!(isize_data, isize);
+    /* u16 */
+    push_x!(usize_data, usize);
+    push_x_radix!(usize_hex_data, usize, 16);
+    push_x_radix!(usize_oct_data, usize, 8);
+    push_x_radix!(usize_bin_data, usize, 2);
 }
 
 pub struct ArrayVecFormatter<T: Array<Item=u8>> {
@@ -229,6 +243,10 @@ impl<T: Array<Item=u8>> Formatter for ArrayVecFormatter<T> {
 
     fn clear(&mut self) {
         self.vec.clear();
+    }
+
+    fn len(&self) -> usize {
+        self.vec.len()
     }
 
     fn message_start(&mut self) -> Result<(), Error>{

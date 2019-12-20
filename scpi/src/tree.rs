@@ -4,6 +4,7 @@ use crate::command::Command;
 use crate::tokenizer::Tokenizer;
 use crate::error::Error;
 use crate::ieee488::Context;
+use crate::response::Formatter;
 
 /// A SCPI command node
 /// These nodes are structured as a command tree where each node represent a SCPI header mnemonic.
@@ -44,13 +45,13 @@ pub struct Node<'a> {
 
 impl<'a> Node<'a> {
 
-    pub(crate) fn exec(&self, context: &mut Context, args: &mut Tokenizer, query: bool) -> Result<(), Error>{
+    pub(crate) fn exec(&self, context: &mut Context, args: &mut Tokenizer, response: &mut dyn Formatter, query: bool) -> Result<(), Error>{
         if let Some(handler) = self.handler {
             //Execute self
             if query {
-                context.response.unit_start()?;
-                handler.query(context, args)?;
-                context.response.unit_end()
+                response.unit_start()?;
+                handler.query(context, args, response)?;
+                response.unit_end()
             }else{
                 handler.event(context, args)
             }
@@ -58,7 +59,7 @@ impl<'a> Node<'a> {
             //No handler, check for a default child
             for child in self.sub.unwrap() {
                 if child.optional {
-                    return child.exec(context, args, query);
+                    return child.exec(context, args, response, query);
                 }
             }
             //No optional child

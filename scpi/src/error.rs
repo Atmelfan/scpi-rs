@@ -3,6 +3,8 @@
 //! Each error variant has a corresponding error/event number as the enum discriminant.
 //!
 
+use arraydeque::{ArrayDeque, Saturating, Array, CapacityError};
+
 /// The Error type contains error definitions detected by the parser or commands
 ///
 ///> # 21.8.2 Error/Event numbers
@@ -19,11 +21,14 @@
 ///> the offending part of the command.
 ///
 ///
+
 #[derive(PartialEq, Copy, Clone, ScpiError)]
 pub enum Error {
     ///# 28.8.3 No error [-99, 0]
     ///> This message indicates that the device has no errors or events to report.
     /// ---
+    /// `0, "No error"`
+    ///
     /// The queue is completely empty. Every error/event in the queue has been read or
     /// the queue was purposely cleared by power-on, *CLS, etc
     #[error(message=b"No error")]
@@ -40,18 +45,24 @@ pub enum Error {
     ///> Events that generate command errors shall not generate execution errors, device-specific
     ///> errors, or query errors; see the other error definitions in this chapter.
     /// ---
+    /// `-100, "Command error"`
+    ///
     ///This is the generic syntax error for devices that cannot detect more specific
     ///errors. This code indicates only that a Command Error as defined in IEEE 488.2,
     ///11.5.1.1.4 has occurred.
     #[error(message=b"Command error")]
     CommandError = -100,
-    ///A syntactic element contains a character which is invalid for that type; for
-    ///example, a header containing an ampersand, SETUP&. This error might be used
-    ///in place of errors -114, -121, -141, and perhaps some others.
+    /// `-101, "Invalid character"`
+    ///
+    /// A syntactic element contains a character which is invalid for that type; for
+    /// example, a header containing an ampersand, SETUP&. This error might be used
+    /// in place of errors -114, -121, -141, and perhaps some others.
     #[error(message=b"Invalid character")]
     InvalidCharacter = -101,
-    ///An unrecognized command or data type was encountered; for example, a string
-    ///was received when the device does not accept strings.
+    /// `-102, "Syntax error"`
+    ///
+    /// An unrecognized command or data type was encountered; for example, a string
+    /// was received when the device does not accept strings.
     #[error(message=b"Syntax error")]
     SyntaxError = -102,
     ///The parser was expecting a separator and encountered an illegal character; for
@@ -409,4 +420,47 @@ impl<'a> Error {
         }
     }
 
+}
+
+pub trait ErrorQueue {
+    fn push_back_error(&mut self, err: Error);
+
+    fn pop_front_error(&mut self) -> Error;
+
+    fn len(&self) -> usize;
+
+    fn not_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
+pub struct ArrayErrorQueue<T: Array<Item=Error>> {
+    vec: ArrayDeque<T>,
+}
+
+
+impl<T: Array<Item=Error>> ArrayErrorQueue<T> {
+    pub fn new() -> Self {
+        ArrayErrorQueue {
+            vec: ArrayDeque::<T, Saturating>::new()
+        }
+    }
+}
+
+impl<T: Array<Item=Error>> ErrorQueue for ArrayErrorQueue<T> {
+    fn push_back_error(&mut self, err: Error) {
+        //Try to queue an error, replace last with QueueOverflow if full
+        if let Err(_) =  self.vec.push_back(err) {
+            self.vec.pop_back();
+            self.vec.push_back(Error::QueueOverflow).ok();
+        }
+    }
+
+    fn pop_front_error(&mut self) -> Error {
+        self.vec.pop_front().unwrap_or(Error::NoError)
+    }
+
+    fn len(&self) -> usize {
+        self.vec.len()
+    }
 }
