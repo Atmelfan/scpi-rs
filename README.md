@@ -23,6 +23,10 @@ scpi = "0.1.0"
 
 TODO, look at `example` directory for now
 
+# Error handling
+The `Context::exec(...)` function aborts execution and returns on the first error it encounters. 
+Execution may be resumed where it aborted by calling exec again with the same tokenizer.
+
 # Limitations and differences
 These are the current limitations and differences from SCPI-99 specs (that I can remember) that needs to be addressed before version 1.0.0.
 They are listed in the rough order of which I care to fix them.

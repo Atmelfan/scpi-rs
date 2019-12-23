@@ -177,7 +177,7 @@ impl<'a> Context<'a> {
                         }
 
                     }else{
-                        return Err(Error::CommandHeaderError);
+                        //return Err(Error::CommandHeaderError);
                     }
 
                     // Reset unit state
@@ -194,8 +194,11 @@ impl<'a> Context<'a> {
             n.exec(self, &mut Tokenizer::empty(), response, is_query)?;
         }
 
-        //End response message
-        response.message_end()?;
+        //End response message if anything has written something
+        if !response.is_empty() {
+            response.message_end()?;
+        }
+
 
         Ok(())
         //branch.exec(self, tokenstream.clone().borrow_mut(), is_query)?;
@@ -255,6 +258,7 @@ pub mod commands {
     use crate::response::Formatter;
     use crate::ieee488::Context;
     use crate::{nquery, qonly};
+    use core::convert::TryInto;
 
 
     ///## 10.3 *CLS, Clear Status Command
@@ -282,13 +286,11 @@ pub mod commands {
 
     impl Command for EseCommand {
         fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<(), Error> {
-            let ese = (args.next_f32(false)?.unwrap() + 0.5f32) as i32;
-            if ese >= 0i32 && ese < 256i32 {
-                context.ese = ese as u8;
-                Ok(())
-            }else{
-                Err(Error::DataOutOfRange)
+            if let Some(ese) = args.next_data(true)? {
+                //Try_into will automatically check min/max for ese datatype (u8)
+                context.ese = ese.try_into()?;
             }
+            Ok(())
         }
 
         fn query(&self, context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
@@ -408,11 +410,14 @@ pub mod commands {
     pub struct SreCommand;
     impl Command for SreCommand {
         fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<(), Error> {
-            unimplemented!()
+            if let Some(sre) = args.next_data(true)? {
+                context.sre = sre.try_into()?;
+            }
+            Ok(())
         }
 
-        fn query(&self, context: &mut Context, args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
-            unimplemented!()
+        fn query(&self, context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
+            response.u8_data(context.sre)
         }
     }
 
@@ -443,7 +448,7 @@ pub mod commands {
     impl Command for TstCommand { qonly!();
 
         fn query(&self, context: &mut Context, args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
-            unimplemented!()
+            Ok(())
         }
     }
 

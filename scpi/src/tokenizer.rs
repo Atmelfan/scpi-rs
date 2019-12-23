@@ -2,6 +2,11 @@ use crate::error::Error;
 
 use core::slice::Iter;
 use core::str;
+use crate::error::Error::DataTypeError;
+use core::convert::{TryFrom, TryInto};
+use crate::error;
+use core::num::TryFromIntError;
+use lexical_core::Float;
 
 /// SCPI tokens
 ///
@@ -79,14 +84,117 @@ impl<'a> Token<'a> {
         }
     }
 
-    pub fn to_str(&self) -> Option<&'a [u8]> {
+    /// If token is `CharacterProgramData`, try to map into another token.
+    /// If token is not a `CharacterProgramData` the token will be returned as-is
+    ///
+    /// # Arguments
+    /// * `special` - Function which maps a slice (likely a mnemonic) to a new Token (or emit an error)
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use scpi::tokenizer::Token;
+    /// use scpi::error::Error;
+    /// let s = Token::CharacterProgramData(b"potato");
+    ///
+    /// let value = s.map_special(|s| match s {
+    ///     x if Token::mnemonic_compare(b"POTato", x) => Ok(Token::DecimalNumericProgramData(5.0)),
+    ///     x if Token::mnemonic_compare(b"PINEapple", x) => Ok(Token::DecimalNumericProgramData(1.0)),
+    ///     _ => Err(Error::IllegalParameterValue)
+    /// });
+    ///
+    /// //assert_eq!(value, Ok(Token::DecimalNumericProgramData(5.0)));
+    ///
+    /// ```
+    pub fn map_special<F>(self, special: F) -> Result<Token<'a>, Error>
+        where F: FnOnce(&[u8]) -> Result<Token<'a>, Error> {
+        if let Token::CharacterProgramData(s) =  self {
+            special(s)
+        }else{
+            Ok(self)
+        }
+    }
+
+
+}
+
+/// Allow cast from `Token::DecimalNumericProgramData | Token::CharacterProgramData` to f32.
+/// # Returns
+/// * `Ok(value)` - If token is a valid float object
+/// * `Err(DataTypeError)` if another type of data object,
+/// * `Err(SyntaxError)` if not a data object (shouldn't happen).
+///
+impl<'a> TryInto<f32> for Token<'a> {
+    type Error = error::Error;
+
+    fn try_into(self) -> Result<f32, Self::Error> {
         match self {
-            Token::StringProgramData(s) => Some(s),
-            Token::CharacterProgramData(s) => Some(s),
-            _ => None
+            Token::DecimalNumericProgramData(value) => Ok(value),
+            Token::CharacterProgramData(s) => match s.clone() {
+                //Check for special float values
+                ref x if Self::mnemonic_compare(b"INFinity", x) => Ok(f32::INFINITY),
+                ref x if Self::mnemonic_compare(b"NINFinity", x) => Ok(f32::NEG_INFINITY),
+                ref x if Self::mnemonic_compare(b"NAN", x) => Ok(f32::NAN),
+                _ => Err(Error::DataTypeError)
+            }
+            Token::SuffixProgramData(_) | Token::NonDecimalNumericProgramData(_) | Token::StringProgramData(_)
+            | Token::ArbitraryBlockData(_) => Err(Error::DataTypeError),
+            _ => Err(Error::SyntaxError)
         }
     }
 }
+
+/// Allow cast from `Token::StringProgramData` to &\[u8\].
+/// # Returns
+/// * `Ok(value)` - If token is a valid string object
+/// * `Err(DataTypeError)` if another type of data object,
+/// * `Err(SyntaxError)` if not a data object (shouldn't happen).
+///
+impl<'a> TryInto<&'a [u8]> for Token<'a> {
+    type Error = error::Error;
+
+    fn try_into(self) -> Result<&'a [u8], Self::Error> {
+        match self {
+            Token::StringProgramData(s) => Ok(s),
+            Token::SuffixProgramData(_) | Token::NonDecimalNumericProgramData(_) | Token::DecimalNumericProgramData(_)
+            | Token::ArbitraryBlockData(_) | Token::CharacterProgramData(_) => Err(Error::DataTypeError),
+            _ => Err(Error::SyntaxError)
+        }
+    }
+}
+
+macro_rules! impl_tryfrom_integer {
+    ($from:ty) => {
+        impl<'a> TryInto<$from> for Token<'a> {
+            type Error = error::Error;
+
+            fn try_into(self) -> Result<$from, Self::Error> {
+                match self {
+                    Token::DecimalNumericProgramData(value) => {
+                        if value.is_finite() {
+                            <$from>::try_from((value + 0.5f32) as i32).map_err(|_| Error::DataOutOfRange)
+                        }else{
+                            // Nan/Inf -> Integer is undefined, return DataOutOfRange
+                            Err(Error::DataOutOfRange)
+                        }
+                    },
+                    Token::NonDecimalNumericProgramData(value) => <$from>::try_from(value).map_err(|_| Error::DataOutOfRange),
+                    Token::SuffixProgramData(_) | Token::CharacterProgramData(_) | Token::StringProgramData(_)
+                    | Token::ArbitraryBlockData(_) => Err(Error::DataTypeError),
+                    _ => Err(Error::SyntaxError)
+                }
+            }
+        }
+    };
+}
+
+impl_tryfrom_integer!(i32);
+impl_tryfrom_integer!(u32);
+impl_tryfrom_integer!(i16);
+impl_tryfrom_integer!(u16);
+impl_tryfrom_integer!(i8);
+impl_tryfrom_integer!(u8);
+
 
 #[derive(Clone)]
 pub struct Tokenizer<'a> {
@@ -161,58 +269,42 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
-    pub fn next_f32(&mut self, optional: bool) -> Result<Option<f32>, Error> {
-        let numeric = self.next_data(optional)?;
-        if let Some(token) = numeric {
-            match token {
-                Token::DecimalNumericProgramData(f) => {
-                    self.next_separator()?;//Next data, do not allow suffix
-                    Ok(Some(f))
-                },
-                _ => Err(Error::DataTypeError)
-            }
-        }else{
-            Ok(None)
-        }
-    }
-
-    pub fn next_u32_range(&mut self, optional: bool, (min, max): (u32, u32)) -> Result<Option<u32>, Error> {
-        let numeric = self.next_data(optional)?;
-        if let Some(token) = numeric {
-            match token {
-                Token::DecimalNumericProgramData(f) => {
-                    let fr = f;
-                    self.next_separator()?;//Next data, do not allow suffix
-                    if f > max as f32 || f < min as f32 {
-                        return Err(Error::DataOutOfRange)
-                    }
-                    Ok(Some(fr as u32))
-                },
-                Token::NonDecimalNumericProgramData(f) => {
-                    self.next_separator()?;//Next data, do not allow suffix
-                    if f > max || f < min {
-                        return Err(Error::DataOutOfRange)
-                    }
-                    Ok(Some(f as u32))
-                },
-                _ => Err(Error::DataTypeError)
-            }
-        }else{
-            Ok(None)
-        }
-    }
-
-    pub fn next_numeric(&mut self, optional: bool) -> Result<Option<Token<'a>>, Error> {
+    /// Attempt to read a decimal data object (either a DecimalProgramData or a CharacterProgramData).
+    /// This function is usually OK'ed and unwrapped before calling a `to_<type>` or `.special()`
+    ///
+    /// # Arguments
+    /// * `optional` - Object is optional, will return None if data is missing and optional, Err otherwise.
+    /// * `suffix` - Function to use to parse suffix (if any). Takes the value and suffix slice.
+    ///
+    /// # Returns
+    /// * Ok(NumericalProgramData) - If a NumericalProgramData is found. If a suffix follows, the value is modified with according to suffix.
+    /// * Ok(CharacterProgramData) - If a CharacterProgramData is found. Typically a special value.
+    ///
+    ///
+    pub fn next_decimal<F>(&mut self, optional: bool, suffix: F) -> Result<Option<Token<'a>>, Error>
+        where F: FnOnce(f32, &[u8]) -> Result<f32, Error> {
         let val = self.next_data(optional)?;
         if let Some(t) = val {
             match t {
 
-                Token::DecimalNumericProgramData(_) | Token::NonDecimalNumericProgramData(_) | Token::CharacterProgramData(_) => {
+                Token::DecimalNumericProgramData(mut val) => {
+                    //Check if next token is a suffix and reinterpret the value if so
+                    let mut clone = self.clone();
+                    if let Some(x) = clone.next() {
+                        if let Token::SuffixProgramData(s) = x? {
+                            //Found a suffix!
+                            self.clone_from(&clone);
+
+                            val = suffix(val, s)?;
+                            return Ok(Some(Token::DecimalNumericProgramData(val)));
+                        }
+                    }
+                    //No suffix, return as is
                     Ok(Some(t))
                 },
-                Token::StringProgramData(_) | Token::SuffixProgramData(_) => {
-                    Err(Error::DataTypeError)
-                },
+                Token::CharacterProgramData(_) => {
+                    Ok(Some(t))
+                }
                 _ => {
                     Err(Error::MissingParameter)
                 }

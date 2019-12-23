@@ -13,7 +13,7 @@ use crate::response::Formatter;
 ///
 /// ```
 /// use scpi::tree::Node;
-/// use scpi::commands::IdnCommand;
+/// use scpi::ieee488::commands::*;
 ///
 /// let root = &Node{name: b"ROOT", optional: false, handler: None, sub: Some(&[
 ///     Node{name: b"*IDN?", optional: false,  handler: Some(&IdnCommand{
@@ -39,7 +39,7 @@ pub struct Node<'a> {
     /// The node may contain None or an array of subcommands. If a message attempts to traverse
     /// this node and it does not have any subnodes (eg `IMhelping:THISnode:DONTexist), a UndefinedHeaderError will be returned.
     pub sub: Option<&'a [Node<'a>]>,
-    ///Marks the node as being optional
+    ///Marks the node as being optional (called default with inverse behaviour in IEE488)
     pub optional: bool
 }
 

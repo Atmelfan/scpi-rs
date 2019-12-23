@@ -4,7 +4,7 @@ struct MyDevice;
 use scpi::command::Command;
 use scpi::Device;
 use scpi::tree::Node;
-use scpi::tokenizer::Tokenizer;
+use scpi::tokenizer::{Tokenizer, Token};
 use scpi::error::{Error, ErrorQueue, ArrayErrorQueue};
 use scpi::response::{Formatter, ArrayVecFormatter};
 use std::io;
@@ -12,11 +12,20 @@ use std::io::BufRead;
 use scpi::ieee488::Context;
 use scpi::ieee488::commands::*;
 use scpi::scpi::commands::*;
+use std::convert::TryInto;
+
 
 struct SensVoltDcCommand;
 impl Command for SensVoltDcCommand {
     fn event(&self, _context: &mut Context, args: &mut Tokenizer) -> Result<(), Error> {
-        args.next_data(true)?;
+        let x: f32 = args.next_data(false)?.unwrap().map_special(|special| match special {
+            x if Token::mnemonic_compare(b"MINimum", x) => Ok(Token::DecimalNumericProgramData(-34.0)),
+            x if Token::mnemonic_compare(b"MAXimum", x) => Ok(Token::DecimalNumericProgramData(54564.0)),
+            x if Token::mnemonic_compare(b"DEFault", x) => Ok(Token::DecimalNumericProgramData(0.0)),
+            _ => Err(Error::IllegalParameterValue)
+        })?.try_into()?;
+        //x *= args.next_suffix_multiplier(Unit::Volt)?;//If no suffix (1.0), else (SUFFIX/Volt). If incompatible, error.
+        println!("Value: {}", x);
         Ok(())
     }
 
@@ -173,15 +182,18 @@ fn main(){
         //SCPI tokenizer
         let mut tokenizer = Tokenizer::from_str(message.as_bytes());
 
-        //Result
-        let result = context.exec(&mut tokenizer, &mut buf);
+        loop {
+            //Result
+            let result = context.exec(&mut tokenizer, &mut buf);
 
-        //Looka like a lot of stuff being allocated but everything is on the stack and lightweight
-        use std::str;
-        if let Err(err) = result {
-            println!("{}", str::from_utf8(err.get_message().unwrap()).unwrap());
-        } else if !buf.is_empty() {
-            println!("{}", str::from_utf8(buf.as_slice()).unwrap());
+            //Looka like a lot of stuff being allocated but everything is on the stack and lightweight
+            use std::str;
+            if let Err(err) = result {
+                println!("{}", str::from_utf8(err.get_message().unwrap()).unwrap());
+            } else {
+                print!("{}", str::from_utf8(buf.as_slice()).unwrap());
+                break;
+            }
         }
 
 
