@@ -3,7 +3,7 @@
 use crate::command::Command;
 use crate::tokenizer::Tokenizer;
 use crate::error::Error;
-use crate::ieee488::Context;
+use crate::Context;
 use crate::response::Formatter;
 
 /// A SCPI command node

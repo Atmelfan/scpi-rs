@@ -13,10 +13,10 @@ It does not implement any higher level functions/error handling other than SCPI 
 
 
 # Using this crate
-Add `scpi = 0.1.0` to your dependencies:
+Add `scpi = "0.2.0"` to your dependencies:
 ```
 [dependencies]
-scpi = "0.1.0"
+scpi = "0.2.0"
 ```
 
 # Getting started
@@ -33,7 +33,6 @@ They are listed in the rough order of which I care to fix them.
 
  * Response data formatting, currently each command is responsible for formatting their response. _In progress_
  * Better command data operators with automatic error checking.
- * ~~Optional mnemonics~~ _Done_
  * Automatic suffix/special number handling
  * Provide working implementation of all IEEE 488.2 and SCPI-99 mandated commands. _In progress_
  * Quotation marks inside string data, the parser cannot handle escaping `'` and `"` inside their respective block (eg "bla ""quoted"" bla").
@@ -61,5 +60,7 @@ Contributions are welcome because I don't know what the fuck I'm doing.
 Project organisation:
 
  * `example` - A simple example application used for testing
+ * `example-cortexm` - A simple example application used for testing in a embedded environment
  * `scpi` - Main library
- * `scpi_derive` - Macro support library which helps with error messages (enter at own risk) 
+ * `scpi_derive` - Internal macro support library, used by `scpi` to generate error messages and suffixes (enter at own risk)
+ * `scpi_instrument` - Support library which provides higher level abstraction

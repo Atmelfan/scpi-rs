@@ -4,7 +4,7 @@
 
 use crate::error::Error;
 use crate::tokenizer::Tokenizer;
-use crate::ieee488::Context;
+use crate::Context;
 use crate::response::Formatter;
 
 /// This trait implements a command with optional event/query operations.
@@ -17,7 +17,7 @@ use crate::response::Formatter;
 /// use scpi::error::Error;
 /// use scpi::tokenizer::Tokenizer;
 /// use scpi::response::Formatter;
-/// use scpi::ieee488::Context;
+/// use scpi::Context;
 ///
 /// struct MyCommand {
 ///    //...
@@ -32,9 +32,9 @@ use crate::response::Formatter;
 ///             let y = args.next_data(false)?.unwrap();
 ///
 ///             // Do stuff with x and y...
+///         }else{
+///             // Do stuff with neither x or y...
 ///         }
-///
-///         // Do stuff without x or y...
 ///
 ///         //I'm good thank you
 ///         Ok(())

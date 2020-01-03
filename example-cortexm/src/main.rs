@@ -11,7 +11,7 @@ use scpi::tree::Node;
 use scpi::tokenizer::Tokenizer;
 use scpi::error::{Error, ErrorQueue, ArrayErrorQueue};
 use scpi::response::{Formatter, ArrayVecFormatter};
-use scpi::ieee488::Context;
+use scpi::Context;
 use scpi::ieee488::commands::*;
 use scpi::scpi::commands::*;
 
@@ -29,21 +29,6 @@ impl Device for MyDevice {
         Ok(())
     }
 
-    fn oper_event(&self) -> u16 {
-        unimplemented!()
-    }
-
-    fn oper_condition(&self) -> u16 {
-        unimplemented!()
-    }
-
-    fn ques_event(&self) -> u16 {
-        unimplemented!()
-    }
-
-    fn ques_condition(&self) -> u16 {
-        unimplemented!()
-    }
 }
 
 #[entry]
@@ -52,63 +37,37 @@ fn main() -> ! {
     let mut my_device = MyDevice { };
 
     let mut tree = Node {name: b"ROOT", optional: true, handler: None, sub: Some(&[
-            Node {name: b"*IDN", optional: false,
-                handler: Some(&IdnCommand{
-                    manufacturer: b"GPA-Robotics",
-                    model: b"T800",
-                    serial: b"101",
-                    firmware: b"0"
-                }),
-                sub: None
-            },
-            Node {name: b"*RST", optional: false,
-                handler: Some(&RstCommand{}),
-                sub: None
-            },
-            Node {name: b"*CLS", optional: false,
-                handler: Some(&ClsCommand{}),
-                sub: None
-            },
-            Node {name: b"*ESE", optional: false,
-                handler: Some(&EseCommand{}),
-                sub: None
-            },
-            Node {name: b"*ESR", optional: false,
-                handler: Some(&EsrCommand{}),
-                sub: None
-            },
-            Node {name: b"SYSTem", optional: false,
-                handler: None,
-                sub: Some(&[
-                    Node {name: b"ERRor", optional: false,
-                        handler: None,
-                        sub: Some(&[
-                            Node {name: b"ALL", optional: false,
-                                handler: Some(&SystErrAllCommand{}),
-                                sub: None
-                            },
-                            Node {name: b"NEXT", optional: true,
-                                handler: Some(&SystErrNextCommand{}),
-                                sub: None
-                            },
-                            Node {name: b"COUNt", optional: false,
-                                handler: Some(&SystErrCounCommand{}),
-                                sub: None
-                            }
+        // Create default IEEE488 mandated commands
+        ieee488_cls!(),
+        ieee488_ese!(),
+        ieee488_esr!(),
+        ieee488_idn!(b"GPA-Robotics", b"T800-101", b"0", b"0"),
+        ieee488_opc!(),
+        ieee488_rst!(),
+        ieee488_sre!(),
+        ieee488_stb!(),
+        ieee488_tst!(),
+        ieee488_wai!(),
+        // Create default SCPI mandated STATus subsystem
+        scpi_status!(),
+        // Create default SCPI mandated SYSTem subsystem
+        scpi_system!(),
+        Node {name: b"SENSe", optional: true,
+            handler: None,
+            sub: Some(&[
+                Node {name: b"VOLTage", optional: false,
+                    handler: None,
+                    sub: Some(&[
+                        Node {name: b"DC", optional: true,
+                            handler: Some(&SensVoltDcCommand{}),
+                            sub: None
+                        }
+                    ])
+                }
+            ])
+        },
 
-                        ])
-                    },
-                    Node {name: b"VERSion", optional: false,
-                        handler: Some(&SystVersCommand{
-                            year: 1999,
-                            rev: 0
-                        }),
-                        sub: None
-                    }
-                ])
-            }
-        ])
-    };
+    ])};
 
 
 

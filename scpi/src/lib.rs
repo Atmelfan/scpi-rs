@@ -1,51 +1,8 @@
 #![no_std]
 
-//! This crate attempts to implement the IEE488.2 / SCPI protocol commonly used by measurement instruments and tools.
-//! See [IVI Foundation](http://www.ivifoundation.org/specifications/default.aspx) (SCPI-99 and IEE488.2).
-//!
-//! It does not require the std library (ie it's `no_std` compatible) or a system allocator (useful for embedded).
-//!
-//! [Documentation (docs.rs)](https://docs.rs/scpi)
-//!
-//! **Everything is subject to change (as of 0.1.0)**
-//!
-//! # Scope
-//! The crate does not support any transport layer, it only reads strings (`&[u8]`/ascii-/bytestrings to be precise) and writes responses.
-//!
-//! It does not implement any higher level functions/error handling other than SCPI parsing and mandated registers.
-//!
-//! # Using this crate
-//! Add `scpi = 0.1.0` to your dependencies:
-//! ```toml
-//! [dependencies]
-//! scpi = "0.1.0"
-//! ```
-//!
-//! # Getting started
-//!
-//! TODO
-//!
-//! # Limitations and differences
-//! These are the current limitations and differences from SCPI-99 specs (that I can remember) that needs to be addressed before version 1.0.0.
-//! They are listed in the rough order of which I care to fix them.
-//!
-//!  * Response data formatting, currently each command is responsible for formatting their response. _In progress_
-//!  * Better command data operators with automatic error checking.
-//!  * ~~Optional mnemonics~~ _Done_
-//!  * Automatic suffix/special number handling
-//!  * Provide working implementation of all IEEE 488.2 and SCPI-99 mandated commands. _In progress_
-//!  * Quotation marks inside string data, the parser cannot handle escaping `'` and `"` inside their respective block (eg "bla ""quoted"" bla").
-//!  * Expression data, not handled at all.
-//!  * Provide a reference instrument class implementation
-//!  * Error codes returned by the parser does not follow SCPI-99 accurately (because there's a fucking lot of them!).
-//!  * Working test suite.
-//!  * To be continued...
-//!
-//! # Extensions
-//! The parser extends the SCPI-99 standard with some custom syntax:
-//!
-//!  * UTF8 arbitrary data block, `#s"Detta är en utf8 sträng med roliga bokstäver"`. Checked by the parser and emits a InvalidBlockData if the UTF8 data is malformed.
-//!
+#![feature(external_doc)]
+#![doc(include = "../../README.md")]
+
 
 #[macro_use]
 extern crate scpi_derive;
@@ -63,16 +20,23 @@ pub mod ieee488;
 pub mod tree;
 pub mod response;
 pub mod scpi;
+pub mod expression;
 
 /// Prelude containing the most useful stuff
 ///
 pub mod prelude {
-    pub use crate::error::Error;
+    pub use crate::error::{Error, ErrorQueue, ArrayErrorQueue};
+    pub use crate::tokenizer::{Tokenizer, Token};
     pub use crate::command::Command;
     pub use crate::tree::Node;
+    pub use crate::{Context, Device};
 }
 
-use crate::error::Error;
+use crate::error::{Error, ErrorQueue};
+use crate::tokenizer::{Tokenizer, Token};
+use crate::response::Formatter;
+use crate::tree::Node;
+use crate::scpi::{EventRegister};
 
 /// A SCPI device
 ///
@@ -87,14 +51,234 @@ pub trait Device {
     /// Called by *RST
     fn rst(&mut self) -> Result<(), Error>;
 
-    fn oper_event(&self) -> u16;
-
-    fn oper_condition(&self) -> u16;
-
-    fn ques_event(&self) -> u16;
-
-    fn ques_condition(&self) -> u16;
+    /// Called by *TST?
+    /// Return zero if self-test is successful or a positive user-error code or a
+    /// standard negative error code (as a Error enum variant).
+    fn tst(&mut self) -> Result<i16, Error> {
+        Ok(0)
+    }
 
 }
 
 
+/// Context in which to execute a message.
+///
+/// Contains registers related to the context and reference to the writer to respond with.
+/// Also contains a reference to the Device (may be shared by multiple contexts (**Note! If threadsafe**)).
+pub struct Context<'a> {
+    /// SCPI command tree root
+    root: &'a Node<'a>,
+    /// Device executed upon
+    pub device: &'a mut dyn Device,
+    /// Error queue
+    pub errors: &'a mut dyn ErrorQueue,
+    /// Event Status Register
+    pub esr: u8,
+    /// Event Status Enable register
+    pub ese: u8,
+    /// Service Request Enable register
+    pub sre: u8,
+
+    /// OPERation:ENABle register
+    pub operation: EventRegister,
+    ///QUEStionable:ENABle register
+    pub questionable: EventRegister
+}
+
+impl<'a> Context<'a> {
+
+    /// Create a new context
+    ///
+    /// # Arguments
+    ///  * `device` - Device to act upon
+    ///  * `writer` - Writer used to write back response messages
+    ///  * `root` - SCPI command tree to use
+    pub fn new(device: &'a mut dyn Device, errorqueue: &'a mut dyn ErrorQueue, root: &'a Node<'a>) -> Self{
+        Context {
+            device,
+            errors: errorqueue,
+            root,
+            esr: 0,
+            ese: 0,
+            sre: 0,
+            operation: EventRegister::new(),
+            questionable: EventRegister::new()
+        }
+    }
+
+    /// Executes one SCPI message (terminated by `\n`) and queue any errors.
+    ///
+    /// # Arguments
+    ///  * `tokenizer` - A tokenizer created from `Tokenizer::from_str(...)`. May be re-used
+    ///  if still has valid tokens and Ok() was returned.
+    ///
+    /// # Returns
+    ///  * `Ok(())` - If message (and all units within) was executed successfully
+    ///  * `Err(error)` - If parser detected or a command returned an error
+    ///
+    pub fn exec(&mut self, tokenstream: &mut Tokenizer, response: &mut dyn Formatter) -> Result<(), Error>{
+        response.clear();
+        self.execute(tokenstream, response).map_err(|err| {
+            //Set appropriate bits in ESR
+            self.esr |= err.clone().esr_mask();
+
+            //Queue error
+            self.errors.push_back_error(err);
+
+            //Original error
+            err
+        })
+    }
+
+    fn execute(&mut self, tokenstream: &mut Tokenizer, response: &mut dyn Formatter) -> Result<(), Error>{
+        // Point the current branch to root
+        let mut is_query = false;
+        let mut is_common = false;
+
+        let mut branch = self.root;//Node parent
+        let mut node: Option<&Node> = None;//Current active node
+
+        //Start response message
+        response.message_start()?;
+        'outer: while let Some(token) = tokenstream.next() {
+            let tok = token?;
+            //println!(">>> {:?}", tok);
+            match tok {
+                Token::ProgramMnemonic(_) => {
+                    //Common nodes always use ROOT as base node
+                    let subcommands = if is_common {
+                        self.root.sub
+                    }else{
+                        branch.sub
+                    }.ok_or(Error::UndefinedHeader)?;
+
+                    for sub in subcommands {
+
+                        if is_common {
+                            //Common nodes must match mnemonic and start with '*'
+                            if sub.name.starts_with(b"*") && tok.eq_mnemonic(&sub.name[1..]) {
+                                node = Some(sub);
+                                continue 'outer;
+                            }
+                        } else if tok.eq_mnemonic(sub.name) {
+                            //Normal node must match mnemonic
+                            node = Some(sub);
+                            continue 'outer;
+                        } else if sub.optional && sub.sub.is_some(){
+                            //A optional node may have matching children
+                            for subsub in sub.sub.unwrap() {
+                                if tok.eq_mnemonic(subsub.name) {
+                                    //Normal node must match mnemonic
+                                    node = Some(subsub);
+                                    continue 'outer;
+                                }
+                            }
+                        }
+                    }
+
+                    return Err(Error::UndefinedHeader);
+                }
+                Token::HeaderMnemonicSeparator => {
+                    //This node will be used as branch
+                    if let Some(p) = node {
+                        branch = p;
+                    }else{
+                        branch = self.root;
+                    }
+                    //println!("branch={}", String::from_utf8_lossy(branch.name));
+                }
+                Token::HeaderCommonPrefix => {
+                    is_common = true;
+                }
+                Token::HeaderQuerySuffix => {
+                    is_query = true;
+                }
+                Token::ProgramMessageTerminator => {
+                    //
+                    break 'outer;
+                }
+                Token::ProgramHeaderSeparator | Token::ProgramMessageUnitSeparator => {
+                    // Execute header if available
+                    if let Some(n) = node {
+
+                        if tok == Token::ProgramHeaderSeparator {
+                            //If a header separator was found, pass tokenizer for arguments and
+                            // check that the command consumes them all
+                            n.exec(self, tokenstream, response, is_query)?;
+
+                            // Should have a terminator, unit terminator or END after arguments
+                            // If, not, the handler has not consumed all arguments (error) or an unexpected token appeared.'
+                            // TODO: This should abort above command!
+                            if let Some(t) = tokenstream.next() {
+                                match t? {
+                                    Token::ProgramMessageTerminator | Token::ProgramMessageUnitSeparator => (),
+                                    /* Leftover data objects */
+                                    Token::CharacterProgramData(_) | Token::DecimalNumericProgramData(_) | Token::SuffixProgramData(_) |
+                                    Token::NonDecimalNumericProgramData(_) | Token::StringProgramData(_) | Token::ArbitraryBlockData(_) |
+                                    Token::ProgramDataSeparator => {
+                                        return Err(Error::ParameterNotAllowed)
+                                    },
+                                    /* Shouldn't happen? */
+                                    _ => {
+                                        return Err(Error::SyntaxError)
+                                    },
+                                }
+                            }
+                        }else{
+                            //No header separator was found = no arguments, pass an empty tokenizer
+                            n.exec(self, &mut Tokenizer::empty(), response, is_query)?;
+                        }
+
+                    }else{
+                        //return Err(Error::CommandHeaderError);
+                    }
+
+                    // Reset unit state
+                    node = None;
+                    is_query = false;
+                    is_common = false;
+                }
+                _ => ()
+            }
+        }
+
+        //Execute last command if any (never has arguments or would've been executed earlier)
+        if let Some(n) = node {
+            n.exec(self, &mut Tokenizer::empty(), response, is_query)?;
+        }
+
+        //End response message if anything has written something
+        if !response.is_empty() {
+            response.message_end()?;
+        }
+
+
+        Ok(())
+        //branch.exec(self, tokenstream.clone().borrow_mut(), is_query)?;
+
+    }
+
+    fn get_stb(&self) -> u8 {
+        let mut reg = 0u8;
+        //Set OPERation status bits
+        if self.operation.get_summary() { reg |= 0x80; }
+        //Set QUEStionable status bit
+        if self.questionable.get_summary() { reg |= 0x08; }
+        //Set error queue empty bit
+        if self.errors.not_empty() { reg |= 0x10; }
+        //Set event bit
+        if self.esr & self.ese != 0 { reg |= 0x20; }
+        //Set MSS bit
+        if reg & self.sre != 0{ reg |= 0x40; }
+
+        reg
+    }
+
+    fn set_ese(&mut self, ese: u8) {
+        self.ese = ese;
+    }
+
+    fn get_ese(&mut self) -> u8 {
+        self.ese
+    }
+}

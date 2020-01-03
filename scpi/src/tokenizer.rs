@@ -2,11 +2,12 @@ use crate::error::Error;
 
 use core::slice::Iter;
 use core::str;
-use crate::error::Error::DataTypeError;
+use crate::error::Error::{DataTypeError, ParameterError};
 use core::convert::{TryFrom, TryInto};
 use crate::error;
 use core::num::TryFromIntError;
 use lexical_core::Float;
+use crate::expression::{numeric_list, channel_list};
 
 /// SCPI tokens
 ///
@@ -29,10 +30,19 @@ pub enum Token<'a> {
     NonDecimalNumericProgramData(u32),
     StringProgramData(&'a [u8]),
     ArbitraryBlockData(&'a [u8]),
+    ExpressionProgramData(&'a [u8]),
     Utf8BlockData(&'a str)
+
 }
 
-
+pub enum NumericValues <'a>{
+    Maximum,
+    Minimum,
+    Default,
+    Up,
+    Down,
+    Numeric(Token<'a>)
+}
 
 impl<'a> Token<'a> {
 
@@ -84,6 +94,25 @@ impl<'a> Token<'a> {
         }
     }
 
+    /// If token is an `ExpressionProgramData`, return a numeric list tokenizer to use.
+    /// Otherwise a
+    ///
+    pub fn numeric_list(&self) -> Result<numeric_list::Tokenizer, Error>{
+        if let Token::ExpressionProgramData(str) = self {
+            Ok(numeric_list::Tokenizer {chars: str.iter()})
+        }else{
+            Err(Error::DataTypeError)
+        }
+    }
+
+    pub fn channel_list(&self) -> Result<channel_list::Tokenizer, Error>{
+        if let Token::ExpressionProgramData(str) = self {
+            channel_list::Tokenizer::new(str.clone()).ok_or(Error::ExecExpressionError)
+        }else{
+            Err(Error::DataTypeError)
+        }
+    }
+
     /// If token is `CharacterProgramData`, try to map into another token.
     /// If token is not a `CharacterProgramData` the token will be returned as-is
     ///
@@ -97,11 +126,11 @@ impl<'a> Token<'a> {
     /// use scpi::error::Error;
     /// let s = Token::CharacterProgramData(b"potato");
     ///
-    /// let value = s.map_special(|s| match s {
+    /// let value:i32 = s.map_special(|s| match s {
     ///     x if Token::mnemonic_compare(b"POTato", x) => Ok(Token::DecimalNumericProgramData(5.0)),
     ///     x if Token::mnemonic_compare(b"PINEapple", x) => Ok(Token::DecimalNumericProgramData(1.0)),
     ///     _ => Err(Error::IllegalParameterValue)
-    /// });
+    /// }).unwrap().try_into().unwrap();
     ///
     /// //assert_eq!(value, Ok(Token::DecimalNumericProgramData(5.0)));
     ///
@@ -115,26 +144,73 @@ impl<'a> Token<'a> {
         }
     }
 
+    /// Handle data as a SCPI <numeric>
+    ///
+    /// **Note: Decimal data is not compared to the maximum/minimum value and must be done
+    /// seperately (unless equal to max/min of that datatype).
+    ///
+    /// # Example
+    /// ```
+    /// use scpi::tokenizer::Token;
+    /// use scpi::tokenizer::NumericValues;
+    /// use scpi::error::Error;
+    /// let  s = Token::CharacterProgramData(b"MAXimum");
+    ///
+    /// let mut x = 128u8;
+    /// if let Ok(v) = s.numeric(|special| match special {
+    ///     NumericValues::Maximum => Ok(255u8),
+    ///     NumericValues::Minimum => Ok(0u8),
+    ///     NumericValues::Default => Ok(1u8),
+    ///     NumericValues::Up => Ok(x+1),
+    ///     NumericValues::Down => Ok(x-1),
+    ///     _ => Err(Error::ParameterError)
+    /// }) {
+    ///     //v is resolved to a u8 type
+    ///     x = v;
+    /// }
+    ///
+    /// ```
+    ///
+    ///
+    pub fn numeric<F, R: TryFrom<Token<'a>, Error=error::Error>>(self, num: F) -> Result<R, Error>
+        where F: FnOnce(NumericValues) -> Result<R, Error> {
+        match self {
+            Token::CharacterProgramData(special) => match special {
+                x if Token::mnemonic_compare(b"MAXimum", x) => num(NumericValues::Maximum),
+                x if Token::mnemonic_compare(b"MINimum", x) => num(NumericValues::Minimum),
+                x if Token::mnemonic_compare(b"DEFault", x) => num(NumericValues::Default),
+                x if Token::mnemonic_compare(b"UP", x) => num(NumericValues::Up),
+                x if Token::mnemonic_compare(b"DOWN", x) => num(NumericValues::Down),
+                _ => <R>::try_from(self)
+            }
+            _ => <R>::try_from(self)
+        }
+    }
+
+
 
 }
 
-/// Allow cast from `Token::DecimalNumericProgramData | Token::CharacterProgramData` to f32.
-/// # Returns
-/// * `Ok(value)` - If token is a valid float object
-/// * `Err(DataTypeError)` if another type of data object,
-/// * `Err(SyntaxError)` if not a data object (shouldn't happen).
+/// Convert string data data into a f32.
 ///
-impl<'a> TryInto<f32> for Token<'a> {
+/// # Returns
+/// * `Ok(f32)` - If data is a numeric or a any special value below:
+///     - `INFinity` - Returns f32::INFINITY
+///     - `NINFinity` - Returns f32::NEG_INIFINTY
+///     - `NAN` - Returns f32::NAN
+/// * `Err(DataTypeError)` - If data is not a numeric or invalid special value.
+/// * `Err(SyntaxError)` - If token is not data
+impl<'a> TryFrom<Token<'a>> for f32 {
     type Error = error::Error;
 
-    fn try_into(self) -> Result<f32, Self::Error> {
-        match self {
+    fn try_from(value: Token) -> Result<Self, Self::Error> {
+        match value {
             Token::DecimalNumericProgramData(value) => Ok(value),
             Token::CharacterProgramData(s) => match s.clone() {
                 //Check for special float values
-                ref x if Self::mnemonic_compare(b"INFinity", x) => Ok(f32::INFINITY),
-                ref x if Self::mnemonic_compare(b"NINFinity", x) => Ok(f32::NEG_INFINITY),
-                ref x if Self::mnemonic_compare(b"NAN", x) => Ok(f32::NAN),
+                ref x if Token::mnemonic_compare(b"INFinity", x) => Ok(f32::INFINITY),
+                ref x if Token::mnemonic_compare(b"NINFinity", x) => Ok(f32::NEG_INFINITY),
+                ref x if Token::mnemonic_compare(b"NAN", x) => Ok(f32::NAN),
                 _ => Err(Error::DataTypeError)
             }
             Token::SuffixProgramData(_) | Token::NonDecimalNumericProgramData(_) | Token::StringProgramData(_)
@@ -144,18 +220,38 @@ impl<'a> TryInto<f32> for Token<'a> {
     }
 }
 
-/// Allow cast from `Token::StringProgramData` to &\[u8\].
-/// # Returns
-/// * `Ok(value)` - If token is a valid string object
-/// * `Err(DataTypeError)` if another type of data object,
-/// * `Err(SyntaxError)` if not a data object (shouldn't happen).
+/// Convert string data data into a slice (&\[u8\]).
 ///
-impl<'a> TryInto<&'a [u8]> for Token<'a> {
+/// # Returns
+/// * `Ok(&[u8])` - If data is a string.
+/// * `Err(DataTypeError)` - If data is not a string.
+/// * `Err(SyntaxError)` - If token is not data
+impl<'a> TryFrom<Token<'a>> for &'a[u8] {
     type Error = error::Error;
 
-    fn try_into(self) -> Result<&'a [u8], Self::Error> {
-        match self {
+    fn try_from(value: Token<'a>) -> Result<&'a [u8], Self::Error> {
+        match value {
             Token::StringProgramData(s) => Ok(s),
+            Token::SuffixProgramData(_) | Token::NonDecimalNumericProgramData(_) | Token::DecimalNumericProgramData(_)
+            | Token::ArbitraryBlockData(_) | Token::CharacterProgramData(_) => Err(Error::DataTypeError),
+            _ => Err(Error::SyntaxError)
+        }
+    }
+}
+
+/// Convert string data data into a str.
+///
+/// # Returns
+/// * `Ok(&str)` - If data is a string.
+/// * `Err(DataTypeError)` - If data is not a string.
+/// * `Err(SyntaxError)` - If token is not data
+impl<'a> TryFrom<Token<'a>> for &'a str {
+    type Error = error::Error;
+
+    fn try_from(value: Token<'a>) -> Result<&'a str, Self::Error> {
+        match value {
+            Token::StringProgramData(s) => str::from_utf8(s).map_err(|_| Error::StringDataError),
+            Token::Utf8BlockData(s) => Ok(s),
             Token::SuffixProgramData(_) | Token::NonDecimalNumericProgramData(_) | Token::DecimalNumericProgramData(_)
             | Token::ArbitraryBlockData(_) | Token::CharacterProgramData(_) => Err(Error::DataTypeError),
             _ => Err(Error::SyntaxError)
@@ -165,11 +261,11 @@ impl<'a> TryInto<&'a [u8]> for Token<'a> {
 
 macro_rules! impl_tryfrom_integer {
     ($from:ty) => {
-        impl<'a> TryInto<$from> for Token<'a> {
+        impl<'a> TryFrom<Token<'a>> for $from {
             type Error = error::Error;
 
-            fn try_into(self) -> Result<$from, Self::Error> {
-                match self {
+            fn try_from(value: Token) -> Result<Self, Self::Error> {
+                match value {
                     Token::DecimalNumericProgramData(value) => {
                         if value.is_finite() {
                             <$from>::try_from((value + 0.5f32) as i32).map_err(|_| Error::DataOutOfRange)
@@ -194,7 +290,8 @@ impl_tryfrom_integer!(i16);
 impl_tryfrom_integer!(u16);
 impl_tryfrom_integer!(i8);
 impl_tryfrom_integer!(u8);
-
+impl_tryfrom_integer!(usize);
+impl_tryfrom_integer!(isize);
 
 #[derive(Clone)]
 pub struct Tokenizer<'a> {
@@ -392,7 +489,7 @@ impl<'a> Tokenizer<'a> {
     ///
     /// Returned errors:
     /// * CharacterDataTooLong if suffix is longer than 12 characters
-    fn read_character_data(&mut self) -> Result<Token<'a>, Error> {
+    pub(crate) fn read_character_data(&mut self) -> Result<Token<'a>, Error> {
         let s = self.chars.as_slice();
         let mut len = 0u8;
         while self.chars.clone().next().map_or(false, |ch| ch.is_ascii_alphanumeric() || *ch == b'_') {
@@ -413,7 +510,7 @@ impl<'a> Tokenizer<'a> {
     /// See IEEE 488.2-1992 7.7.2
     ///
     /// TODO: lexical-core does not accept whitespace between exponent separator and exponent <mantissa>E <exponent>.
-    fn read_numeric_data(&mut self) -> Result<Token<'a>, Error> {
+    pub(crate) fn read_numeric_data(&mut self) -> Result<Token<'a>, Error> {
         /* Read mantissa */
         let (f, len) = lexical_core::parse_partial::<f32>(self.chars.as_slice()).map_err(|_|Error::NumericDataError)?;
         for _ in 0..len { self.chars.next(); };
@@ -481,7 +578,7 @@ impl<'a> Tokenizer<'a> {
     /// <STRING PROGRAM DATA>
     /// See IEEE 488.2-1992 7.7.5
     ///
-    fn read_string_data(&mut self, x: u8, ascii: bool) -> Result<Token<'a>, Error> {
+    pub(crate) fn read_string_data(&mut self, x: u8, ascii: bool) -> Result<Token<'a>, Error> {
         self.chars.next();//Consume first
         let s = self.chars.as_slice();
         while self.chars.clone().next().map_or(false, |ch| *ch != x) {
@@ -580,8 +677,27 @@ impl<'a> Tokenizer<'a> {
     /// <EXPRESSION PROGRAM DATA>
     /// See IEEE 488.2-1992 7.7.7
     ///
-    fn read_expression_data(&mut self) -> Result<Token<'a>, Error> {
-        unimplemented!();
+    pub(crate) fn read_expression_data(&mut self) -> Result<Token<'a>, Error> {
+        self.chars.next();
+        let s = self.chars.as_slice();
+        static ILLEGAL_CHARS: [u8; 6] = [b')', b'"', b'\'', b';', b'(', b')'];
+        //Read until closing ')'
+        while self.chars.clone().next().map_or(false, |ch| *ch != b')') {
+            let c = self.chars.next().unwrap();
+            //Return an error if a unexpected character is encountered
+            if ILLEGAL_CHARS.contains(c) || !c.is_ascii(){
+                return Err(Error::InvalidExpression)
+            }
+        }
+
+        let ret = Ok(Token::ExpressionProgramData(&s[0..s.len() - self.chars.as_slice().len()]));
+        //Consume ending ')' or throw error if there's none
+        if self.chars.next().is_none() {
+            return Err(Error::InvalidExpression)
+        }
+        // Skip to next separator
+        self.skip_ws_to_separator(Error::InvalidSuffix)?;
+        ret
     }
 
     fn skip_ws(&mut self){
@@ -726,6 +842,13 @@ mod test_parse {
     fn test_read_arb_data(){
         assert_eq!(Tokenizer::from_str(b"02\x01\x02,").read_arbitrary_data(b'2'),
                    Ok(Token::ArbitraryBlockData(&[1,2])));
+
+    }
+
+    #[test]
+    fn test_read_expr_data(){
+        assert_eq!(Tokenizer::from_str(b"(@1!2,2,3,4,5,#,POTATO)").read_expression_data(),
+                   Ok(Token::ExpressionProgramData(b"@1!2,2,3,4,5,#,POTATO")));
 
     }
 
@@ -881,6 +1004,9 @@ impl<'a> Iterator for Tokenizer<'a> {
                 }else{
                     Some(self.read_string_data(*x, true))
                 }
+            }
+            b'(' => {
+                Some(self.read_expression_data())
             }
             /* Unknown/unexpected */
             _ => {

@@ -18,7 +18,7 @@ readme = "../README.md"
 
 [dependencies]
 scpi_derive = {path = "../scpi_derive", version="0.1.0"}
-lexical-core = {version="^0.6", features=["radix"], default-features=false}
+lexical-core = {version="^0.6.2", features=["radix"], default-features=false, optional=true}
 arraydeque = { version = "0.4", default-features = false }
 arrayvec = {version = "0.5.1", default-features=false}
 
