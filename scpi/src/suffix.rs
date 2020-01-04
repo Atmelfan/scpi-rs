@@ -364,14 +364,32 @@ impl SuffixUnitElement {
                 SuffixUnitElement::Day => value * 24f32 * 3600f32,
                 _ => Err(SuffixError::IncompatibleQuantity)?
             }
-            //Length
-            SuffixUnitElement::Meter => match self {
-                _ => Err(SuffixError::IncompatibleQuantity)?
-            }
-            //
             _ => Err(SuffixError::NotABaseUnit)?
         };
 
         Ok(ret)
+    }
+
+    pub fn from_str(str: &[u8], val: f32) -> Result<(SuffixUnitElement, f32), SuffixError>{
+        use crate::lexical_core::Float;
+        if str.starts_with(b"DB") && !str.eq_ignore_ascii_case(b"DBM") {
+            let (unit, mul): (SuffixUnitElement, f32) = Self::from_suffix(&str[2..])?;
+
+            // Power units have a ratio of 10
+            // Quantitative units, 20
+            let ratio = match unit {
+                SuffixUnitElement::Watt => 10f32,
+                _ => 20f32
+            };
+
+
+            Ok((unit, 10f32.powf(val/ratio)*mul))
+
+        }else{
+            let (unit, mul) = Self::from_suffix(&str)?;
+
+            Ok((unit, mul*val))
+        }
+
     }
 }

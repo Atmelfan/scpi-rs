@@ -160,9 +160,9 @@ pub trait Formatter {
         }else if value.is_infinite() {
             // +/- Infinity is represented by +/-9.9E+37
             if value.is_sign_negative() {
-                self.push_str(b"9.9E+37")
-            }else {
                 self.push_str(b"-9.9E+37")
+            }else {
+                self.push_str(b"9.9E+37")
             }
         }else{
             let mut buf = [b'0'; f32::FORMATTED_SIZE_DECIMAL];

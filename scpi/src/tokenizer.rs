@@ -168,7 +168,7 @@ impl<'a> Token<'a> {
         }
     }
 
-    /// Handle data as a SCPI <numeric>
+    /// Handle data as a SCPI <numeric> and convert to R datatype
     ///
     /// **Note: Decimal data is not compared to the maximum/minimum value and must be done
     /// seperately (unless equal to max/min of that datatype).
@@ -208,6 +208,20 @@ impl<'a> Token<'a> {
                 _ => <R>::try_from(self)
             }
             _ => <R>::try_from(self)
+        }
+    }
+
+    /// Identical to `numeric()` but enforces min/max values.
+    ///
+    pub fn numeric_range<F, R: TryFrom<Token<'a>, Error=error::Error>>(self, min: R, max: R, num: F) -> Result<R, Error>
+        where F: FnOnce(NumericValues) -> Result<R, Error>, R: PartialOrd {
+        let value = self.numeric(num)?;
+        if value > max {
+            Err(Error::DataOutOfRange)
+        }else if value < min {
+            Err(Error::DataOutOfRange)
+        }else{
+            Ok(value)
         }
     }
 
@@ -365,11 +379,17 @@ impl<'a> Tokenizer<'a> {
             //Check if next item is a data object
             let token = item?;
             match token {
+                //Data object
                 Token::CharacterProgramData(_) | Token::DecimalNumericProgramData(_) | Token::SuffixProgramData(_) |
                 Token::NonDecimalNumericProgramData(_) | Token::StringProgramData(_) | Token::ArbitraryBlockData(_) => {
                     //Valid data object, consume and return
                     self.next();
                     Ok(Some(token))
+                }
+                //Data separator, next token must be a data object
+                Token::ProgramDataSeparator => {
+                    self.next();
+                    self.next_data(false)
                 }
                 _ => {
                     //Not a data object, return nothing

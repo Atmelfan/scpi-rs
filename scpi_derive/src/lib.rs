@@ -97,7 +97,7 @@ pub fn derive_heap_size(input: proc_macro::TokenStream) -> proc_macro::TokenStre
                 //println!("\tb\"{}\" => ({}, {}), ", String::from_utf8(suffix.value()).unwrap(), variant_name, multiplier);
 
                 let x =  quote! {
-                    #suffix => Ok((#name::#variant_name, #multiplier))
+                    x if x.eq_ignore_ascii_case(#suffix) => Ok((#name::#variant_name, #multiplier))
                 };
 
                 variant_matches.push(x);

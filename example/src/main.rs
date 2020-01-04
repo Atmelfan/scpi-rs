@@ -24,10 +24,11 @@ use scpi::{
     scpi_system,
 
     //Helpers
-    qonly,
-    nquery
+    qonly
 };
 use std::convert::TryInto;
+use scpi::suffix::SuffixUnitElement;
+use scpi::tokenizer::NumericValues;
 
 
 struct SensVoltDcCommand;
@@ -44,7 +45,7 @@ impl Command for SensVoltDcCommand {
         Ok(())
     }
 
-    fn query(&self, context: &mut Context, _args: &mut Tokenizer, response: &mut dyn Formatter) -> Result<(), Error> {
+    fn query(&self, _context: &mut Context, _args: &mut Tokenizer, response: &mut dyn Formatter) -> Result<(), Error> {
         response.ascii_data(b"[:SENSe]:VOLTage[:DC]?")
     }
 }
@@ -55,7 +56,7 @@ impl Command for SensVoltAcCommand {
         Err(Error::UndefinedHeader)
     }
 
-    fn query(&self, context: &mut Context, _args: &mut Tokenizer, response: &mut dyn Formatter) -> Result<(), Error> {
+    fn query(&self, _context: &mut Context, _args: &mut Tokenizer, response: &mut dyn Formatter) -> Result<(), Error> {
         response.ascii_data(b"[:SENSe]:VOLTage:AC?")
     }
 }
@@ -65,7 +66,7 @@ impl Command for SensVoltAcCommand {
 struct HelloWorldCommand{}
 impl Command for HelloWorldCommand { qonly!();
 
-    fn query(&self, context: &mut Context, args: &mut Tokenizer, response: &mut Formatter) -> Result<(), Error> {
+    fn query(&self, _context: &mut Context, _args: &mut Tokenizer, response: &mut dyn Formatter) -> Result<(), Error> {
         response.str_data(b"Hello world")
     }
 }
@@ -76,12 +77,99 @@ impl Command for HelloWorldCommand { qonly!();
 /// Note: `EXAMple` is actually a default command too, try entering `NODE?`.
 struct ExamNodeDefCommand{}
 impl Command for ExamNodeDefCommand {
-    fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<(), Error> {
+    fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<(), Error> {
         Ok(())
     }
 
-    fn query(&self, context: &mut Context, args: &mut Tokenizer, response: &mut Formatter) -> Result<(), Error> {
+    fn query(&self, _context: &mut Context, _args: &mut Tokenizer, response: &mut dyn Formatter) -> Result<(), Error> {
         response.ascii_data(b"DEFault")
+    }
+}
+
+/// `EXAMple:NODE:[DEFault]`
+/// Dummy command to demonstrate default commands.
+///
+/// `EXAMple:NODE:[DEFault]? <NRf> | <non-decimal numeric> [, <string>]`
+/// Dummy command to demonstrate default commands.
+///
+/// Note: `EXAMple` is actually a default command too, try entering `NODE?`.
+struct ExamNodeArgCommand{}
+impl Command for ExamNodeArgCommand {
+    fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<(), Error> {
+        Ok(())
+    }
+
+    fn query(&self, _context: &mut Context, args: &mut Tokenizer, response: &mut dyn Formatter) -> Result<(), Error> {
+        let x: u8 = args.next_data(false)?.unwrap().try_into()?;
+
+        let mut s = b"POTATO".as_ref();
+        if let Some(y) = args.next_data(true)?{
+            s = y.try_into()?;
+        }
+
+        response.u8_data(x)?;
+        response.separator()?;
+        response.str_data(s)?;
+        Ok(())
+    }
+}
+
+struct ExamTypNumDecCommand{}
+impl Command for ExamTypNumDecCommand { qonly!();
+
+    fn query(&self, _context: &mut Context, args: &mut Tokenizer, response: &mut dyn Formatter) -> Result<(), Error> {
+        //Optional value which also accepts MIN/MAX/DEFault
+        let x: f32 = args.next_data(true)?.unwrap_or(Token::DecimalNumericProgramData(1.0f32)).numeric(|n| match n {
+            NumericValues::Maximum => Ok(100f32),
+            NumericValues::Minimum => Ok(0f32),
+            NumericValues::Default => Ok(1f32),
+            _ => Err(Error::IllegalParameterValue)
+        })?;
+        response.f32_data(x)?;
+        Ok(())
+    }
+}
+
+struct ExamTypNumVoltCommand{}
+impl Command for ExamTypNumVoltCommand { qonly!();
+
+    fn query(&self, _context: &mut Context, args: &mut Tokenizer, response: &mut dyn Formatter) -> Result<(), Error> {
+        //Optional parameter (default value of 1.0f32), accepts volt suffix, accepts MIN/MAX/DEFault
+        let x: f32 = args.next_decimal(true, |val, suffix| {
+            let (s, v): (SuffixUnitElement, f32) = SuffixUnitElement::from_str(suffix, val).map_err(|_| Error::SuffixNotAllowed)?;
+            s.convert(SuffixUnitElement::Volt, v).map_err(|_| Error::SuffixNotAllowed)
+        })?.unwrap_or(
+            Token::DecimalNumericProgramData(1.0)
+        ).numeric(|n| match n {
+            NumericValues::Maximum => Ok(100f32),
+            NumericValues::Minimum => Ok(0f32),
+            NumericValues::Default => Ok(1f32),
+            _ => Err(Error::IllegalParameterValue)
+        })?;
+        response.f32_data(x)?;
+        Ok(())
+    }
+}
+
+struct ExamTypNumRadCommand {}
+impl Command for ExamTypNumRadCommand { qonly!();
+
+    fn query(&self, _context: &mut Context, args: &mut Tokenizer, response: &mut dyn Formatter) -> Result<(), Error> {
+        //Optional parameter (default value of 1.0f32), accepts volt suffix, accepts MIN/MAX/DEFault
+        let x: f32 = args.next_decimal(true, |val, suffix| {
+            let (s, mul): (SuffixUnitElement, f32) = SuffixUnitElement::from_suffix(suffix).map_err(|_| Error::SuffixNotAllowed)?;
+            s.convert(SuffixUnitElement::Radian, val*mul).map_err(|_| Error::SuffixNotAllowed)
+        })?.unwrap_or(
+            Token::DecimalNumericProgramData(1.0)
+        ).numeric_range(0f32, 100f32, |n| match n {
+            NumericValues::Maximum => Ok(100f32),
+            NumericValues::Minimum => Ok(0f32),
+            NumericValues::Default => Ok(1f32),
+            _ => Err(Error::IllegalParameterValue)
+        })?;
+        response.ascii_data(b"RADian ")?;
+        response.f32_data(x)?;
+        Ok(())
     }
 }
 
@@ -136,7 +224,11 @@ fn main(){
                         Node {name: b"DEFault", optional: true,
                             handler: Some(&ExamNodeDefCommand{}),
                             sub: None
-                        }
+                        },
+                        Node {name: b"ARGuments", optional: true,
+                            handler: Some(&ExamNodeArgCommand{}),
+                            sub: None
+                        },
                     ])
                 },
                 Node {name: b"TYPes", optional: false,
@@ -146,11 +238,15 @@ fn main(){
                             handler: None,
                             sub: Some(&[
                                 Node {name: b"DECimal", optional: true,
-                                    handler: Some(&SensVoltDcCommand{}),
+                                    handler: Some(&ExamTypNumDecCommand{}),
                                     sub: None
                                 },
-                                Node {name: b"SUFfix", optional: false,
-                                    handler: Some(&SensVoltDcCommand{}),
+                                Node {name: b"VOLT", optional: false,
+                                    handler: Some(&ExamTypNumVoltCommand{}),
+                                    sub: None
+                                },
+                                Node {name: b"RADian", optional: false,
+                                    handler: Some(&ExamTypNumRadCommand {}),
                                     sub: None
                                 }
                             ])
