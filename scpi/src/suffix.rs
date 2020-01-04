@@ -350,15 +350,6 @@ impl SuffixUnitElement {
         //If not, manually convert...
         //TODO: Automate with #[derive()]?
         let ret = match to {
-            //Power
-            SuffixUnitElement::Watt => match self {
-                SuffixUnitElement::DbMilliwatt => (value/1e-3f32).log10()*10f32,
-                _ => Err(SuffixError::IncompatibleQuantity)?
-            }
-            SuffixUnitElement::DbMilliwatt => match self {
-                SuffixUnitElement::Watt => 10f32.powf(val/10f32)*1e-3f32,
-                _ => Err(SuffixError::IncompatibleQuantity)?
-            }
             //Angle
             SuffixUnitElement::Radian => match self {
                 SuffixUnitElement::Degree => value * PI / 180f32,
