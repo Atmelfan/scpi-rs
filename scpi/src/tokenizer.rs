@@ -68,13 +68,27 @@ impl<'a> Token<'a> {
         }
     }
 
+    /// Compare a string to a mnemonic
+    /// # Arguments
+    /// * `mnemonic` - A mnemonic to compare with (Example `TRIGger2`)
+    /// * `s` - String to compare to mnemonic
+    ///
     pub fn mnemonic_compare(mnemonic: &[u8], s: &[u8]) -> bool {
         //LONGform == longform || LONG == long
+        //TODO: This sucks.
+        let mut optional = true;
         mnemonic.len() >= s.len() && {
             let mut s_iter = s.iter();
-            mnemonic.iter().all(|m|
-                s_iter.next().map_or(!(m.is_ascii_uppercase() || m.is_ascii_digit()), |x| m.eq_ignore_ascii_case(x))
-            )
+            mnemonic.iter().all(|m| {
+                let x = s_iter.next();
+                if m.is_ascii_lowercase() && x.is_some() {
+                    optional = false;
+                }
+                x.map_or(
+                    !(m.is_ascii_uppercase() || m.is_ascii_digit()) && optional,
+                    |x| m.eq_ignore_ascii_case(x)
+                )
+            })
         }
     }
 
@@ -122,15 +136,25 @@ impl<'a> Token<'a> {
     /// # Example
     ///
     /// ```
-    /// use scpi::tokenizer::Token;
+    /// use core::convert::TryFrom;
+    /// use scpi::tokenizer::*;
     /// use scpi::error::Error;
+    ///
     /// let s = Token::CharacterProgramData(b"potato");
     ///
-    /// let value:i32 = s.map_special(|s| match s {
+    /// if let Ok(value) = s.map_special(|s| match s {
     ///     x if Token::mnemonic_compare(b"POTato", x) => Ok(Token::DecimalNumericProgramData(5.0)),
     ///     x if Token::mnemonic_compare(b"PINEapple", x) => Ok(Token::DecimalNumericProgramData(1.0)),
     ///     _ => Err(Error::IllegalParameterValue)
-    /// }).unwrap().try_into().unwrap();
+    /// }){
+    ///     if let Ok(x) = <u8>::try_from(value){
+    ///         assert_eq!(x, 5);
+    ///     }else{
+    ///         assert_eq!(false, true);
+    ///     }
+    /// }
+    ///
+    ///
     ///
     /// //assert_eq!(value, Ok(Token::DecimalNumericProgramData(5.0)));
     ///
@@ -749,7 +773,7 @@ mod test_parse {
         assert!(Token::mnemonic_compare(b"TRIGger", b"TRIGGER"));
         assert!(Token::mnemonic_compare(b"TRIGger", b"TRIG"));
         //Should return false
-        assert!(!Token::mnemonic_compare(b"TRIGger", b"TRIGe"));
+        assert!(!Token::mnemonic_compare(b"TRIGger", b"TRIGge"));
         assert!(!Token::mnemonic_compare(b"TRIGger", b"triggeristoodamnlong"));
         assert!(!Token::mnemonic_compare(b"TRIGger", b"tri"));
     }

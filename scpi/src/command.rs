@@ -12,7 +12,7 @@ use crate::response::Formatter;
 ///
 /// # Example
 ///
-/// ```
+/// ```rust
 /// use scpi::command::Command;
 /// use scpi::error::Error;
 /// use scpi::tokenizer::Tokenizer;

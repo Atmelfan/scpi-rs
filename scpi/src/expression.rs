@@ -21,13 +21,13 @@ pub mod numeric_list {
         fn read_numeric_data(&mut self) -> Result<Token, Error> {
             /* Read mantissa */
             let (begin, len) = lexical_core::parse_partial::<isize>(self.chars.as_slice()).map_err(|_|Error::NumericDataError)?;
-            self.chars.nth(len);
+            self.chars.nth(len-1);
 
             if let Some(c) = self.chars.clone().next() { //&& *c == b':' {
                 if *c == b':' {
                     self.chars.next();
                     let (end, len) = lexical_core::parse_partial::<isize>(self.chars.as_slice()).map_err(|_|Error::NumericDataError)?;
-                    self.chars.nth(len);
+                    self.chars.nth(len-1);
                     return Ok(Token::NumericRange(begin, end))
                 }
             }

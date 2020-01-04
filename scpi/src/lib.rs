@@ -16,7 +16,7 @@
 //!
 //! # Using this crate
 //! Add `scpi` to your dependencies. The precise version should be specified as the API is unstable for now:
-//! ```
+//! ```toml
 //! [dependencies]
 //! scpi = "=0.x.y"
 //! ```
@@ -100,7 +100,7 @@ pub mod expression;
 pub mod prelude {
     pub use crate::error::{Error, ErrorQueue, ArrayErrorQueue};
     pub use crate::tokenizer::{Tokenizer, Token};
-    pub use crate::command::Command;
+    pub use crate::command::{Command, CommandTypeMeta};
     pub use crate::tree::Node;
     pub use crate::{Context, Device};
 }

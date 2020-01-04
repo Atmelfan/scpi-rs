@@ -21,7 +21,11 @@ use scpi::{
     ieee488_tst,
     ieee488_wai,
     scpi_status,
-    scpi_system
+    scpi_system,
+
+    //Helpers
+    qonly,
+    nquery
 };
 use std::convert::TryInto;
 
@@ -53,6 +57,31 @@ impl Command for SensVoltAcCommand {
 
     fn query(&self, context: &mut Context, _args: &mut Tokenizer, response: &mut dyn Formatter) -> Result<(), Error> {
         response.ascii_data(b"[:SENSe]:VOLTage:AC?")
+    }
+}
+
+/// `EXAMple:HELLO:WORLD?`
+/// Example "Hello world" query
+struct HelloWorldCommand{}
+impl Command for HelloWorldCommand { qonly!();
+
+    fn query(&self, context: &mut Context, args: &mut Tokenizer, response: &mut Formatter) -> Result<(), Error> {
+        response.str_data(b"Hello world")
+    }
+}
+
+/// `EXAMple:NODE:[DEFault]`
+/// Dummy command to demonstrate default commands.
+///
+/// Note: `EXAMple` is actually a default command too, try entering `NODE?`.
+struct ExamNodeDefCommand{}
+impl Command for ExamNodeDefCommand {
+    fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<(), Error> {
+        Ok(())
+    }
+
+    fn query(&self, context: &mut Context, args: &mut Tokenizer, response: &mut Formatter) -> Result<(), Error> {
+        response.ascii_data(b"DEFault")
     }
 }
 
@@ -88,30 +117,49 @@ fn main(){
         scpi_status!(),
         // Create default SCPI mandated SYSTem subsystem
         scpi_system!(),
-        Node {name: b"SENSe", optional: true,
+        //Test
+        Node {name: b"EXAMple", optional: true,
             handler: None,
             sub: Some(&[
-                Node {name: b"VOLTage", optional: false,
+                Node {name: b"HELLO", optional: false,
                     handler: None,
                     sub: Some(&[
-                        Node {name: b"DC", optional: true,
-                            handler: Some(&SensVoltDcCommand{}),
-                            sub: None
-                        },
-                        Node {name: b"AC", optional: false,
-                            handler: Some(&SensVoltAcCommand{}),
+                        Node {name: b"WORLD", optional: true,
+                            handler: Some(&HelloWorldCommand{}),
                             sub: None
                         }
                     ])
                 },
-                Node {name: b"CURRent", optional: false,
+                Node {name: b"NODE", optional: false,
                     handler: None,
                     sub: Some(&[
-                        Node {name: b"DC", optional: true,
+                        Node {name: b"DEFault", optional: true,
+                            handler: Some(&ExamNodeDefCommand{}),
+                            sub: None
+                        }
+                    ])
+                },
+                Node {name: b"TYPes", optional: false,
+                    handler: None,
+                    sub: Some(&[
+                        Node {name: b"NUMeric", optional: false,
+                            handler: None,
+                            sub: Some(&[
+                                Node {name: b"DECimal", optional: true,
+                                    handler: Some(&SensVoltDcCommand{}),
+                                    sub: None
+                                },
+                                Node {name: b"SUFfix", optional: false,
+                                    handler: Some(&SensVoltDcCommand{}),
+                                    sub: None
+                                }
+                            ])
+                        },
+                        Node {name: b"STRing", optional: false,
                             handler: None,
                             sub: None
                         },
-                        Node {name: b"AC", optional: false,
+                        Node {name: b"ARBitrary", optional: false,
                             handler: None,
                             sub: None
                         }
@@ -141,7 +189,7 @@ fn main(){
         //SCPI tokenizer
         let mut tokenizer = Tokenizer::from_str(message.as_bytes());
 
-        loop {
+        //loop {
             //Result
             let result = context.exec(&mut tokenizer, &mut buf);
 
@@ -151,9 +199,9 @@ fn main(){
                 println!("{}", str::from_utf8(err.get_message().unwrap()).unwrap());
             } else {
                 print!("{}", str::from_utf8(buf.as_slice()).unwrap());
-                break;
+                //break;
             }
-        }
+        //}
 
 
     }
