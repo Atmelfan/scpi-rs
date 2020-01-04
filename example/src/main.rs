@@ -157,8 +157,8 @@ impl Command for ExamTypNumRadCommand { qonly!();
     fn query(&self, _context: &mut Context, args: &mut Tokenizer, response: &mut dyn Formatter) -> Result<(), Error> {
         //Optional parameter (default value of 1.0f32), accepts volt suffix, accepts MIN/MAX/DEFault
         let x: f32 = args.next_decimal(true, |val, suffix| {
-            let (s, mul): (SuffixUnitElement, f32) = SuffixUnitElement::from_suffix(suffix).map_err(|_| Error::SuffixNotAllowed)?;
-            s.convert(SuffixUnitElement::Radian, val*mul).map_err(|_| Error::SuffixNotAllowed)
+            let (s, v): (SuffixUnitElement, f32) = SuffixUnitElement::from_str(suffix, val).map_err(|_| Error::SuffixNotAllowed)?;
+            s.convert(SuffixUnitElement::Radian, v).map_err(|_| Error::SuffixNotAllowed)
         })?.unwrap_or(
             Token::DecimalNumericProgramData(1.0)
         ).numeric_range(0f32, 100f32, |n| match n {

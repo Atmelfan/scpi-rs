@@ -19,7 +19,7 @@ pub enum SuffixUnitElement {
     Mole,       //MOL
     ///Angle
     #[unit(suffix=b"DEG", multiplier=1.0)]
-    ADegree,    //DEG
+    Degree,    //DEG
     #[unit(suffix=b"GON", multiplier=1.0)]
     Grade,      //GON
     #[unit(suffix=b"MNT", multiplier=1.0)]
@@ -340,7 +340,9 @@ impl SuffixUnitElement {
     /// // If the suffix does not represent the same quantity (example "1.5 OHM") an error will be returned
     ///
     /// ```
+    ///
     pub fn convert(self, to: SuffixUnitElement, value: f32) -> Result<f32, SuffixError> {
+        use crate::lexical_core::Float;
         // Convert to self is simple
         if to == self {
             return Ok(value)
@@ -348,9 +350,18 @@ impl SuffixUnitElement {
         //If not, manually convert...
         //TODO: Automate with #[derive()]?
         let ret = match to {
+            //Power
+            SuffixUnitElement::Watt => match self {
+                SuffixUnitElement::DbMilliwatt => (value/1e-3f32).log10()*10f32,
+                _ => Err(SuffixError::IncompatibleQuantity)?
+            }
+            SuffixUnitElement::DbMilliwatt => match self {
+                SuffixUnitElement::Watt => 10f32.powf(val/10f32)*1e-3f32,
+                _ => Err(SuffixError::IncompatibleQuantity)?
+            }
             //Angle
             SuffixUnitElement::Radian => match self {
-                SuffixUnitElement::ADegree => value * PI / 180f32,
+                SuffixUnitElement::Degree => value * PI / 180f32,
                 SuffixUnitElement::Grade => value * PI / 200f32,
                 SuffixUnitElement::AMinute => value * PI / 180f32 / 60f32,
                 SuffixUnitElement::Second => value * PI / 180f32 / 3600f32,
@@ -370,9 +381,17 @@ impl SuffixUnitElement {
         Ok(ret)
     }
 
+    /// Convert a suffix to its unit and scale value.
+    /// Will also convert any DB<reference unit> to its reference unit and calculate its normal value
+    /// (**Note: `DBM` is an exception and is returned as DbMilliWatt, `DBMW` is handled as ordinary**)
+    ///
+    /// # Arguments
+    /// * `str` - Suffix string, example `PCT` or `DBUV`.
+    /// * `val` - Value to scale
     pub fn from_str(str: &[u8], val: f32) -> Result<(SuffixUnitElement, f32), SuffixError>{
         use crate::lexical_core::Float;
-        if str.starts_with(b"DB") && !str.eq_ignore_ascii_case(b"DBM") {
+        // If suffix start with "DB", try to parse it as a decibel unit
+        if str[..2].eq_ignore_ascii_case(b"DB") && !str.eq_ignore_ascii_case(b"DBM") {
             let (unit, mul): (SuffixUnitElement, f32) = Self::from_suffix(&str[2..])?;
 
             // Power units have a ratio of 10
