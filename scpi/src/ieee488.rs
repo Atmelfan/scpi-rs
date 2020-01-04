@@ -2,11 +2,11 @@
 //!
 
 
-use crate::error::{Error, ErrorQueue};
-use crate::tree::Node;
-use crate::tokenizer::{Tokenizer, Token};
-use crate::Device;
-use crate::response::{ArrayVecFormatter, Formatter};
+
+
+
+
+
 
 
 
@@ -113,7 +113,7 @@ pub mod commands {
 
     impl<'a> Command for IdnCommand<'a> { qonly!();
 
-        fn query(&self, context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
+        fn query(&self, _context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
 
             //TODO: Make this easier
             response.ascii_data(self.manufacturer)?;
@@ -138,11 +138,11 @@ pub mod commands {
     ///
     pub struct OpcCommand;
     impl Command for OpcCommand {
-        fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<(), Error> {
+        fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<(), Error> {
             unimplemented!()
         }
 
-        fn query(&self, context: &mut Context, args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
+        fn query(&self, _context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
             response.ascii_data(b"1")
         }
     }
@@ -206,7 +206,7 @@ pub mod commands {
     pub struct StbCommand;
     impl Command for StbCommand { qonly!();
 
-        fn query(&self, context: &mut Context, args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
+        fn query(&self, context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
             response.u8_data(context.get_stb())
         }
     }
@@ -227,7 +227,7 @@ pub mod commands {
     pub struct TstCommand;
     impl Command for TstCommand { qonly!();
 
-        fn query(&self, context: &mut Context, args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
+        fn query(&self, context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
             let result = context.device.tst();
             match result {
                 Ok(v) => response.i16_data(v),
@@ -244,7 +244,7 @@ pub mod commands {
     ///> NOTE - In a device that implements only sequential commands, the no-operation-pending flag is always TRUE
     pub struct WaiCommand;
     impl Command for WaiCommand { nquery!();
-        fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<(), Error> {
+        fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<(), Error> {
             Ok(())
         }
     }

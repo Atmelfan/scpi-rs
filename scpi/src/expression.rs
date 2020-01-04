@@ -277,7 +277,7 @@ pub mod channel_list {
 
         }
 
-        fn read_channel_module(&mut self, name: &'a [u8]) -> Result<Token<'a>, Error> {
+        fn read_channel_module(&mut self, _name: &'a [u8]) -> Result<Token<'a>, Error> {
             unimplemented!()
         }
     }

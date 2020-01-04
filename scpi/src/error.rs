@@ -3,7 +3,7 @@
 //! Each error variant has a corresponding error/event number as the enum discriminant.
 //!
 
-use arraydeque::{ArrayDeque, Saturating, Array, CapacityError};
+use arraydeque::{ArrayDeque, Saturating, Array};
 
 /// The Error type contains error definitions detected by the parser or commands
 ///

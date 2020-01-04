@@ -185,8 +185,8 @@ pub mod commands {
     use crate::error::Error;
     use crate::{nquery, qonly};
     use core::convert::TryInto;
-    use crate::scpi::EventRegister;
-    use core::cell::Cell;
+    
+    
 
     ///## 21.8.8 \[NEXT\]?
     ///> `SYSTem:ERRor:NEXT?` queries the error/event queue for the next item and removes it
@@ -256,7 +256,7 @@ pub mod commands {
 
     impl Command for SystVersCommand { qonly!();
 
-        fn query(&self, context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
+        fn query(&self, _context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
             //Return {year}.{rev}
             response.u16_data(self.year)?;
             response.ascii_data(b".")?;
@@ -472,7 +472,7 @@ pub mod commands {
     pub struct StatPresCommand;
 
     impl Command for StatPresCommand { nquery!();
-        fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<(), Error> {
+        fn event(&self, context: &mut Context, _args: &mut Tokenizer) -> Result<(), Error> {
             context.questionable.preset();
             context.operation.preset();
             Ok(())

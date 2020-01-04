@@ -2,10 +2,10 @@ use crate::error::Error;
 
 use core::slice::Iter;
 use core::str;
-use crate::error::Error::{DataTypeError, ParameterError};
-use core::convert::{TryFrom, TryInto};
+
+use core::convert::{TryFrom};
 use crate::error;
-use core::num::TryFromIntError;
+
 use lexical_core::Float;
 use crate::expression::{numeric_list, channel_list};
 

@@ -1,6 +1,6 @@
-use scpi::tokenizer::{Tokenizer, Token};
-use scpi::expression::numeric_list;
-use core::fmt;
+use scpi::tokenizer::{Tokenizer};
+
+
 
 extern crate std;
 

@@ -50,7 +50,7 @@ use crate::response::Formatter;
 ///
 pub trait Command {
 
-    fn help(&self, response: & mut dyn Formatter) {
+    fn help(&self, _response: & mut dyn Formatter) {
 
     }
 
