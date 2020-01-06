@@ -91,16 +91,45 @@ pub mod channel_list {
     use crate::error::Error;
     use core::slice::Iter;
     use crate::expression::channel_list::Token::ChannelRange;
+    use core::convert::TryFrom;
+
+    #[derive(Clone, Copy, PartialEq)]
+    pub struct ChannelSpec<'a>(&'a [u8], usize);
+
+    impl<'a> IntoIterator for ChannelSpec<'a> {
+        type Item = Result<isize, Error>;
+        type IntoIter = ChannelSpecIterator<'a>;
+
+        fn into_iter(self) -> Self::IntoIter {
+            ChannelSpecIterator {
+                chars: self.0.iter()
+            }
+        }
+    }
+
+    impl<'a> ChannelSpec<'a> {
+
+        /// Returns the dimension of this channel spec
+        pub fn dimension(&self) -> usize {
+            self.1
+        }
+
+        /// Returns the length of this channel spec. Identical to `dimension()`
+        pub fn len(&self) -> usize{
+            self.dimension()
+        }
+
+    }
 
     /// Channel list token
     #[derive(Clone, PartialEq)]
     pub enum Token<'a> {
         /// A channel spec consisting of at least one numeric.
         /// Example: `1!2!3` is a three-dimensional spec
-        ChannelSpec(&'a [u8]),
+        ChannelSpec(ChannelSpec<'a>),
         /// A range consisting of two channel-specs separated by a colon.
         /// Example: `1!1:2!3` is a range from '1,1' to '2,3' (row-major)
-        ChannelRange(&'a [u8], &'a [u8]),
+        ChannelRange(ChannelSpec<'a>, ChannelSpec<'a>),
         /// A module-channel, contains a module (numeric or character data) and a sub-channel-list.
         ModuleChannel(&'a [u8], &'a [u8]),
         /// A character pathname (can be a file, resource etc...)
@@ -136,56 +165,7 @@ pub mod channel_list {
 
     impl<'a> Token<'a> {
 
-        /// Iterate over a channel spec
-        ///
-        /// # Returns
-        /// An iterator over the channel-spec,
-        /// an empty iterator otherwise.
-        ///
-        fn spec(&self) -> ChannelSpecIterator<'a> {
-            match self {
-                Token::ChannelSpec(s) => ChannelSpecIterator{
-                    chars: s.iter()
-                },
-                _ => ChannelSpecIterator {
-                    chars: b"".iter()
-                }
-            }
-        }
 
-        /// Iterate over the beginning channel spec
-        ///
-        /// # Returns
-        /// An iterator over the beginning channel-range,
-        /// an empty iterator otherwise.
-        ///
-        fn begin(&self) -> ChannelSpecIterator<'a> {
-            match self {
-                Token::ChannelRange(b,_) => ChannelSpecIterator{
-                    chars: b.iter()
-                },
-                _ => ChannelSpecIterator {
-                    chars: b"".iter()
-                }
-            }
-        }
-
-        /// Iterate over the ending channel spec
-        ///
-        /// # Returns
-        /// An iterator over the ending channel-range,
-        /// an empty iterator otherwise.
-        ///
-        fn end(&self) -> ChannelSpecIterator<'a> {
-            match self {
-                Token::ChannelRange(_, e) => ChannelSpecIterator{
-                    chars: e.iter()
-                },
-                _ => ChannelSpecIterator {
-                    chars: b"".iter()
-                }
-            }
-        }
     }
 
 
@@ -217,8 +197,8 @@ pub mod channel_list {
             }
         }
         
-        fn read_channel_spec(&mut self) -> Result<(&'a [u8], u8), Error> {
-            let mut dim = 1u8;
+        fn read_channel_spec(&mut self) -> Result<(&'a [u8], usize), Error> {
+            let mut dim = 1usize;
             // Read full spec
             let s = self.chars.as_slice();
             while self.chars.clone().next().map_or(false, |ch| ch.is_ascii_digit() || *ch == b'-' || *ch == b'+' || *ch == b'!') {
@@ -256,12 +236,12 @@ pub mod channel_list {
                     }
 
                     // Return range
-                    return Ok(ChannelRange(begin, end))
+                    return Ok(ChannelRange(ChannelSpec(begin, dim1), ChannelSpec(end, dim2)))
                 }
             }
 
             // Return spec
-            Ok(Token::ChannelSpec(begin))
+            Ok(Token::ChannelSpec(ChannelSpec(begin, dim1)))
         }
 
         fn read_channel_path(&mut self, x: u8) -> Result<Token<'a>, Error> {
@@ -305,7 +285,7 @@ pub mod channel_list {
 
     #[cfg(test)]
     mod tests {
-        use crate::expression::channel_list::{Tokenizer, Token};
+        use crate::expression::channel_list::{Tokenizer, Token, ChannelSpec};
         use core::fmt;
 
         extern crate std;
@@ -314,8 +294,8 @@ pub mod channel_list {
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                 match self {
                     Token::Separator => write!(f, ","),
-                    Token::ChannelSpec(x) => write!(f, "{:?}", x),
-                    Token::ChannelRange(x,y) => write!(f, "{:?}:{:?}", x, y),
+                    Token::ChannelSpec(x) => write!(f, "{:?}", x.0),
+                    Token::ChannelRange(x,y) => write!(f, "{:?}:{:?}", x.0, y.0),
                     Token::PathName(x) => write!(f, "{:?}", x),
                     _ => write!(f, "(UNKNOWN)")
                 }
@@ -329,25 +309,33 @@ pub mod channel_list {
 
             // Destructure a spec
             let spec = expr.next().unwrap().unwrap();
-            assert_eq!(spec, Token::ChannelSpec(b"1!2"));
-            let mut spec_iter = spec.spec();
-            assert_eq!(Some(Ok(1)), spec_iter.next());
-            assert_eq!(Some(Ok(2)), spec_iter.next());
-            assert_eq!(None, spec_iter.next());
+            assert_eq!(spec, Token::ChannelSpec(ChannelSpec(b"1!2", 2)));
+            if let Token::ChannelSpec(spec) = spec {
+                let mut spec_iter = spec.into_iter();
+                assert_eq!(Some(Ok(1)), spec_iter.next());
+                assert_eq!(Some(Ok(2)), spec_iter.next());
+                assert_eq!(None, spec_iter.next());
+            }else{
+                panic!("Not a channel spec")
+            }
 
             assert_eq!(expr.next(), Some(Ok(Token::Separator)));
 
             // Destructure a range
             let range = expr.next().unwrap().unwrap();
-            assert_eq!(range, Token::ChannelRange(b"3!4", b"5!6"));
-            let mut begin_iter = range.begin();
-            assert_eq!(Some(Ok(3)), begin_iter.next());
-            assert_eq!(Some(Ok(4)), begin_iter.next());
-            assert_eq!(None, begin_iter.next());
-            let mut end_iter = range.end();
-            assert_eq!(Some(Ok(5)), end_iter.next());
-            assert_eq!(Some(Ok(6)), end_iter.next());
-            assert_eq!(None, end_iter.next());
+            assert_eq!(range, Token::ChannelRange(ChannelSpec(b"3!4", 2), ChannelSpec(b"5!6", 2)));
+            if let Token::ChannelRange(begin, end) = range {
+                let mut begin_iter = begin.into_iter();
+                assert_eq!(Some(Ok(3)), begin_iter.next());
+                assert_eq!(Some(Ok(4)), begin_iter.next());
+                assert_eq!(None, begin_iter.next());
+                let mut end_iter = end.into_iter();
+                assert_eq!(Some(Ok(5)), end_iter.next());
+                assert_eq!(Some(Ok(6)), end_iter.next());
+                assert_eq!(None, end_iter.next());
+            }else {
+                panic!("Not a channel range")
+            }
 
             assert_eq!(expr.next(), Some(Ok(Token::Separator)));
             assert_eq!(expr.next(), Some(Ok(Token::PathName(b"POTATO"))));
