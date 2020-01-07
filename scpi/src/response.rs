@@ -124,6 +124,8 @@ pub trait Formatter {
         self.push_byte(RESPONSE_DATA_SEPARATOR)
     }
 
+    /// Format `err` as a error/event response
+    /// `<error code>, "<error message>"`
     fn error(&mut self, err: Error) -> Result<(), Error>{
         self.i16_data(err as i16)?;
         self.separator()?;
@@ -145,6 +147,12 @@ pub trait Formatter {
         self.push_byte(b'"')?;
         self.push_str(s)?;
         self.push_byte(b'"')
+    }
+
+    /// Formats `s` as \<HEADER RESPONSE DATA\>
+    fn header_data(&mut self, s: &[u8]) -> Result<(), Error>{
+        self.push_str(s)?;
+        self.push_byte(b' ')
     }
 
     /// Format and push a f32 with as \<NR3 NUMERIC RESPONSE DATA\>

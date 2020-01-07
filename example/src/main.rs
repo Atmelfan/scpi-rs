@@ -206,6 +206,26 @@ fn main(){
         // Create default SCPI mandated SYSTem subsystem
         scpi_system!(),
         //Test
+        Node{
+            name: b"ABORt",
+            handler: None,
+            optional: false,
+            sub: None
+        },
+        Node{
+            name: b"INITiate",
+            handler: None,
+            optional: false,
+            sub: Some(&[
+                Node{
+                    name: b"IMMediate",
+                    handler: None,
+                    optional: true,
+                    sub: None
+                },
+
+            ])
+        },
         Node {name: b"EXAMple", optional: true,
             handler: None,
             sub: Some(&[
