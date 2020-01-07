@@ -342,7 +342,7 @@ impl SuffixUnitElement {
     /// ```
     ///
     pub fn convert(self, to: SuffixUnitElement, value: f32) -> Result<f32, SuffixError> {
-        use crate::lexical_core::Float;
+        
         // Convert to self is simple
         if to == self {
             return Ok(value)

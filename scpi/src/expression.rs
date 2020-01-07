@@ -91,7 +91,7 @@ pub mod channel_list {
     use crate::error::Error;
     use core::slice::Iter;
     use crate::expression::channel_list::Token::ChannelRange;
-    use core::convert::TryFrom;
+    
 
     #[derive(Clone, Copy, PartialEq)]
     pub struct ChannelSpec<'a>(&'a [u8], usize);
