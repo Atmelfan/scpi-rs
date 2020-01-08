@@ -46,8 +46,9 @@
 //! ```scpi
 //! INITiate;CONFIGure:VOLTage;FETCh:VOLTage?
 //! ```
+//!
 //! would cause an error to be generated as the data was invalidated by the CONFigure
 //! command. Reconfiguring the display or format blocks shall not have this effect.
 //! ---
 //! # Implementation
-//! ![alt text](https://raw.githubusercontent.com/Atmelfan/scpi-rs/master/scpi_instrument/docs/measure_arch.svg)
+//! ![alt text](https://github.com/Atmelfan/scpi-rs/master/scpi_instrument/docs/measure_arch.png)
