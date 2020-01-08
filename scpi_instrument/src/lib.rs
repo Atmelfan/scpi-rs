@@ -9,6 +9,8 @@ use scpi::response::Formatter;
 use core::cell::{RefCell, RefMut, Cell};
 use core::borrow::BorrowMut;
 
+pub mod subsystem;
+
 pub trait Trigger {
     fn abort(&self) -> Result<(), Error>;
 
@@ -132,16 +134,83 @@ mod tests {
 /// subsequent READ? QUERY operation would perform the specified function.
 pub trait Measure {
 
-    fn rst() -> Result<(), Error>;
+    fn rst(&mut self) -> Result<(), Error>;
 
     /// Called when the event form is used
-    fn configure(&self, context: &mut Context, args: &mut Tokenizer) -> Result<(), Error>;
+    fn configure(&mut self, context: &mut Context, args: &mut Tokenizer) -> Result<(), Error>;
 
     ///Called when the query form is used
     fn configure_query(&self, context: &mut Context, args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error>;
 
     ///Called when the query form is used
     fn fetch_query(&self, context: &mut Context, args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error>;
+}
+
+/// A measure which acts as a proxy for the last Measure command.
+/// Will forward any `FETCh`, `READ` and `MEASure` commands to `last_meas`
+pub struct MeasureContext<'a> {
+    last_meas: Option<&'a dyn Measure>
+}
+
+pub struct MeasureProxy<'a, M: Measure> {
+    meas: M,
+    context: &'a RefCell<MeasureContext<'a>>
+}
+
+impl<'a, M: Measure> Measure for MeasureProxy<'a, M> {
+    fn rst(&mut self) -> Result<(), Error> {
+        self.meas.rst()
+    }
+
+    fn configure(&mut self, context: &mut Context, args: &mut Tokenizer) -> Result<(), Error> {
+        self.meas.configure(context, args)
+    }
+
+    fn configure_query(&self, context: &mut Context, args: &mut Tokenizer, response: &mut dyn Formatter) -> Result<(), Error> {
+        self.meas.configure_query(context, args, response)
+    }
+
+    fn fetch_query(&self, context: &mut Context, args: &mut Tokenizer, response: &mut dyn Formatter) -> Result<(), Error> {
+        //self.context.borrow_mut().set_last_meas(&self.meas);
+        self.meas.fetch_query(context, args, response)
+    }
+}
+
+impl<'a> MeasureContext<'a> {
+    pub fn set_last_meas(&mut self, meas: &'a dyn Measure) {
+        self.last_meas.replace(meas);
+    }
+
+    pub fn clear_last_meas(&mut self) {
+        self.last_meas.take();
+    }
+}
+
+impl<'a> Measure for MeasureContext<'a> {
+    fn rst(&mut self) -> Result<(), Error> {
+        self.clear_last_meas();
+        Ok(())
+    }
+
+    fn configure(&mut self, context: &mut Context, args: &mut Tokenizer) -> Result<(), Error> {
+        Err(Error::DataCorruptOrStale)
+    }
+
+    fn configure_query(&self, context: &mut Context, args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
+        if let Some(meas) = self.last_meas {
+            meas.fetch_query(context, args, response)
+        }else {
+            Err(Error::DataCorruptOrStale)
+        }
+    }
+
+    fn fetch_query(&self, context: &mut Context, args: &mut Tokenizer, response: &mut dyn Formatter) -> Result<(), Error> {
+        if let Some(meas) = self.last_meas {
+            meas.fetch_query(context, args, response)
+        }else {
+            Err(Error::DataCorruptOrStale)
+        }
+    }
 }
 
 pub struct ConfCommand<'a, M: Measure>{
