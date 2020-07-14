@@ -247,7 +247,7 @@ impl Device for MyDevice {
 fn main() {
     let mut my_device = MyDevice {};
 
-    let mut tree = Node {
+    let tree = Node {
         name: b"ROOT",
         optional: true,
         handler: None,
@@ -371,7 +371,7 @@ fn main() {
 
     let mut errors = ArrayErrorQueue::<[Error; 10]>::new();
 
-    let mut context = Context::new(&mut my_device, &mut errors, &mut tree);
+    let mut context = Context::new(&mut my_device, &mut errors, &tree);
 
     let stdin = io::stdin();
     for line in stdin.lock().lines() {
@@ -381,7 +381,7 @@ fn main() {
         let mut buf = ArrayVecFormatter::<[u8; 256]>::new();
 
         //SCPI tokenizer
-        let mut tokenizer = Tokenizer::from_str(message.as_bytes());
+        let mut tokenizer = Tokenizer::new(message.as_bytes());
 
         //loop {
         //Result

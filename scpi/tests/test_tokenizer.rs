@@ -7,7 +7,7 @@ macro_rules! match_tokens {
         let expected = [
             $($tok),*
         ];
-        let tokenizer = Tokenizer::from_str($s);
+        let tokenizer = Tokenizer::new($s);
         for (a, b) in tokenizer.into_iter().zip(expected.iter()) {
             assert_eq!(&a, b);
         }

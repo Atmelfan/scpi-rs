@@ -513,7 +513,7 @@ fn ascii_to_digit(digit: u8, radix: u8) -> Option<u32> {
 }
 
 impl<'a> Tokenizer<'a> {
-    pub fn from_str(buf: &'a [u8]) -> Self {
+    pub fn new(buf: &'a [u8]) -> Self {
         Tokenizer {
             chars: buf.iter(),
             in_header: true,
@@ -882,15 +882,15 @@ mod test_parse {
     #[test]
     fn test_read_character_data() {
         assert_eq!(
-            Tokenizer::from_str(b"CHARacter4 , pperg").read_character_data(),
+            Tokenizer::new(b"CHARacter4 , pperg").read_character_data(),
             Ok(Token::CharacterProgramData(b"CHARacter4"))
         );
         assert_eq!(
-            Tokenizer::from_str(b"CHARacterIsTooLong").read_character_data(),
+            Tokenizer::new(b"CHARacterIsTooLong").read_character_data(),
             Err(Error::CharacterDataTooLong)
         );
         assert_eq!(
-            Tokenizer::from_str(b"Character Invalid").read_character_data(),
+            Tokenizer::new(b"Character Invalid").read_character_data(),
             Err(Error::InvalidCharacterData)
         );
     }
@@ -900,42 +900,42 @@ mod test_parse {
         //TODO: FIX EXPONENTS!
 
         assert_eq!(
-            Tokenizer::from_str(b"25").read_numeric_data().unwrap(),
+            Tokenizer::new(b"25").read_numeric_data().unwrap(),
             Token::DecimalNumericProgramData(25f32)
         );
 
         assert_eq!(
-            Tokenizer::from_str(b"-10.").read_numeric_data().unwrap(),
+            Tokenizer::new(b"-10.").read_numeric_data().unwrap(),
             Token::DecimalNumericProgramData(-10f32)
         );
 
         assert_eq!(
-            Tokenizer::from_str(b".2").read_numeric_data().unwrap(),
+            Tokenizer::new(b".2").read_numeric_data().unwrap(),
             Token::DecimalNumericProgramData(0.2f32)
         );
 
         assert_eq!(
-            Tokenizer::from_str(b"1.E5").read_numeric_data().unwrap(),
+            Tokenizer::new(b"1.E5").read_numeric_data().unwrap(),
             Token::DecimalNumericProgramData(1e5f32)
         );
 
         assert_eq!(
-            Tokenizer::from_str(b"-25e5").read_numeric_data().unwrap(),
+            Tokenizer::new(b"-25e5").read_numeric_data().unwrap(),
             Token::DecimalNumericProgramData(-25e5f32)
         );
 
         assert_eq!(
-            Tokenizer::from_str(b"25E-2").read_numeric_data().unwrap(),
+            Tokenizer::new(b"25E-2").read_numeric_data().unwrap(),
             Token::DecimalNumericProgramData(0.25f32)
         );
 
         assert_eq!(
-            Tokenizer::from_str(b".1E2").read_numeric_data().unwrap(),
+            Tokenizer::new(b".1E2").read_numeric_data().unwrap(),
             Token::DecimalNumericProgramData(10f32)
         );
 
         assert_eq!(
-            Tokenizer::from_str(b".1E2").read_numeric_data().unwrap(),
+            Tokenizer::new(b".1E2").read_numeric_data().unwrap(),
             Token::DecimalNumericProgramData(10f32)
         );
     }
@@ -943,13 +943,13 @@ mod test_parse {
     #[test]
     fn test_read_suffix_data() {
         assert_eq!(
-            Tokenizer::from_str(b"MOHM").read_suffix_data().unwrap(),
+            Tokenizer::new(b"MOHM").read_suffix_data().unwrap(),
             Token::SuffixProgramData(b"MOHM")
         );
 
         // Error, too long suffix
         assert_eq!(
-            Tokenizer::from_str(b"SUFFIXTOODAMNLONG").read_suffix_data(),
+            Tokenizer::new(b"SUFFIXTOODAMNLONG").read_suffix_data(),
             Err(Error::SuffixTooLong)
         );
     }
@@ -969,28 +969,28 @@ mod test_parse {
     #[test]
     fn test_read_string_data() {
         assert_eq!(
-            Tokenizer::from_str(b"\"MOHM\",  gui").read_string_data(b'"', true),
+            Tokenizer::new(b"\"MOHM\",  gui").read_string_data(b'"', true),
             Ok(Token::StringProgramData(b"MOHM"))
         );
         assert_eq!(
-            Tokenizer::from_str(b"'MOHM',  gui").read_string_data(b'\'', true),
+            Tokenizer::new(b"'MOHM',  gui").read_string_data(b'\'', true),
             Ok(Token::StringProgramData(b"MOHM"))
         );
         assert_eq!(
-            Tokenizer::from_str(b"'MO''HM',  gui").read_string_data(b'\'', true),
+            Tokenizer::new(b"'MO''HM',  gui").read_string_data(b'\'', true),
             Ok(Token::StringProgramData(b"MO''HM"))
         );
 
         assert_eq!(
-            Tokenizer::from_str(b"\"MOHM").read_string_data(b'"', true),
+            Tokenizer::new(b"\"MOHM").read_string_data(b'"', true),
             Err(Error::InvalidStringData)
         );
         assert_eq!(
-            Tokenizer::from_str(b"'MOHM").read_string_data(b'"', true),
+            Tokenizer::new(b"'MOHM").read_string_data(b'"', true),
             Err(Error::InvalidStringData)
         );
         assert_eq!(
-            Tokenizer::from_str(b"'MO\xffHM").read_string_data(b'"', true),
+            Tokenizer::new(b"'MO\xffHM").read_string_data(b'"', true),
             Err(Error::InvalidCharacter)
         );
     }
@@ -998,37 +998,37 @@ mod test_parse {
     #[test]
     fn test_read_arb_data() {
         assert_eq!(
-            Tokenizer::from_str(b"02\x01\x02,").read_arbitrary_data(b'2'),
+            Tokenizer::new(b"02\x01\x02,").read_arbitrary_data(b'2'),
             Ok(Token::ArbitraryBlockData(&[1, 2]))
         );
 
         // Error, too short
         assert_eq!(
-            Tokenizer::from_str(b"02\x01").read_arbitrary_data(b'2'),
+            Tokenizer::new(b"02\x01").read_arbitrary_data(b'2'),
             Err(Error::InvalidBlockData)
         );
 
         // Error, invalid header
         assert_eq!(
-            Tokenizer::from_str(b"a2\x01\x02,").read_arbitrary_data(b'2'),
+            Tokenizer::new(b"a2\x01\x02,").read_arbitrary_data(b'2'),
             Err(Error::InvalidBlockData)
         );
 
         // Error, header too short/invalid
         assert_eq!(
-            Tokenizer::from_str(b"2\x01\x02,").read_arbitrary_data(b'2'),
+            Tokenizer::new(b"2\x01\x02,").read_arbitrary_data(b'2'),
             Err(Error::InvalidBlockData)
         );
 
         // Indefinite length
         assert_eq!(
-            Tokenizer::from_str(b"\x01\x02\n").read_arbitrary_data(b'0'),
+            Tokenizer::new(b"\x01\x02\n").read_arbitrary_data(b'0'),
             Ok(Token::ArbitraryBlockData(&[1, 2]))
         );
 
         // Error, indefinite not terminated by newline
         assert_eq!(
-            Tokenizer::from_str(b"\x01\x02").read_arbitrary_data(b'0'),
+            Tokenizer::new(b"\x01\x02").read_arbitrary_data(b'0'),
             Err(Error::InvalidBlockData)
         );
     }
@@ -1036,7 +1036,7 @@ mod test_parse {
     #[test]
     fn test_read_expr_data() {
         assert_eq!(
-            Tokenizer::from_str(b"(@1!2,2,3,4,5,#,POTATO)").read_expression_data(),
+            Tokenizer::new(b"(@1!2,2,3,4,5,#,POTATO)").read_expression_data(),
             Ok(Token::ExpressionProgramData(b"@1!2,2,3,4,5,#,POTATO"))
         );
     }

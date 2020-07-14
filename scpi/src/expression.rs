@@ -250,7 +250,7 @@ pub mod channel_list {
             let s = self.chars.as_slice();
 
             if let crate::Token::StringProgramData(s) =
-                crate::tokenizer::Tokenizer::from_str(s).read_string_data(x, true)?
+                crate::tokenizer::Tokenizer::new(s).read_string_data(x, true)?
             {
                 self.chars.nth(s.len() + 1); //Forward iterator characters
                 Ok(Token::PathName(s))
@@ -259,9 +259,10 @@ pub mod channel_list {
             }
         }
 
-        fn read_channel_module(&mut self, _name: &'a [u8]) -> Result<Token<'a>, Error> {
-            unimplemented!()
-        }
+        //TODO: Implement channel modules
+        //fn read_channel_module(&mut self, _name: &'a [u8]) -> Result<Token<'a>, Error> {
+        //    unimplemented!()
+        //}
     }
 
     impl<'a> Iterator for Tokenizer<'a> {

@@ -4,7 +4,6 @@ version = "0.2.7"
 authors = ["Atmelfan <gustavp@gpa-robotics.com>"]
 edition = "2018"
 license = "MIT"
-license-file = "../LICENSE.txt"
 
 description = "SCPI/IEEE488.2 parser library"
 keywords = ["SCPI", "parser", "Instrumentation", "Embedded", "Multimeter"]
