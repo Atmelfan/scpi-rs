@@ -3,7 +3,7 @@
 //! Each error variant has a corresponding error/event number as the enum discriminant.
 //!
 
-use arraydeque::{ArrayDeque, Saturating, Array};
+use arraydeque::{Array, ArrayDeque, Saturating};
 
 /// The Error type contains error definitions detected by the parser or commands
 ///
@@ -25,21 +25,18 @@ use arraydeque::{ArrayDeque, Saturating, Array};
 
 pub struct ExtendedError {
     error: Error,
-    msg: Option<&'static [u8]>
+    msg: Option<&'static [u8]>,
 }
 
 impl ExtendedError {
     pub fn new(error: Error) -> Self {
-        ExtendedError {
-            error,
-            msg: None
-        }
+        ExtendedError { error, msg: None }
     }
 
     pub fn extended(error: Error, msg: &'static [u8]) -> Self {
         ExtendedError {
             error,
-            msg: Some(msg)
+            msg: Some(msg),
         }
     }
 
@@ -73,7 +70,7 @@ pub enum Error {
     ///
     /// The queue is completely empty. Every error/event in the queue has been read or
     /// the queue was purposely cleared by power-on, *CLS, etc
-    #[error(code=0,message=b"No error")]
+    #[error(code = 0, message = b"No error")]
     NoError,
 
     ///# 28.9.10 Command Errors [-199, -100]
@@ -271,7 +268,7 @@ pub enum Error {
     #[error(code=-258,message=b"Media protected")]
     MediaProtected,
     #[error(code=-260,message=b"Expression error")]
-    ExecExpressionError,//Also declared in 170?
+    ExecExpressionError, //Also declared in 170?
     #[error(code=-261,message=b"Math error in expression")]
     MathErrorInExpression,
     #[error(code=-270,message=b"Macro error")]
@@ -449,19 +446,18 @@ impl<'a> Error {
      */
     pub fn esr_mask(self) -> u8 {
         match self.get_code() {
-            -99..=0 => 0u8,//No bit
-            -199..=-100 => 0x20u8,//bit 5
-            -299..=-200 => 0x10u8,//bit 4
-            -399..=-300 => 0x08u8,//bit 3
-            -499..=-400 => 0x04u8,//bit 2
-            -599..=-500 => 0x80u8,//bit 7
-            -699..=-600 => 0x40u8,//bit 6
-            -799..=-700 => 0x02u8,//bit 1
-            -899..=-800 => 0x01u8,//bit 0
-            _ => 0x08u8,//bit 3
+            -99..=0 => 0u8,        //No bit
+            -199..=-100 => 0x20u8, //bit 5
+            -299..=-200 => 0x10u8, //bit 4
+            -399..=-300 => 0x08u8, //bit 3
+            -499..=-400 => 0x04u8, //bit 2
+            -599..=-500 => 0x80u8, //bit 7
+            -699..=-600 => 0x40u8, //bit 6
+            -799..=-700 => 0x02u8, //bit 1
+            -899..=-800 => 0x01u8, //bit 0
+            _ => 0x08u8,           //bit 3
         }
     }
-
 }
 
 pub trait ErrorQueue {
@@ -471,28 +467,33 @@ pub trait ErrorQueue {
 
     fn len(&self) -> usize;
 
-    fn not_empty(&self) -> bool {
+    fn is_empty(&self) -> bool {
         self.len() == 0
     }
 }
 
-pub struct ArrayErrorQueue<T: Array<Item=Error>> {
+pub struct ArrayErrorQueue<T: Array<Item = Error>> {
     vec: ArrayDeque<T>,
 }
 
-
-impl<T: Array<Item=Error>> ArrayErrorQueue<T> {
-    pub fn new() -> Self {
+impl<T: Array<Item = Error>>  Default for ArrayErrorQueue<T> {
+    fn default() -> Self {
         ArrayErrorQueue {
-            vec: ArrayDeque::<T, Saturating>::new()
+            vec: ArrayDeque::<T, Saturating>::new(),
         }
     }
 }
 
-impl<T: Array<Item=Error>> ErrorQueue for ArrayErrorQueue<T> {
+impl<T: Array<Item = Error>> ArrayErrorQueue<T> {
+    pub fn new() -> Self {
+        ArrayErrorQueue::default()
+    }
+}
+
+impl<T: Array<Item = Error>> ErrorQueue for ArrayErrorQueue<T> {
     fn push_back_error(&mut self, err: Error) {
         //Try to queue an error, replace last with QueueOverflow if full
-        if let Err(_) =  self.vec.push_back(err) {
+        if self.vec.push_back(err).is_err() {
             self.vec.pop_back();
             self.vec.push_back(Error::QueueOverflow).ok();
         }

@@ -1,5 +1,5 @@
-use scpi::tokenizer::{Tokenizer, Token};
 use scpi::error::Error;
+use scpi::tokenizer::{Token, Tokenizer};
 use std::borrow::Borrow;
 
 extern crate std;
@@ -18,7 +18,7 @@ macro_rules! match_tokens {
 }
 
 #[test]
-fn test_parse_common(){
+fn test_parse_common() {
     match_tokens![b"*IDN?" =>
         Ok(Token::HeaderCommonPrefix),
         Ok(Token::ProgramMnemonic(b"IDN")),
@@ -27,8 +27,7 @@ fn test_parse_common(){
 }
 
 #[test]
-fn test_parse_programdata(){
-
+fn test_parse_programdata() {
     match_tokens![b"*STB #HAA , 255, \"STRING\", 1 SUFFIX, #202\x01\x02, CHAR, (1,11,3:9)\n" =>
         Ok(Token::HeaderCommonPrefix),
         Ok(Token::ProgramMnemonic(b"STB")),

@@ -11,89 +11,63 @@ fn get_inner_meta(list: &MetaList) -> Vec<&Meta> {
 }
 
 fn find_prop_bstr<'a>(meta: &'a Meta, attr: &str, property: &str) -> Option<&'a LitByteStr>{
-    match meta {
-        Meta::List(list) => {
-            if list.path.is_ident(attr) {
-                //println!("{:?}", list);
-                let inner = get_inner_meta(list);
+    if let Meta::List(list) = meta {
+        if list.path.is_ident(attr) {
+            //println!("{:?}", list);
+            let inner = get_inner_meta(list);
 
-                for name_value in inner {
-                    match name_value {
-                        Meta::NameValue(MetaNameValue {
-                                            ref path,
-                                            lit: Lit::ByteStr(ref s),
-                                            ..
-                                        }) => {
-                            if path.is_ident(property) {
-                                return Some(s)
-                            } else {
-                                return None
-                            }
-                        }
-                        _ => ()
+            for name_value in inner {
+                if let Meta::NameValue(MetaNameValue {
+                    ref path,
+                    lit: Lit::ByteStr(ref s),
+                    ..
+                }) = name_value {
+                    if path.is_ident(property) {
+                        return Some(s)
                     }
                 }
             }
-            None
         }
-        _ => None
     }
+    None
 }
 
 fn find_prop_bint<'a>(meta: &'a Meta, attr: &str, property: &str) -> Option<&'a LitInt>{
-    match meta {
-        Meta::List(list) => {
-            if list.path.is_ident(attr) {
-                //println!("{:?}", list);
-                let inner = get_inner_meta(list);
+    if let Meta::List(list) = meta {
+        if list.path.is_ident(attr) {
+            //println!("{:?}", list);
+            let inner = get_inner_meta(list);
 
-                for name_value in inner {
-                    match name_value {
-                        Meta::NameValue(MetaNameValue {
-                                            ref path,
-                                            lit: Lit::Int(ref s),
-                                            ..
-                                        }) => {
-                            if path.is_ident(property) {
-                                return Some(s)
-                            } else {
-                                return None
-                            }
-                        }
-                        _ => ()
+            for name_value in inner {
+                if let Meta::NameValue(MetaNameValue {
+                    ref path,
+                    lit: Lit::Int(ref s),
+                    ..
+                }) = name_value {
+                    if path.is_ident(property) {
+                        return Some(s)
                     }
                 }
             }
-            None
         }
-        _ => None
     }
+    None
 }
 
 fn find_prop_path<'a>(meta: &'a Meta, attr: &str, property: &str) -> bool {
-    match meta {
-        Meta::List(list) => {
-            if list.path.is_ident(attr) {
-                //println!("{:?}", list);
-                let inner = get_inner_meta(list);
+    if let Meta::List(list) = meta {
+        if list.path.is_ident(attr) {
+            //println!("{:?}", list);
+            let inner = get_inner_meta(list);
 
-                for name_value in inner {
-                    match name_value {
-                        Meta::Path(path) => {
-                            if path.is_ident(property) {
-                                return true
-                            } else {
-                                return false
-                            }
-                        }
-                        _ => ()
-                    }
+            for name_value in inner {
+                if let Meta::Path(path) = name_value {
+                    return path.is_ident(property);
                 }
             }
-            false
         }
-        _ => false
     }
+    false
 }
 
 fn find_prop_f(meta: &Meta, attr: &str, property: &str) -> Option<f32>{

@@ -3,27 +3,25 @@ use crate::error::Error;
 use core::slice::Iter;
 use core::str;
 
-use core::convert::{TryFrom};
 use crate::error;
+use core::convert::TryFrom;
 
-use lexical_core::Float;
-use crate::expression::{numeric_list, channel_list};
-use lexical_core::ErrorCode::{Overflow, Underflow};
+use crate::expression::{channel_list, numeric_list};
 
 /// SCPI tokens
 ///
 ///
-#[derive(Debug,PartialEq, Copy, Clone)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Token<'a> {
     /// Defined as \<mnemonic separator\> consisting of a single `:` character
-    HeaderMnemonicSeparator,    //:
-    HeaderCommonPrefix,         //*
-    HeaderQuerySuffix,          //?
+    HeaderMnemonicSeparator, //:
+    HeaderCommonPrefix, //*
+    HeaderQuerySuffix,  //?
 
-    ProgramMessageUnitSeparator,//;
-    ProgramMessageTerminator,   //\n+END
-    ProgramHeaderSeparator,     //SP
-    ProgramDataSeparator,       //,
+    ProgramMessageUnitSeparator, //;
+    ProgramMessageTerminator,    //\n+END
+    ProgramHeaderSeparator,      //SP
+    ProgramDataSeparator,        //,
     ProgramMnemonic(&'a [u8]),   // <program mnemonic>
     CharacterProgramData(&'a [u8]),
     DecimalNumericProgramData(f32),
@@ -32,39 +30,41 @@ pub enum Token<'a> {
     StringProgramData(&'a [u8]),
     ArbitraryBlockData(&'a [u8]),
     ExpressionProgramData(&'a [u8]),
-    Utf8BlockData(&'a str)
-
+    Utf8BlockData(&'a str),
 }
 
-pub enum NumericValues <'a>{
+pub enum NumericValues<'a> {
     Maximum,
     Minimum,
     Default,
     Up,
     Down,
-    Numeric(Token<'a>)
+    Numeric(Token<'a>),
 }
 
 impl<'a> Token<'a> {
-
     pub fn is_data_object(&self) -> bool {
         match self {
-            Token::CharacterProgramData(_) | Token::DecimalNumericProgramData(_) | Token::SuffixProgramData(_) |
-            Token::NonDecimalNumericProgramData(_) | Token::StringProgramData(_) | Token::ArbitraryBlockData(_) => true,
-            _ => false
+            Token::CharacterProgramData(_)
+            | Token::DecimalNumericProgramData(_)
+            | Token::SuffixProgramData(_)
+            | Token::NonDecimalNumericProgramData(_)
+            | Token::StringProgramData(_)
+            | Token::ArbitraryBlockData(_) => true,
+            _ => false,
         }
     }
 
-    pub fn mnemonic_split_index(mnemonic: &'a [u8]) -> Option<(&'a [u8], &'a [u8])>{
+    pub(crate) fn mnemonic_split_index(mnemonic: &'a [u8]) -> Option<(&'a [u8], &'a [u8])> {
         let last = mnemonic.iter().rposition(|p| !p.is_ascii_digit());
 
-        if let Some(index) = last{
-            if index == mnemonic.len()-1 {
+        if let Some(index) = last {
+            if index == mnemonic.len() - 1 {
                 None
-            }else{
-                Some(mnemonic.split_at(index+1))
+            } else {
+                Some(mnemonic.split_at(index + 1))
             }
-        }else {
+        } else {
             None
         }
     }
@@ -87,43 +87,50 @@ impl<'a> Token<'a> {
                 }
                 x.map_or(
                     !(m.is_ascii_uppercase() || m.is_ascii_digit()) && optional,
-                    |x| m.eq_ignore_ascii_case(x)
+                    |x| m.eq_ignore_ascii_case(x),
                 )
             })
         }
     }
 
     //TOKen<digits> = [TOK|TOKEN](digits>1)
-    pub fn eq_mnemonic(&self, mnemonic: &'a [u8]) -> bool{
-
+    pub fn eq_mnemonic(&self, mnemonic: &'a [u8]) -> bool {
         match self {
             Token::ProgramMnemonic(s) | Token::CharacterProgramData(s) => {
-                Self::mnemonic_compare(mnemonic, s) || match (Self::mnemonic_split_index(mnemonic), Self::mnemonic_split_index(s)) {
-                    (None, None) => false,
-                    (Some((m, index)), None) => Self::mnemonic_compare(m, s) && index == b"1",
-                    (None, Some((x, index))) => Self::mnemonic_compare(mnemonic, x) && index == b"1",
-                    (Some((m, index1)),Some((x, index2))) => Self::mnemonic_compare(m, x) && (index1 == index2)
-                }
-            },
-            _ => false
+                Self::mnemonic_compare(mnemonic, s)
+                    || match (
+                        Self::mnemonic_split_index(mnemonic),
+                        Self::mnemonic_split_index(s),
+                    ) {
+                        (None, None) => false,
+                        (Some((m, index)), None) => Self::mnemonic_compare(m, s) && index == b"1",
+                        (None, Some((x, index))) => {
+                            Self::mnemonic_compare(mnemonic, x) && index == b"1"
+                        }
+                        (Some((m, index1)), Some((x, index2))) => {
+                            Self::mnemonic_compare(m, x) && (index1 == index2)
+                        }
+                    }
+            }
+            _ => false,
         }
     }
 
     /// If token is an `ExpressionProgramData`, return a numeric list tokenizer to use.
     /// Otherwise a
     ///
-    pub fn numeric_list(&self) -> Result<numeric_list::Tokenizer, Error>{
+    pub fn numeric_list(&self) -> Result<numeric_list::Tokenizer, Error> {
         if let Token::ExpressionProgramData(str) = self {
-            Ok(numeric_list::Tokenizer {chars: str.iter()})
-        }else{
+            Ok(numeric_list::Tokenizer { chars: str.iter() })
+        } else {
             Err(Error::DataTypeError)
         }
     }
 
-    pub fn channel_list(&self) -> Result<channel_list::Tokenizer, Error>{
+    pub fn channel_list(&self) -> Result<channel_list::Tokenizer, Error> {
         if let Token::ExpressionProgramData(str) = self {
-            channel_list::Tokenizer::new(str.clone()).ok_or(Error::ExecExpressionError)
-        }else{
+            channel_list::Tokenizer::new(str).ok_or(Error::ExecExpressionError)
+        } else {
             Err(Error::DataTypeError)
         }
     }
@@ -143,7 +150,7 @@ impl<'a> Token<'a> {
     ///
     /// let s = Token::CharacterProgramData(b"potato");
     ///
-    /// if let Ok(value) = s.map_special(|s| match s {
+    /// if let Ok(value) = s.map_character_data(|s| match s {
     ///     x if Token::mnemonic_compare(b"POTato", x) => Ok(Token::DecimalNumericProgramData(5.0)),
     ///     x if Token::mnemonic_compare(b"PINEapple", x) => Ok(Token::DecimalNumericProgramData(1.0)),
     ///     _ => Err(Error::IllegalParameterValue)
@@ -160,11 +167,13 @@ impl<'a> Token<'a> {
     /// //assert_eq!(value, Ok(Token::DecimalNumericProgramData(5.0)));
     ///
     /// ```
-    pub fn map_special<F>(self, special: F) -> Result<Token<'a>, Error>
-        where F: FnOnce(&[u8]) -> Result<Token<'a>, Error> {
-        if let Token::CharacterProgramData(s) =  self {
+    pub fn map_character_data<F>(self, special: F) -> Result<Token<'a>, Error>
+    where
+        F: FnOnce(&[u8]) -> Result<Token<'a>, Error>,
+    {
+        if let Token::CharacterProgramData(s) = self {
             special(s)
-        }else{
+        } else {
             Ok(self)
         }
     }
@@ -197,8 +206,10 @@ impl<'a> Token<'a> {
     /// ```
     ///
     ///
-    pub fn numeric<F, R: TryFrom<Token<'a>, Error=error::Error>>(self, num: F) -> Result<R, Error>
-        where F: FnOnce(NumericValues) -> Result<R, Error> {
+    pub fn numeric<F, R: TryFrom<Token<'a>, Error = error::Error>>(self, num: F) -> Result<R, Error>
+    where
+        F: FnOnce(NumericValues) -> Result<R, Error>,
+    {
         match self {
             Token::CharacterProgramData(special) => match special {
                 x if Token::mnemonic_compare(b"MAXimum", x) => num(NumericValues::Maximum),
@@ -206,28 +217,31 @@ impl<'a> Token<'a> {
                 x if Token::mnemonic_compare(b"DEFault", x) => num(NumericValues::Default),
                 x if Token::mnemonic_compare(b"UP", x) => num(NumericValues::Up),
                 x if Token::mnemonic_compare(b"DOWN", x) => num(NumericValues::Down),
-                _ => <R>::try_from(self)
-            }
-            _ => <R>::try_from(self)
+                _ => <R>::try_from(self),
+            },
+            _ => <R>::try_from(self),
         }
     }
 
     /// Identical to `numeric()` but enforces min/max values.
     ///
-    pub fn numeric_range<F, R: TryFrom<Token<'a>, Error=error::Error>>(self, min: R, max: R, num: F) -> Result<R, Error>
-        where F: FnOnce(NumericValues) -> Result<R, Error>, R: PartialOrd {
+    pub fn numeric_range<F, R: TryFrom<Token<'a>, Error = error::Error>>(
+        self,
+        min: R,
+        max: R,
+        num: F,
+    ) -> Result<R, Error>
+    where
+        F: FnOnce(NumericValues) -> Result<R, Error>,
+        R: PartialOrd,
+    {
         let value = self.numeric(num)?;
-        if value > max {
+        if value > max || value < min {
             Err(Error::DataOutOfRange)
-        }else if value < min {
-            Err(Error::DataOutOfRange)
-        }else{
+        } else {
             Ok(value)
         }
     }
-
-
-
 }
 
 /// Convert string data data into a f32.
@@ -245,16 +259,18 @@ impl<'a> TryFrom<Token<'a>> for f32 {
     fn try_from(value: Token) -> Result<Self, Self::Error> {
         match value {
             Token::DecimalNumericProgramData(value) => Ok(value),
-            Token::CharacterProgramData(s) => match s.clone() {
+            Token::CharacterProgramData(s) => match s {
                 //Check for special float values
                 ref x if Token::mnemonic_compare(b"INFinity", x) => Ok(f32::INFINITY),
                 ref x if Token::mnemonic_compare(b"NINFinity", x) => Ok(f32::NEG_INFINITY),
                 ref x if Token::mnemonic_compare(b"NAN", x) => Ok(f32::NAN),
-                _ => Err(Error::DataTypeError)
-            }
-            Token::SuffixProgramData(_) | Token::NonDecimalNumericProgramData(_) | Token::StringProgramData(_)
+                _ => Err(Error::DataTypeError),
+            },
+            Token::SuffixProgramData(_)
+            | Token::NonDecimalNumericProgramData(_)
+            | Token::StringProgramData(_)
             | Token::ArbitraryBlockData(_) => Err(Error::DataTypeError),
-            _ => Err(Error::SyntaxError)
+            _ => Err(Error::SyntaxError),
         }
     }
 }
@@ -265,15 +281,18 @@ impl<'a> TryFrom<Token<'a>> for f32 {
 /// * `Ok(&[u8])` - If data is a string.
 /// * `Err(DataTypeError)` - If data is not a string.
 /// * `Err(SyntaxError)` - If token is not data
-impl<'a> TryFrom<Token<'a>> for &'a[u8] {
+impl<'a> TryFrom<Token<'a>> for &'a [u8] {
     type Error = error::Error;
 
     fn try_from(value: Token<'a>) -> Result<&'a [u8], Self::Error> {
         match value {
             Token::StringProgramData(s) => Ok(s),
-            Token::SuffixProgramData(_) | Token::NonDecimalNumericProgramData(_) | Token::DecimalNumericProgramData(_)
-            | Token::ArbitraryBlockData(_) | Token::CharacterProgramData(_) => Err(Error::DataTypeError),
-            _ => Err(Error::SyntaxError)
+            Token::SuffixProgramData(_)
+            | Token::NonDecimalNumericProgramData(_)
+            | Token::DecimalNumericProgramData(_)
+            | Token::ArbitraryBlockData(_)
+            | Token::CharacterProgramData(_) => Err(Error::DataTypeError),
+            _ => Err(Error::SyntaxError),
         }
     }
 }
@@ -291,9 +310,12 @@ impl<'a> TryFrom<Token<'a>> for &'a str {
         match value {
             Token::StringProgramData(s) => str::from_utf8(s).map_err(|_| Error::StringDataError),
             Token::Utf8BlockData(s) => Ok(s),
-            Token::SuffixProgramData(_) | Token::NonDecimalNumericProgramData(_) | Token::DecimalNumericProgramData(_)
-            | Token::ArbitraryBlockData(_) | Token::CharacterProgramData(_) => Err(Error::DataTypeError),
-            _ => Err(Error::SyntaxError)
+            Token::SuffixProgramData(_)
+            | Token::NonDecimalNumericProgramData(_)
+            | Token::DecimalNumericProgramData(_)
+            | Token::ArbitraryBlockData(_)
+            | Token::CharacterProgramData(_) => Err(Error::DataTypeError),
+            _ => Err(Error::SyntaxError),
         }
     }
 }
@@ -307,16 +329,21 @@ macro_rules! impl_tryfrom_integer {
                 match value {
                     Token::DecimalNumericProgramData(value) => {
                         if value.is_finite() {
-                            <$from>::try_from((value + 0.5f32) as i32).map_err(|_| Error::DataOutOfRange)
-                        }else{
+                            <$from>::try_from((value + 0.5f32) as i32)
+                                .map_err(|_| Error::DataOutOfRange)
+                        } else {
                             // Nan/Inf -> Integer is undefined, return DataOutOfRange
                             Err(Error::DataOutOfRange)
                         }
-                    },
-                    Token::NonDecimalNumericProgramData(value) => <$from>::try_from(value).map_err(|_| Error::DataOutOfRange),
-                    Token::SuffixProgramData(_) | Token::CharacterProgramData(_) | Token::StringProgramData(_)
+                    }
+                    Token::NonDecimalNumericProgramData(value) => {
+                        <$from>::try_from(value).map_err(|_| Error::DataOutOfRange)
+                    }
+                    Token::SuffixProgramData(_)
+                    | Token::CharacterProgramData(_)
+                    | Token::StringProgramData(_)
                     | Token::ArbitraryBlockData(_) => Err(Error::DataTypeError),
-                    _ => Err(Error::SyntaxError)
+                    _ => Err(Error::SyntaxError),
                 }
             }
         }
@@ -337,11 +364,10 @@ pub struct Tokenizer<'a> {
     chars: Iter<'a, u8>,
     in_header: bool,
     in_common: bool,
-    in_numeric: bool
+    in_numeric: bool,
 }
 
 impl<'a> Tokenizer<'a> {
-
     /// Attempts to consume a data separator
     /// Returns an error if next token is not a separator.
     /// If next token is a terminator or end,
@@ -355,19 +381,18 @@ impl<'a> Tokenizer<'a> {
                     //Valid data object, consume and return
                     self.next();
                     Ok(())
-                },
+                }
                 Token::ProgramMessageUnitSeparator | Token::ProgramMessageTerminator => {
                     //Message separator or terminator is also ok but do not consume
                     Ok(())
                 }
                 Token::SuffixProgramData(_) => Err(Error::SuffixNotAllowed),
-                _ => Err(Error::InvalidSeparator)
+                _ => Err(Error::InvalidSeparator),
             }
-        }else {
+        } else {
             //No more tokens, end of message
             Ok(())
         }
-
     }
 
     /// Attempts to consume a data object.
@@ -381,8 +406,12 @@ impl<'a> Tokenizer<'a> {
             let token = item?;
             match token {
                 //Data object
-                Token::CharacterProgramData(_) | Token::DecimalNumericProgramData(_) | Token::SuffixProgramData(_) |
-                Token::NonDecimalNumericProgramData(_) | Token::StringProgramData(_) | Token::ArbitraryBlockData(_) => {
+                Token::CharacterProgramData(_)
+                | Token::DecimalNumericProgramData(_)
+                | Token::SuffixProgramData(_)
+                | Token::NonDecimalNumericProgramData(_)
+                | Token::StringProgramData(_)
+                | Token::ArbitraryBlockData(_) => {
                     //Valid data object, consume and return
                     self.next();
                     Ok(Some(token))
@@ -396,16 +425,16 @@ impl<'a> Tokenizer<'a> {
                     //Not a data object, return nothing
                     if optional {
                         Ok(None)
-                    }else{
+                    } else {
                         Err(Error::MissingParameter)
                     }
                 }
             }
-        }else {
+        } else {
             //No more tokens, return nothing
             if optional {
                 Ok(None)
-            }else{
+            } else {
                 Err(Error::MissingParameter)
             }
         }
@@ -424,11 +453,12 @@ impl<'a> Tokenizer<'a> {
     ///
     ///
     pub fn next_decimal<F>(&mut self, optional: bool, suffix: F) -> Result<Option<Token<'a>>, Error>
-        where F: FnOnce(f32, &[u8]) -> Result<f32, Error> {
+    where
+        F: FnOnce(f32, &[u8]) -> Result<f32, Error>,
+    {
         let val = self.next_data(optional)?;
         if let Some(t) = val {
             match t {
-
                 Token::DecimalNumericProgramData(mut val) => {
                     //Check if next token is a suffix and reinterpret the value if so
                     let mut clone = self.clone();
@@ -443,39 +473,31 @@ impl<'a> Tokenizer<'a> {
                     }
                     //No suffix, return as is
                     Ok(Some(t))
-                },
-                Token::CharacterProgramData(_) => {
-                    Ok(Some(t))
                 }
-                _ => {
-                    Err(Error::MissingParameter)
-                }
+                Token::CharacterProgramData(_) => Ok(Some(t)),
+                _ => Err(Error::MissingParameter),
             }
-        }else{
+        } else {
             Ok(None)
         }
-
     }
-
-
 
     pub fn next_arb(&mut self) -> Result<&'a [u8], Error> {
         if let Some(tok) = self.next() {
             let val = tok?;
             match val {
                 Token::ArbitraryBlockData(f) => Ok(f),
-                Token::DecimalNumericProgramData(_) | Token::NonDecimalNumericProgramData(_) |
-                Token::StringProgramData(_) | Token::CharacterProgramData(_) | Token::SuffixProgramData(_) => Err(Error::DataTypeError),
-                _ => {
-                    Err(Error::MissingParameter)
-                }
+                Token::DecimalNumericProgramData(_)
+                | Token::NonDecimalNumericProgramData(_)
+                | Token::StringProgramData(_)
+                | Token::CharacterProgramData(_)
+                | Token::SuffixProgramData(_) => Err(Error::DataTypeError),
+                _ => Err(Error::MissingParameter),
             }
-        }else{
+        } else {
             Err(Error::MissingParameter)
         }
     }
-
-
 }
 
 fn ascii_to_digit(digit: u8, radix: u8) -> Option<u32> {
@@ -483,7 +505,7 @@ fn ascii_to_digit(digit: u8, radix: u8) -> Option<u32> {
 
     if digit.is_ascii_digit() && digit - b'0' < radix {
         Some((digit - b'0') as u32)
-    } else if lowercase.is_ascii_alphabetic() && lowercase - b'a' < radix-10 {
+    } else if lowercase.is_ascii_alphabetic() && lowercase - b'a' < radix - 10 {
         Some((lowercase - b'a' + 10) as u32)
     } else {
         None
@@ -496,7 +518,7 @@ impl<'a> Tokenizer<'a> {
             chars: buf.iter(),
             in_header: true,
             in_common: false,
-            in_numeric: false
+            in_numeric: false,
         }
     }
 
@@ -505,7 +527,7 @@ impl<'a> Tokenizer<'a> {
             chars: b"".iter(),
             in_header: true,
             in_common: false,
-            in_numeric: false
+            in_numeric: false,
         }
     }
 
@@ -518,14 +540,21 @@ impl<'a> Tokenizer<'a> {
     fn read_mnemonic(&mut self) -> Result<Token<'a>, Error> {
         let s = self.chars.as_slice();
         let mut len = 0u8;
-        while self.chars.clone().next().map_or(false, |ch| ch.is_ascii_alphanumeric() || *ch == b'_') {
+        while self
+            .chars
+            .clone()
+            .next()
+            .map_or(false, |ch| ch.is_ascii_alphanumeric() || *ch == b'_')
+        {
             self.chars.next();
             len += 1;
             if len > 12 {
                 return Err(Error::ProgramMnemonicTooLong);
             }
         }
-        Ok(Token::ProgramMnemonic(&s[0..s.len() - self.chars.as_slice().len()]))
+        Ok(Token::ProgramMnemonic(
+            &s[0..s.len() - self.chars.as_slice().len()],
+        ))
     }
 
     /// <CHARACTER PROGRAM DATA>
@@ -537,14 +566,21 @@ impl<'a> Tokenizer<'a> {
     pub(crate) fn read_character_data(&mut self) -> Result<Token<'a>, Error> {
         let s = self.chars.as_slice();
         let mut len = 0u8;
-        while self.chars.clone().next().map_or(false, |ch| ch.is_ascii_alphanumeric() || *ch == b'_') {
+        while self
+            .chars
+            .clone()
+            .next()
+            .map_or(false, |ch| ch.is_ascii_alphanumeric() || *ch == b'_')
+        {
             self.chars.next();
             len += 1;
             if len > 12 {
                 return Err(Error::CharacterDataTooLong);
             }
         }
-        let ret = Ok(Token::CharacterProgramData(&s[0..s.len() - self.chars.as_slice().len()]));
+        let ret = Ok(Token::CharacterProgramData(
+            &s[0..s.len() - self.chars.as_slice().len()],
+        ));
 
         // Skip to next separator
         self.skip_ws_to_separator(Error::InvalidCharacterData)?;
@@ -557,14 +593,16 @@ impl<'a> Tokenizer<'a> {
     /// TODO: lexical-core does not accept whitespace between exponent separator and exponent <mantissa>E <exponent>.
     pub(crate) fn read_numeric_data(&mut self) -> Result<Token<'a>, Error> {
         /* Read mantissa */
-        let (f, len) = lexical_core::parse_partial::<f32>(self.chars.as_slice()).map_err(|e|
+        let (f, len) = lexical_core::parse_partial::<f32>(self.chars.as_slice()).map_err(|e| {
             match e.code {
                 lexical_core::ErrorCode::InvalidDigit => Error::InvalidCharacterInNumber,
-                lexical_core::ErrorCode::Overflow | lexical_core::ErrorCode::Underflow => Error::ExponentTooLarge,
-                _ => Error::NumericDataError
+                lexical_core::ErrorCode::Overflow | lexical_core::ErrorCode::Underflow => {
+                    Error::ExponentTooLarge
+                }
+                _ => Error::NumericDataError,
             }
-        )?;
-        self.chars.nth(len-1).unwrap();
+        })?;
+        self.chars.nth(len - 1).unwrap();
         self.skip_ws();
 
         Ok(Token::DecimalNumericProgramData(f))
@@ -580,7 +618,9 @@ impl<'a> Tokenizer<'a> {
     fn read_suffix_data(&mut self) -> Result<Token<'a>, Error> {
         let s = self.chars.as_slice();
         let mut len = 0u8;
-        while self.chars.clone().next().map_or(false, |ch| ch.is_ascii_alphanumeric() || *ch == b'-' || *ch == b'/' || *ch == b'.') {
+        while self.chars.clone().next().map_or(false, |ch| {
+            ch.is_ascii_alphanumeric() || *ch == b'-' || *ch == b'/' || *ch == b'.'
+        }) {
             self.chars.next();
             len += 1;
             if len > 12 {
@@ -588,7 +628,9 @@ impl<'a> Tokenizer<'a> {
             }
         }
 
-        let ret = Ok(Token::SuffixProgramData(&s[0..s.len() - self.chars.as_slice().len()]));
+        let ret = Ok(Token::SuffixProgramData(
+            &s[0..s.len() - self.chars.as_slice().len()],
+        ));
         // Skip to next separator
         self.skip_ws_to_separator(Error::InvalidSuffix)?;
         ret
@@ -604,21 +646,24 @@ impl<'a> Tokenizer<'a> {
             b'H' | b'h' => 16u32,
             b'Q' | b'q' => 8u32,
             b'B' | b'b' => 2u32,
-            _ => return {
-                Err(Error::NumericDataError)
-            }
+            _ => return  Err(Error::NumericDataError) ,
         };
 
         let mut acc = 0u32;
         let mut any = false;
-        while self.chars.clone().next().map_or(false, |ch| ch.is_ascii_alphanumeric()) {
-
+        while self
+            .chars
+            .clone()
+            .next()
+            .map_or(false, |ch| ch.is_ascii_alphanumeric())
+        {
             let c = self.chars.next().unwrap();
-            acc = ascii_to_digit(*c, radixi as u8).ok_or(Error::InvalidCharacterInNumber)? + (acc*radixi);
+            acc = ascii_to_digit(*c, radixi as u8).ok_or(Error::InvalidCharacterInNumber)?
+                + (acc * radixi);
             any = true;
         }
         if !any {
-            return Err(Error::NumericDataError)
+            return Err(Error::NumericDataError);
         }
         let ret = Ok(Token::NonDecimalNumericProgramData(acc));
         // Skip to next separator
@@ -630,23 +675,40 @@ impl<'a> Tokenizer<'a> {
     /// See IEEE 488.2-1992 7.7.5
     ///
     pub(crate) fn read_string_data(&mut self, x: u8, ascii: bool) -> Result<Token<'a>, Error> {
-        self.chars.next();//Consume first
+        self.chars.next(); //Consume first
         let s = self.chars.as_slice();
-        while self.chars.clone().next().map_or(false, |ch| *ch != x) {
-            //Only ASCII allowed
-            let x = self.chars.next().unwrap();
-            if ascii && !x.is_ascii() {
-                return Err(Error::InvalidCharacter)
+        loop {
+            if let Some(c) = self.chars.next() {
+                // End quote
+                if *c == x {
+                    if let Some(c2) = self.chars.clone().next() {
+                        if *c2 == x {
+                            // Double quote, consume and continue
+                            self.chars.next().unwrap();
+                            continue;
+                        } else {
+                            // Single quote
+                            break;
+                        }
+                    }
+                    break;
+                }
+
+                //Only ASCII allowed
+                if ascii && !c.is_ascii() {
+                    return Err(Error::InvalidCharacter);
+                }
+            } else {
+                // Unexpected terminator
+                return Err(Error::InvalidStringData);
             }
         }
-        if self.chars.next().is_none() {
-            return Err(Error::InvalidStringData)
-        }
-        let ret = Ok(Token::StringProgramData(&s[0..s.len() - self.chars.as_slice().len() - 1]));
+        let ret = Ok(Token::StringProgramData(
+            &s[0..s.len() - self.chars.as_slice().len() - 1],
+        ));
         // Skip to next separator
         self.skip_ws_to_separator(Error::InvalidSeparator)?;
         ret
-
     }
 
     /// <ARBITRARY DATA PROGRAM DATA>
@@ -657,20 +719,25 @@ impl<'a> Tokenizer<'a> {
             if len == 0 {
                 //Take rest of string
                 let rest = self.chars.as_slice();
-                let u8str = rest.get(0..rest.len()-1).ok_or(Error::InvalidBlockData)?;
+                let u8str = rest.get(0..rest.len() - 1).ok_or(Error::InvalidBlockData)?;
                 for _ in u8str {
                     self.chars.next();
                 }
                 //Indefinite block data must be terminated with NL before END
-                if *self.chars.next().unwrap() != b'\n'{
+                if *self.chars.next().unwrap() != b'\n' {
                     return Err(Error::InvalidBlockData);
                 }
                 return Ok(Token::ArbitraryBlockData(u8str));
             }
 
-            let payload_len = lexical_core::parse::<usize>(&self.chars.as_slice()[..len as usize]).map_err(|_|Error::InvalidBlockData)?;
-            self.chars.nth(payload_len-1).unwrap();
-            let u8str = self.chars.as_slice().get(0..payload_len).ok_or(Error::InvalidBlockData)?;
+            let payload_len = lexical_core::parse::<usize>(&self.chars.as_slice()[..len as usize])
+                .map_err(|_| Error::InvalidBlockData)?;
+            self.chars.nth(payload_len - 1).unwrap();
+            let u8str = self
+                .chars
+                .as_slice()
+                .get(0..payload_len)
+                .ok_or(Error::InvalidBlockData)?;
             for _ in 0..payload_len {
                 self.chars.next();
             }
@@ -679,8 +746,7 @@ impl<'a> Tokenizer<'a> {
             // Skip to next separator
             self.skip_ws_to_separator(Error::InvalidSeparator)?;
             ret
-
-        }else {
+        } else {
             Err(Error::InvalidBlockData)
         }
     }
@@ -690,7 +756,6 @@ impl<'a> Tokenizer<'a> {
     /// The parser will automatically check and convert the data to a UTF8 string, emitting
     /// a InvalidBlockData error if the string is not valid UTF8.
     fn read_utf8_data(&mut self, _format: u8) -> Result<Token<'a>, Error> {
-
         if let Some(x) = self.chars.clone().next() {
             if *x != b'"' && *x != b'\'' {
                 return Err(Error::NoError);
@@ -698,17 +763,13 @@ impl<'a> Tokenizer<'a> {
             if let Token::StringProgramData(s) = self.read_string_data(*x, false)? {
                 if let Ok(u) = str::from_utf8(s) {
                     Ok(Token::Utf8BlockData(u))
-                }else{
+                } else {
                     Err(Error::InvalidBlockData)
                 }
-
-
-            }else{
+            } else {
                 Err(Error::InvalidBlockData)
             }
-
-
-        }else {
+        } else {
             Err(Error::InvalidBlockData)
         }
     }
@@ -724,23 +785,30 @@ impl<'a> Tokenizer<'a> {
         while self.chars.clone().next().map_or(false, |ch| *ch != b')') {
             let c = self.chars.next().unwrap();
             //Return an error if a unexpected character is encountered
-            if ILLEGAL_CHARS.contains(c) || !c.is_ascii(){
-                return Err(Error::InvalidExpression)
+            if ILLEGAL_CHARS.contains(c) || !c.is_ascii() {
+                return Err(Error::InvalidExpression);
             }
         }
 
-        let ret = Ok(Token::ExpressionProgramData(&s[0..s.len() - self.chars.as_slice().len()]));
+        let ret = Ok(Token::ExpressionProgramData(
+            &s[0..s.len() - self.chars.as_slice().len()],
+        ));
         //Consume ending ')' or throw error if there's none
         if self.chars.next().is_none() {
-            return Err(Error::InvalidExpression)
+            return Err(Error::InvalidExpression);
         }
         // Skip to next separator
         self.skip_ws_to_separator(Error::InvalidSuffix)?;
         ret
     }
 
-    fn skip_ws(&mut self){
-        while self.chars.clone().next().map_or(false, |ch| ch.is_ascii_whitespace()) {
+    fn skip_ws(&mut self) {
+        while self
+            .chars
+            .clone()
+            .next()
+            .map_or(false, |ch| ch.is_ascii_whitespace())
+        {
             self.chars.next();
         }
     }
@@ -754,26 +822,31 @@ impl<'a> Tokenizer<'a> {
         }
         Ok(())
     }
-
 }
 
 #[cfg(test)]
 mod test_parse {
-    use crate::tokenizer::{Tokenizer, Token};
     use crate::error::Error;
+    use crate::tokenizer::{Token, Tokenizer};
 
     extern crate std;
 
     #[test]
-    fn test_split_mnemonic(){
-        assert_eq!(Token::mnemonic_split_index(b"TRIGger54"), Some((b"TRIGger".as_ref(), b"54".as_ref())));
-        assert_eq!(Token::mnemonic_split_index(b"T123r54"), Some((b"T123r".as_ref(), b"54".as_ref())));
+    fn test_split_mnemonic() {
+        assert_eq!(
+            Token::mnemonic_split_index(b"TRIGger54"),
+            Some((b"TRIGger".as_ref(), b"54".as_ref()))
+        );
+        assert_eq!(
+            Token::mnemonic_split_index(b"T123r54"),
+            Some((b"T123r".as_ref(), b"54".as_ref()))
+        );
         assert_eq!(Token::mnemonic_split_index(b"TRIGger"), None);
         assert_eq!(Token::mnemonic_split_index(b""), None);
     }
 
     #[test]
-    fn test_compare_mnemonic(){
+    fn test_compare_mnemonic() {
         //Should return true
         assert!(Token::mnemonic_compare(b"TRIGger", b"trigger"));
         assert!(Token::mnemonic_compare(b"TRIGger", b"trig"));
@@ -781,12 +854,15 @@ mod test_parse {
         assert!(Token::mnemonic_compare(b"TRIGger", b"TRIG"));
         //Should return false
         assert!(!Token::mnemonic_compare(b"TRIGger", b"TRIGge"));
-        assert!(!Token::mnemonic_compare(b"TRIGger", b"triggeristoodamnlong"));
+        assert!(!Token::mnemonic_compare(
+            b"TRIGger",
+            b"triggeristoodamnlong"
+        ));
         assert!(!Token::mnemonic_compare(b"TRIGger", b"tri"));
     }
 
     #[test]
-    fn test_eq_mnemonic(){
+    fn test_eq_mnemonic() {
         //
         assert!(Token::ProgramMnemonic(b"trigger").eq_mnemonic(b"TRIGger1"));
         assert!(Token::ProgramMnemonic(b"trig").eq_mnemonic(b"TRIGger1"));
@@ -804,122 +880,166 @@ mod test_parse {
     }
 
     #[test]
-    fn test_read_character_data(){
-        assert_eq!(Tokenizer::from_str(b"CHARacter4 , pperg").read_character_data(),
-                   Ok(Token::CharacterProgramData(b"CHARacter4")));
-        assert_eq!(Tokenizer::from_str(b"CHARacterIsTooLong").read_character_data(),
-                   Err(Error::CharacterDataTooLong));
-        assert_eq!(Tokenizer::from_str(b"Character Invalid").read_character_data(),
-                   Err(Error::InvalidCharacterData));
+    fn test_read_character_data() {
+        assert_eq!(
+            Tokenizer::from_str(b"CHARacter4 , pperg").read_character_data(),
+            Ok(Token::CharacterProgramData(b"CHARacter4"))
+        );
+        assert_eq!(
+            Tokenizer::from_str(b"CHARacterIsTooLong").read_character_data(),
+            Err(Error::CharacterDataTooLong)
+        );
+        assert_eq!(
+            Tokenizer::from_str(b"Character Invalid").read_character_data(),
+            Err(Error::InvalidCharacterData)
+        );
     }
 
     #[test]
-    fn test_read_numeric_data(){
-
+    fn test_read_numeric_data() {
         //TODO: FIX EXPONENTS!
 
-        assert_eq!(Tokenizer::from_str(b"25").read_numeric_data().unwrap(),
-                   Token::DecimalNumericProgramData(25f32));
+        assert_eq!(
+            Tokenizer::from_str(b"25").read_numeric_data().unwrap(),
+            Token::DecimalNumericProgramData(25f32)
+        );
 
-        assert_eq!(Tokenizer::from_str(b"-10.").read_numeric_data().unwrap(),
-                   Token::DecimalNumericProgramData(-10f32));
+        assert_eq!(
+            Tokenizer::from_str(b"-10.").read_numeric_data().unwrap(),
+            Token::DecimalNumericProgramData(-10f32)
+        );
 
-        assert_eq!(Tokenizer::from_str(b".2").read_numeric_data().unwrap(),
-                   Token::DecimalNumericProgramData(0.2f32));
+        assert_eq!(
+            Tokenizer::from_str(b".2").read_numeric_data().unwrap(),
+            Token::DecimalNumericProgramData(0.2f32)
+        );
 
-        assert_eq!(Tokenizer::from_str(b"1.E5").read_numeric_data().unwrap(),
-                   Token::DecimalNumericProgramData(1e5f32));
+        assert_eq!(
+            Tokenizer::from_str(b"1.E5").read_numeric_data().unwrap(),
+            Token::DecimalNumericProgramData(1e5f32)
+        );
 
-        assert_eq!(Tokenizer::from_str(b"-25e5").read_numeric_data().unwrap(),
-                   Token::DecimalNumericProgramData(-25e5f32));
+        assert_eq!(
+            Tokenizer::from_str(b"-25e5").read_numeric_data().unwrap(),
+            Token::DecimalNumericProgramData(-25e5f32)
+        );
 
-        assert_eq!(Tokenizer::from_str(b"25E-2").read_numeric_data().unwrap(),
-                   Token::DecimalNumericProgramData(0.25f32));
+        assert_eq!(
+            Tokenizer::from_str(b"25E-2").read_numeric_data().unwrap(),
+            Token::DecimalNumericProgramData(0.25f32)
+        );
 
-        assert_eq!(Tokenizer::from_str(b".1E2").read_numeric_data().unwrap(),
-                   Token::DecimalNumericProgramData(10f32));
+        assert_eq!(
+            Tokenizer::from_str(b".1E2").read_numeric_data().unwrap(),
+            Token::DecimalNumericProgramData(10f32)
+        );
 
-        assert_eq!(Tokenizer::from_str(b".1E2").read_numeric_data().unwrap(),
-                   Token::DecimalNumericProgramData(10f32));
-
+        assert_eq!(
+            Tokenizer::from_str(b".1E2").read_numeric_data().unwrap(),
+            Token::DecimalNumericProgramData(10f32)
+        );
     }
 
     #[test]
-    fn test_read_suffix_data(){
-        assert_eq!(Tokenizer::from_str(b"MOHM").read_suffix_data().unwrap(),
-                   Token::SuffixProgramData(b"MOHM"));
+    fn test_read_suffix_data() {
+        assert_eq!(
+            Tokenizer::from_str(b"MOHM").read_suffix_data().unwrap(),
+            Token::SuffixProgramData(b"MOHM")
+        );
 
         // Error, too long suffix
-        assert_eq!(Tokenizer::from_str(b"SUFFIXTOODAMNLONG").read_suffix_data(),
-                   Err(Error::SuffixTooLong));
-
-
+        assert_eq!(
+            Tokenizer::from_str(b"SUFFIXTOODAMNLONG").read_suffix_data(),
+            Err(Error::SuffixTooLong)
+        );
     }
 
     #[test]
-    fn test_read_numeric_suffix_data(){
+    fn test_read_numeric_suffix_data() {
         //let mut tokenizer = Tokenizer::from_str(b"header 25 KHZ , 12.7E6 KOHM.M/S-2");
-//        assert_eq!(tokenizer.next(), Some(Ok(Token::ProgramMnemonic(b"header"))));
-//        assert_eq!(tokenizer.next(), Some(Ok(Token::ProgramHeaderSeparator)));
-//        assert_eq!(tokenizer.next_u8(), Ok(25u8));
-//        assert_eq!(tokenizer.next(), Some(Ok(Token::SuffixProgramData(b"KHZ"))));
-//        assert_eq!(tokenizer.next(), Some(Ok(Token::ProgramDataSeparator)));
-//        assert_eq!(tokenizer.next_f32(), Ok(12.7e6f32));
-//        assert_eq!(tokenizer.next(), Some(Ok(Token::SuffixProgramData(b"KOHM.M/S-2"))));
-
+        //        assert_eq!(tokenizer.next(), Some(Ok(Token::ProgramMnemonic(b"header"))));
+        //        assert_eq!(tokenizer.next(), Some(Ok(Token::ProgramHeaderSeparator)));
+        //        assert_eq!(tokenizer.next_u8(), Ok(25u8));
+        //        assert_eq!(tokenizer.next(), Some(Ok(Token::SuffixProgramData(b"KHZ"))));
+        //        assert_eq!(tokenizer.next(), Some(Ok(Token::ProgramDataSeparator)));
+        //        assert_eq!(tokenizer.next_f32(), Ok(12.7e6f32));
+        //        assert_eq!(tokenizer.next(), Some(Ok(Token::SuffixProgramData(b"KOHM.M/S-2"))));
     }
 
     #[test]
-    fn test_read_string_data(){
+    fn test_read_string_data() {
+        assert_eq!(
+            Tokenizer::from_str(b"\"MOHM\",  gui").read_string_data(b'"', true),
+            Ok(Token::StringProgramData(b"MOHM"))
+        );
+        assert_eq!(
+            Tokenizer::from_str(b"'MOHM',  gui").read_string_data(b'\'', true),
+            Ok(Token::StringProgramData(b"MOHM"))
+        );
+        assert_eq!(
+            Tokenizer::from_str(b"'MO''HM',  gui").read_string_data(b'\'', true),
+            Ok(Token::StringProgramData(b"MO''HM"))
+        );
 
-        assert_eq!(Tokenizer::from_str(b"\"MOHM\",  gui").read_string_data(b'"', true),
-                   Ok(Token::StringProgramData(b"MOHM")));
-        assert_eq!(Tokenizer::from_str(b"'MOHM',  gui").read_string_data(b'\'', true),
-                   Ok(Token::StringProgramData(b"MOHM")));
-
-        assert_eq!(Tokenizer::from_str(b"\"MOHM").read_string_data(b'"', true),
-                   Err(Error::InvalidStringData));
-        assert_eq!(Tokenizer::from_str(b"'MOHM").read_string_data(b'"', true),
-                   Err(Error::InvalidStringData));
-        assert_eq!(Tokenizer::from_str(b"'MO\xffHM").read_string_data(b'"', true),
-                   Err(Error::InvalidCharacter));
-
+        assert_eq!(
+            Tokenizer::from_str(b"\"MOHM").read_string_data(b'"', true),
+            Err(Error::InvalidStringData)
+        );
+        assert_eq!(
+            Tokenizer::from_str(b"'MOHM").read_string_data(b'"', true),
+            Err(Error::InvalidStringData)
+        );
+        assert_eq!(
+            Tokenizer::from_str(b"'MO\xffHM").read_string_data(b'"', true),
+            Err(Error::InvalidCharacter)
+        );
     }
 
     #[test]
-    fn test_read_arb_data(){
-        assert_eq!(Tokenizer::from_str(b"02\x01\x02,").read_arbitrary_data(b'2'),
-                   Ok(Token::ArbitraryBlockData(&[1,2])));
+    fn test_read_arb_data() {
+        assert_eq!(
+            Tokenizer::from_str(b"02\x01\x02,").read_arbitrary_data(b'2'),
+            Ok(Token::ArbitraryBlockData(&[1, 2]))
+        );
 
         // Error, too short
-        assert_eq!(Tokenizer::from_str(b"02\x01").read_arbitrary_data(b'2'),
-                   Err(Error::InvalidBlockData));
+        assert_eq!(
+            Tokenizer::from_str(b"02\x01").read_arbitrary_data(b'2'),
+            Err(Error::InvalidBlockData)
+        );
 
         // Error, invalid header
-        assert_eq!(Tokenizer::from_str(b"a2\x01\x02,").read_arbitrary_data(b'2'),
-                   Err(Error::InvalidBlockData));
+        assert_eq!(
+            Tokenizer::from_str(b"a2\x01\x02,").read_arbitrary_data(b'2'),
+            Err(Error::InvalidBlockData)
+        );
 
         // Error, header too short/invalid
-        assert_eq!(Tokenizer::from_str(b"2\x01\x02,").read_arbitrary_data(b'2'),
-                   Err(Error::InvalidBlockData));
+        assert_eq!(
+            Tokenizer::from_str(b"2\x01\x02,").read_arbitrary_data(b'2'),
+            Err(Error::InvalidBlockData)
+        );
 
         // Indefinite length
-        assert_eq!(Tokenizer::from_str(b"\x01\x02\n").read_arbitrary_data(b'0'),
-                   Ok(Token::ArbitraryBlockData(&[1,2])));
+        assert_eq!(
+            Tokenizer::from_str(b"\x01\x02\n").read_arbitrary_data(b'0'),
+            Ok(Token::ArbitraryBlockData(&[1, 2]))
+        );
 
         // Error, indefinite not terminated by newline
-        assert_eq!(Tokenizer::from_str(b"\x01\x02").read_arbitrary_data(b'0'),
-                   Err(Error::InvalidBlockData));
-
+        assert_eq!(
+            Tokenizer::from_str(b"\x01\x02").read_arbitrary_data(b'0'),
+            Err(Error::InvalidBlockData)
+        );
     }
 
     #[test]
-    fn test_read_expr_data(){
-        assert_eq!(Tokenizer::from_str(b"(@1!2,2,3,4,5,#,POTATO)").read_expression_data(),
-                   Ok(Token::ExpressionProgramData(b"@1!2,2,3,4,5,#,POTATO")));
-
+    fn test_read_expr_data() {
+        assert_eq!(
+            Tokenizer::from_str(b"(@1!2,2,3,4,5,#,POTATO)").read_expression_data(),
+            Ok(Token::ExpressionProgramData(b"@1!2,2,3,4,5,#,POTATO"))
+        );
     }
-
 }
 
 impl<'a> Iterator for Tokenizer<'a> {
@@ -934,7 +1054,7 @@ impl<'a> Iterator for Tokenizer<'a> {
                 self.chars.next();
                 if let Some(x) = self.chars.clone().next() {
                     if !x.is_ascii_alphabetic() {
-                        return Some(Err(Error::CommandHeaderError))
+                        return Some(Err(Error::CommandHeaderError));
                     }
                 }
 
@@ -947,13 +1067,13 @@ impl<'a> Iterator for Tokenizer<'a> {
                 //Only one separator is allowed
                 if let Some(x) = self.chars.clone().next() {
                     if !x.is_ascii_alphabetic() {
-                        return Some(Err(Error::InvalidSeparator))
+                        return Some(Err(Error::InvalidSeparator));
                     }
                 }
                 /* Not allowed outside header and strings */
                 if !self.in_header || self.in_common {
                     Some(Err(Error::InvalidSeparator))
-                }else{
+                } else {
                     Some(Ok(Token::HeaderMnemonicSeparator))
                 }
             }
@@ -963,16 +1083,15 @@ impl<'a> Iterator for Tokenizer<'a> {
                 //Next character after query must be a space, unit separator or <END>
                 if let Some(x) = self.chars.clone().next() {
                     if !x.is_ascii_whitespace() && *x != b';' {
-                        return Some(Err(Error::InvalidSeparator))
+                        return Some(Err(Error::InvalidSeparator));
                     }
                 }
                 if !self.in_header {
                     Some(Err(Error::InvalidSeparator))
-                }else{
+                } else {
                     self.in_header = false;
                     Some(Ok(Token::HeaderQuerySuffix))
                 }
-
             }
             /* Program unit separator */
             b';' => {
@@ -994,7 +1113,7 @@ impl<'a> Iterator for Tokenizer<'a> {
                 self.chars.next();
                 if self.in_header {
                     Some(Err(Error::HeaderSeparatorError))
-                }else{
+                } else {
                     self.in_numeric = false;
                     self.skip_ws();
                     if let Some(c) = self.chars.clone().next() {
@@ -1003,7 +1122,6 @@ impl<'a> Iterator for Tokenizer<'a> {
                         }
                     }
                     Some(Ok(Token::ProgramDataSeparator))
-
                 }
             }
             /* Whitespace */
@@ -1019,9 +1137,9 @@ impl<'a> Iterator for Tokenizer<'a> {
                 /* If still parsing header, it's an mnemonic, else character data */
                 if self.in_header {
                     Some(self.read_mnemonic())
-                }else if self.in_numeric {
+                } else if self.in_numeric {
                     Some(self.read_suffix_data())
-                }else{
+                } else {
                     Some(self.read_character_data())
                 }
             }
@@ -1029,7 +1147,7 @@ impl<'a> Iterator for Tokenizer<'a> {
             b'/' => {
                 if self.in_header {
                     Some(Err(Error::InvalidSeparator))
-                }else{
+                } else {
                     Some(self.read_suffix_data())
                 }
             }
@@ -1037,7 +1155,7 @@ impl<'a> Iterator for Tokenizer<'a> {
             x if x.is_ascii_digit() || *x == b'-' || *x == b'+' || *x == b'.' => {
                 if self.in_header {
                     Some(Err(Error::CommandHeaderError))
-                }else{
+                } else {
                     self.in_numeric = true;
                     Some(self.read_numeric_data())
                 }
@@ -1047,41 +1165,33 @@ impl<'a> Iterator for Tokenizer<'a> {
                 self.chars.next();
                 if self.in_header {
                     Some(Err(Error::CommandHeaderError))
-                }else{
-                    if let Some(x) = self.chars.next() {
-                        Some(match x {
-                            /* Arbitrary block */
-                            x if *x == b's' => {
-                                self.read_utf8_data(*x)
-                            }
-                            x if x.is_ascii_digit() => {
-                                self.read_arbitrary_data(*x)
-                            }
-                            /*Non-decimal numeric*/
-                            _ => self.read_nondecimal_data(*x)
-                        })
-                    }else{
-                        Some(Err(Error::BlockDataError))
-                    }
+                } else if let Some(x) = self.chars.next() {
+                    Some(match x {
+                        /* Arbitrary block */
+                        x if *x == b's' => self.read_utf8_data(*x),
+                        x if x.is_ascii_digit() => self.read_arbitrary_data(*x),
+                        /*Non-decimal numeric*/
+                        _ => self.read_nondecimal_data(*x),
+                    })
+                } else {
+                    Some(Err(Error::BlockDataError))
                 }
             }
             /* String */
             x if *x == b'\'' || *x == b'"' => {
                 if self.in_header {
                     Some(Err(Error::CommandHeaderError))
-                }else{
+                } else {
                     Some(self.read_string_data(*x, true))
                 }
             }
-            b'(' => {
-                Some(self.read_expression_data())
-            }
+            b'(' => Some(self.read_expression_data()),
             /* Unknown/unexpected */
             _ => {
                 let x = self.chars.next().unwrap();
                 if x.is_ascii() {
                     Some(Err(Error::SyntaxError))
-                }else{
+                } else {
                     Some(Err(Error::InvalidCharacter))
                 }
             }

@@ -3,9 +3,9 @@
 //!
 
 use crate::error::Error;
+use crate::response::Formatter;
 use crate::tokenizer::Tokenizer;
 use crate::Context;
-use crate::response::Formatter;
 
 /// This trait implements a command with optional event/query operations.
 ///
@@ -49,10 +49,7 @@ use crate::response::Formatter;
 /// ```
 ///
 pub trait Command {
-
-    fn help(&self, _response: & mut dyn Formatter) {
-
-    }
+    fn help(&self, _response: &mut dyn Formatter) {}
 
     fn meta(&self) -> CommandTypeMeta {
         CommandTypeMeta::Unknown
@@ -62,42 +59,52 @@ pub trait Command {
     fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<(), Error>;
 
     ///Called when the query form is used
-    fn query(&self, context: &mut Context, args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error>;
+    fn query(
+        &self,
+        context: &mut Context,
+        args: &mut Tokenizer,
+        response: &mut dyn Formatter,
+    ) -> Result<(), Error>;
 }
 
-pub enum CommandTypeMeta{
+pub enum CommandTypeMeta {
     Unknown,
     NoQuery,
     QueryOnly,
-    None
+    None,
 }
 
 /// Creates a stub for event()
 ///
 #[macro_export]
 macro_rules! qonly {
-        () => {
-            fn meta(&self) -> CommandTypeMeta {
-                CommandTypeMeta::QueryOnly
-            }
+    () => {
+        fn meta(&self) -> CommandTypeMeta {
+            CommandTypeMeta::QueryOnly
+        }
 
-            fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<(), Error> {
-                Err(Error::UndefinedHeader)
-            }
-        };
-    }
+        fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<(), Error> {
+            Err(Error::UndefinedHeader)
+        }
+    };
+}
 
 /// Creates a stub for query()
 ///
 #[macro_export]
 macro_rules! nquery {
-        () => {
-            fn meta(&self) -> CommandTypeMeta {
-                CommandTypeMeta::NoQuery
-            }
+    () => {
+        fn meta(&self) -> CommandTypeMeta {
+            CommandTypeMeta::NoQuery
+        }
 
-            fn query(&self, _context: &mut Context, _args: &mut Tokenizer, _response: &mut dyn Formatter) -> Result<(), Error> {
-                Err(Error::UndefinedHeader)
-            }
-        };
-    }
+        fn query(
+            &self,
+            _context: &mut Context,
+            _args: &mut Tokenizer,
+            _response: &mut dyn Formatter,
+        ) -> Result<(), Error> {
+            Err(Error::UndefinedHeader)
+        }
+    };
+}

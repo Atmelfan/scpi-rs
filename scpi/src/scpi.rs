@@ -61,7 +61,7 @@ pub enum OperationBits {
     InstrumentSummary = 13,
     /// A user-defined programming is currently in the run
     /// state.
-    ProgramRunning = 14
+    ProgramRunning = 14,
 }
 
 impl BitFlags<u16> for OperationBits {
@@ -100,7 +100,7 @@ pub enum QuestionableBits {
     /// For example, the Command Warning bit is set whenever a parameter in one of the
     /// Measurement Instruction commands or queries is ignored during execution. Such a
     /// parameter may be ignored because it cannot be specified by a particular instrument.
-    CommandWarning = 14
+    CommandWarning = 14,
 }
 
 impl BitFlags<u16> for QuestionableBits {
@@ -113,28 +113,33 @@ impl BitFlags<u16> for QuestionableBits {
     }
 }
 
-impl EventRegister {
-
-    /// Create a new event register
-    pub fn new() -> Self {
+impl Default for EventRegister {
+    fn default() -> Self {
         EventRegister {
             condition: 0,
             event: 0,
             enable: 0,
             ntr_filter: 0,
-            ptr_filter: 0xffff
+            ptr_filter: 0xffff,
         }
+    }
+}
+
+impl EventRegister {
+    /// Create a new event register
+    pub fn new() -> Self {
+        EventRegister::default()
     }
 
     /// Preset the registers to default values
-    pub fn preset(&mut self){
+    pub fn preset(&mut self) {
         self.enable = 0u16;
         self.condition = 0u16;
         self.ptr_filter = 0xffffu16;
         self.ntr_filter = 0u16;
     }
 
-    pub fn clear_event(&mut self){
+    pub fn clear_event(&mut self) {
         self.event = 0;
     }
 
@@ -151,11 +156,11 @@ impl EventRegister {
     }
 
     /// Update condition register and event register based on pos-/neg-transition filters
-    pub fn set_condition(&mut self, condition: u16){
+    pub fn set_condition(&mut self, condition: u16) {
         let transitions = self.condition ^ condition;
         // Record pos-/negative-transitions to event register
-        self.event |= transitions &
-            ((condition & self.ptr_filter) | (!condition & self.ntr_filter));
+        self.event |=
+            transitions & ((condition & self.ptr_filter) | (!condition & self.ntr_filter));
         //Save new condition
         self.condition = condition;
     }
@@ -163,14 +168,12 @@ impl EventRegister {
     /// Set relevant bit in condition register
     pub fn set_condition_bits(&mut self, bitmask: u16) {
         self.set_condition(self.condition | bitmask)
-
     }
 
     /// Clear relevant bit in condition register
     pub fn clear_condition_bits(&mut self, bitmask: u16) {
         self.set_condition(self.condition & !bitmask)
     }
-
 }
 
 /// Contains basic implementations of SCPI mandated and optional commands.
@@ -179,14 +182,12 @@ impl EventRegister {
 ///
 pub mod commands {
     use crate::command::{Command, CommandTypeMeta};
-    use crate::Context;
-    use crate::tokenizer::Tokenizer;
-    use crate::response::Formatter;
     use crate::error::Error;
+    use crate::response::Formatter;
+    use crate::tokenizer::Tokenizer;
+    use crate::Context;
     use crate::{nquery, qonly};
     use core::convert::TryInto;
-    
-    
 
     ///## 21.8.8 \[NEXT\]?
     ///> `SYSTem:ERRor:NEXT?` queries the error/event queue for the next item and removes it
@@ -194,13 +195,18 @@ pub mod commands {
     ///> as described in the introduction to the SYSTem:ERRor subsystem.
     pub struct SystErrNextCommand;
 
-    impl Command for SystErrNextCommand { qonly!();
+    impl Command for SystErrNextCommand {
+        qonly!();
 
-        fn query(&self, context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
+        fn query(
+            &self,
+            context: &mut Context,
+            _args: &mut Tokenizer,
+            response: &mut dyn Formatter,
+        ) -> Result<(), Error> {
             //Always return first error (NoError if empty)
             response.error(context.errors.pop_front_error())
         }
-
     }
 
     ///## 21.8.6 COUNt?
@@ -211,13 +217,18 @@ pub mod commands {
     ///> Note: If the queue is empty, the response is 0.
     pub struct SystErrCounCommand;
 
-    impl Command for SystErrCounCommand { qonly!();
+    impl Command for SystErrCounCommand {
+        qonly!();
 
-        fn query(&self, context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
+        fn query(
+            &self,
+            context: &mut Context,
+            _args: &mut Tokenizer,
+            response: &mut dyn Formatter,
+        ) -> Result<(), Error> {
             //Always return first error (NoError if empty)
             response.usize_data(context.errors.len())
         }
-
     }
 
     ///## 21.8.5.1 ALL?
@@ -226,9 +237,15 @@ pub mod commands {
     ///> error/event code numbers in FIFO order. If the queue is empty, the response is 0.
     pub struct SystErrAllCommand;
 
-    impl Command for SystErrAllCommand { qonly!();
+    impl Command for SystErrAllCommand {
+        qonly!();
 
-        fn query(&self, context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
+        fn query(
+            &self,
+            context: &mut Context,
+            _args: &mut Tokenizer,
+            response: &mut dyn Formatter,
+        ) -> Result<(), Error> {
             //Always return first error (NoError if empty)
             let first = context.errors.pop_front_error();
             response.error(first)?;
@@ -249,20 +266,25 @@ pub mod commands {
     ///> number for which the instrument complies. The response shall have the form YYYY.V where
     ///> the Ys represent the year-version (i.e. 1990) and the V represents an approved revision
     ///> number for that year. If no approved revisions are claimed, then this extension shall be 0.
-    pub struct SystVersCommand{
+    pub struct SystVersCommand {
         pub year: u16,
-        pub rev: u8
+        pub rev: u8,
     }
 
-    impl Command for SystVersCommand { qonly!();
+    impl Command for SystVersCommand {
+        qonly!();
 
-        fn query(&self, _context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
+        fn query(
+            &self,
+            _context: &mut Context,
+            _args: &mut Tokenizer,
+            response: &mut dyn Formatter,
+        ) -> Result<(), Error> {
             //Return {year}.{rev}
             response.u16_data(self.year)?;
             response.ascii_data(b".")?;
             response.u8_data(self.rev)
         }
-
     }
 
     ///## 20.1.4 \[:EVENt\]?
@@ -275,15 +297,20 @@ pub mod commands {
     ///> Note that reading the event register clears it.
     pub struct StatOperEvenCommand;
 
-    impl Command for StatOperEvenCommand { qonly!();
+    impl Command for StatOperEvenCommand {
+        qonly!();
 
-        fn query(&self, context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
+        fn query(
+            &self,
+            context: &mut Context,
+            _args: &mut Tokenizer,
+            response: &mut dyn Formatter,
+        ) -> Result<(), Error> {
             //Always return first error (NoError if empty)
             response.u16_data(context.operation.event & 0x7FFFu16)?;
             context.operation.event = 0;
             Ok(())
         }
-
     }
 
     ///## 20.1.2 :CONDition?
@@ -292,13 +319,18 @@ pub mod commands {
     ///> the command. Reading the condition register is nondestructive.
     pub struct StatOperCondCommand;
 
-    impl Command for StatOperCondCommand { qonly!();
+    impl Command for StatOperCondCommand {
+        qonly!();
 
-        fn query(&self, context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
+        fn query(
+            &self,
+            context: &mut Context,
+            _args: &mut Tokenizer,
+            response: &mut dyn Formatter,
+        ) -> Result<(), Error> {
             //Always return first error (NoError if empty)
             response.u16_data(context.operation.condition & 0x7FFFu16)
         }
-
     }
 
     ///## 20.1.3 :ENABle \<NRf\> | \<non-decimal numeric\>
@@ -320,12 +352,15 @@ pub mod commands {
             Ok(())
         }
 
-        fn query(&self, context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
+        fn query(
+            &self,
+            context: &mut Context,
+            _args: &mut Tokenizer,
+            response: &mut dyn Formatter,
+        ) -> Result<(), Error> {
             response.u16_data(context.operation.enable & 0x7FFFu16)
         }
-
     }
-
 
     ///# 20.1.6 :NTRansition \<NRf\> | \<non-decimal numeric\>
     ///> `STATus:OPERation:NTRansition`
@@ -346,10 +381,14 @@ pub mod commands {
             Ok(())
         }
 
-        fn query(&self, context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
+        fn query(
+            &self,
+            context: &mut Context,
+            _args: &mut Tokenizer,
+            response: &mut dyn Formatter,
+        ) -> Result<(), Error> {
             response.u16_data(context.operation.ntr_filter & 0x7FFFu16)
         }
-
     }
 
     ///# 20.1.7 :PTRansition \<NRf\> | \<non-decimal numeric\>
@@ -371,27 +410,35 @@ pub mod commands {
             Ok(())
         }
 
-        fn query(&self, context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
+        fn query(
+            &self,
+            context: &mut Context,
+            _args: &mut Tokenizer,
+            response: &mut dyn Formatter,
+        ) -> Result<(), Error> {
             response.u16_data(context.operation.ptr_filter & 0x7FFFu16)
         }
-
     }
-
 
     ///# 20.3.4 [:EVENt]?
     ///> `STATus:QUEStionable:EVENt?`
     ///> Defined the same as STATus:OPERation:EVENt. See Section 20.1.4 for details.
     pub struct StatQuesEvenCommand;
 
-    impl Command for StatQuesEvenCommand { qonly!();
+    impl Command for StatQuesEvenCommand {
+        qonly!();
 
-        fn query(&self, context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
+        fn query(
+            &self,
+            context: &mut Context,
+            _args: &mut Tokenizer,
+            response: &mut dyn Formatter,
+        ) -> Result<(), Error> {
             //Always return first error (NoError if empty)
             response.u16_data(context.questionable.event & 0x7FFFu16)?;
             context.operation.event = 0;
             Ok(())
         }
-
     }
 
     ///# 20.3.2 :CONDition?
@@ -399,13 +446,18 @@ pub mod commands {
     ///> Defined the same as STATus:OPERation:CONDition. See Section 20.1.2 for details.
     pub struct StatQuesCondCommand;
 
-    impl Command for StatQuesCondCommand { qonly!();
+    impl Command for StatQuesCondCommand {
+        qonly!();
 
-        fn query(&self, context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
+        fn query(
+            &self,
+            context: &mut Context,
+            _args: &mut Tokenizer,
+            response: &mut dyn Formatter,
+        ) -> Result<(), Error> {
             //Always return first error (NoError if empty)
             response.u16_data(context.questionable.condition & 0x7FFFu16)
         }
-
     }
 
     ///# 20.3.3 :ENABle \<NRf\> | \<non-decimal numeric\>
@@ -419,10 +471,14 @@ pub mod commands {
             Ok(())
         }
 
-        fn query(&self, context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
+        fn query(
+            &self,
+            context: &mut Context,
+            _args: &mut Tokenizer,
+            response: &mut dyn Formatter,
+        ) -> Result<(), Error> {
             response.u16_data(context.questionable.enable & 0x7FFFu16)
         }
-
     }
 
     ///# 20.3.6 :NTRansition \<NRf\> | \<non-decimal numeric\>
@@ -436,10 +492,14 @@ pub mod commands {
             Ok(())
         }
 
-        fn query(&self, context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
+        fn query(
+            &self,
+            context: &mut Context,
+            _args: &mut Tokenizer,
+            response: &mut dyn Formatter,
+        ) -> Result<(), Error> {
             response.u16_data(context.operation.ntr_filter & 0x7FFFu16)
         }
-
     }
 
     ///# 20.3.7 :PTRansition \<NRf\> | \<non-decimal numeric\>
@@ -453,12 +513,15 @@ pub mod commands {
             Ok(())
         }
 
-        fn query(&self, context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
+        fn query(
+            &self,
+            context: &mut Context,
+            _args: &mut Tokenizer,
+            response: &mut dyn Formatter,
+        ) -> Result<(), Error> {
             response.u16_data(context.operation.ptr_filter & 0x7FFFu16)
         }
-
     }
-
 
     ///## 20.2 :PRESet
     ///> `STATus:PRESet`
@@ -471,81 +534,106 @@ pub mod commands {
     ///> device.
     pub struct StatPresCommand;
 
-    impl Command for StatPresCommand { nquery!();
+    impl Command for StatPresCommand {
+        nquery!();
         fn event(&self, context: &mut Context, _args: &mut Tokenizer) -> Result<(), Error> {
             context.questionable.preset();
             context.operation.preset();
             Ok(())
         }
-
     }
 
     /// Create a `STATus:` tree branch
     #[macro_export]
     macro_rules! scpi_status {
         () => {
-            Node {name: b"STATus", optional: false,
+            Node {
+                name: b"STATus",
+                optional: false,
                 handler: None,
                 sub: Some(&[
-                    Node {name: b"OPERation", optional: false,
+                    Node {
+                        name: b"OPERation",
+                        optional: false,
                         handler: None,
                         sub: Some(&[
-                            Node {name: b"CONDition", optional: false,
-                                handler: Some(&StatOperCondCommand{}),
-                                sub: None
+                            Node {
+                                name: b"CONDition",
+                                optional: false,
+                                handler: Some(&StatOperCondCommand {}),
+                                sub: None,
                             },
-                            Node {name: b"ENABle", optional: false,
-                                handler: Some(&StatOperEnabCommand{}),
-                                sub: None
+                            Node {
+                                name: b"ENABle",
+                                optional: false,
+                                handler: Some(&StatOperEnabCommand {}),
+                                sub: None,
                             },
-                            Node {name: b"EVENt", optional: true,
-                                handler: Some(&StatOperEvenCommand{}),
-                                sub: None
+                            Node {
+                                name: b"EVENt",
+                                optional: true,
+                                handler: Some(&StatOperEvenCommand {}),
+                                sub: None,
                             },
-                            Node {name: b"NTRansition", optional: false,
-                                handler: Some(&StatOperNtrCommand{}),
-                                sub: None
+                            Node {
+                                name: b"NTRansition",
+                                optional: false,
+                                handler: Some(&StatOperNtrCommand {}),
+                                sub: None,
                             },
-                            Node {name: b"PTRansition", optional: false,
-                                handler: Some(&StatOperPtrCommand{}),
-                                sub: None
+                            Node {
+                                name: b"PTRansition",
+                                optional: false,
+                                handler: Some(&StatOperPtrCommand {}),
+                                sub: None,
                             },
-
-                        ])
+                        ]),
                     },
-                    Node {name: b"QUEStionable", optional: false,
+                    Node {
+                        name: b"QUEStionable",
+                        optional: false,
                         handler: None,
                         sub: Some(&[
-                            Node {name: b"CONDition", optional: false,
-                                handler: Some(&StatQuesCondCommand{}),
-                                sub: None
+                            Node {
+                                name: b"CONDition",
+                                optional: false,
+                                handler: Some(&StatQuesCondCommand {}),
+                                sub: None,
                             },
-                            Node {name: b"ENABle", optional: false,
-                                handler: Some(&StatQuesEnabCommand{}),
-                                sub: None
+                            Node {
+                                name: b"ENABle",
+                                optional: false,
+                                handler: Some(&StatQuesEnabCommand {}),
+                                sub: None,
                             },
-                            Node {name: b"EVENt", optional: true,
-                                handler: Some(&StatQuesEvenCommand{}),
-                                sub: None
+                            Node {
+                                name: b"EVENt",
+                                optional: true,
+                                handler: Some(&StatQuesEvenCommand {}),
+                                sub: None,
                             },
-                            Node {name: b"NTRansition", optional: false,
-                                handler: Some(&StatQuesNtrCommand{}),
-                                sub: None
+                            Node {
+                                name: b"NTRansition",
+                                optional: false,
+                                handler: Some(&StatQuesNtrCommand {}),
+                                sub: None,
                             },
-                            Node {name: b"PTRansition", optional: false,
-                                handler: Some(&StatQuesPtrCommand{}),
-                                sub: None
+                            Node {
+                                name: b"PTRansition",
+                                optional: false,
+                                handler: Some(&StatQuesPtrCommand {}),
+                                sub: None,
                             },
-
-                        ])
+                        ]),
                     },
-                    Node {name: b"PRESet", optional: false,
-                        handler: Some(&StatPresCommand{}),
-                        sub: None
-                    }
-                ])
+                    Node {
+                        name: b"PRESet",
+                        optional: false,
+                        handler: Some(&StatPresCommand {}),
+                        sub: None,
+                    },
+                ]),
             }
-
         };
     }
 
@@ -553,37 +641,44 @@ pub mod commands {
     #[macro_export]
     macro_rules! scpi_system {
         () => {
-            Node {name: b"SYSTem", optional: false,
+            Node {
+                name: b"SYSTem",
+                optional: false,
                 handler: None,
                 sub: Some(&[
-                    Node {name: b"ERRor", optional: false,
+                    Node {
+                        name: b"ERRor",
+                        optional: false,
                         handler: None,
                         sub: Some(&[
-                            Node {name: b"ALL", optional: false,
-                                handler: Some(&SystErrAllCommand{}),
-                                sub: None
+                            Node {
+                                name: b"ALL",
+                                optional: false,
+                                handler: Some(&SystErrAllCommand {}),
+                                sub: None,
                             },
-                            Node {name: b"NEXT", optional: true,
-                                handler: Some(&SystErrNextCommand{}),
-                                sub: None
+                            Node {
+                                name: b"NEXT",
+                                optional: true,
+                                handler: Some(&SystErrNextCommand {}),
+                                sub: None,
                             },
-                            Node {name: b"COUNt", optional: false,
-                                handler: Some(&SystErrCounCommand{}),
-                                sub: None
-                            }
-
-                        ])
+                            Node {
+                                name: b"COUNt",
+                                optional: false,
+                                handler: Some(&SystErrCounCommand {}),
+                                sub: None,
+                            },
+                        ]),
                     },
-                    Node {name: b"VERSion", optional: false,
-                        handler: Some(&SystVersCommand{
-                            year: 1999,
-                            rev: 0
-                        }),
-                        sub: None
-                    }
-                ])
+                    Node {
+                        name: b"VERSion",
+                        optional: false,
+                        handler: Some(&SystVersCommand { year: 1999, rev: 0 }),
+                        sub: None,
+                    },
+                ]),
             }
         };
     }
-
 }

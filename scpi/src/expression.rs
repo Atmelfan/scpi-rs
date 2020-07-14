@@ -7,28 +7,31 @@ pub mod numeric_list {
     #[derive(Clone, PartialEq)]
     pub enum Token {
         Numeric(isize),
-        NumericRange(isize,isize),
-        Separator
+        NumericRange(isize, isize),
+        Separator,
     }
 
     /// Numeric list expression tokenizer
     #[derive(Clone)]
-    pub struct Tokenizer<'a>{
+    pub struct Tokenizer<'a> {
         pub chars: Iter<'a, u8>,
     }
 
     impl<'a> Tokenizer<'a> {
         fn read_numeric_data(&mut self) -> Result<Token, Error> {
             /* Read mantissa */
-            let (begin, len) = lexical_core::parse_partial::<isize>(self.chars.as_slice()).map_err(|_|Error::NumericDataError)?;
-            self.chars.nth(len-1);
+            let (begin, len) = lexical_core::parse_partial::<isize>(self.chars.as_slice())
+                .map_err(|_| Error::NumericDataError)?;
+            self.chars.nth(len - 1);
 
-            if let Some(c) = self.chars.clone().next() { //&& *c == b':' {
+            if let Some(c) = self.chars.clone().next() {
+                //&& *c == b':' {
                 if *c == b':' {
                     self.chars.next();
-                    let (end, len) = lexical_core::parse_partial::<isize>(self.chars.as_slice()).map_err(|_|Error::NumericDataError)?;
-                    self.chars.nth(len-1);
-                    return Ok(Token::NumericRange(begin, end))
+                    let (end, len) = lexical_core::parse_partial::<isize>(self.chars.as_slice())
+                        .map_err(|_| Error::NumericDataError)?;
+                    self.chars.nth(len - 1);
+                    return Ok(Token::NumericRange(begin, end));
                 }
             }
 
@@ -45,18 +48,16 @@ pub mod numeric_list {
                 b',' => {
                     self.chars.next();
                     Ok(Token::Separator)
-                },
-                x if x.is_ascii_digit() || *x == b'-' || *x == b'+' => {
-                    self.read_numeric_data()
-                },
-                _ => Err(Error::InvalidExpression)
+                }
+                x if x.is_ascii_digit() || *x == b'-' || *x == b'+' => self.read_numeric_data(),
+                _ => Err(Error::InvalidExpression),
             })
         }
     }
 
     #[cfg(test)]
     mod tests {
-        use crate::expression::numeric_list::{Tokenizer, Token};
+        use crate::expression::numeric_list::{Token, Tokenizer};
         use core::fmt;
 
         extern crate std;
@@ -66,19 +67,20 @@ pub mod numeric_list {
                 match self {
                     Token::Separator => write!(f, ","),
                     Token::Numeric(x) => write!(f, "{}", x),
-                    Token::NumericRange(x,y) => write!(f, "{}:{}", x, y),
-                    _ => write!(f, "(UNKNOWN)")
+                    Token::NumericRange(x, y) => write!(f, "{}:{}", x, y),
+                    _ => write!(f, "(UNKNOWN)"),
                 }
-
             }
         }
 
         #[test]
-        fn  test_numeric_list(){
-            let mut expr = Tokenizer{ chars: b"1,2:5".iter() };
+        fn test_numeric_list() {
+            let mut expr = Tokenizer {
+                chars: b"1,2:5".iter(),
+            };
             assert_eq!(expr.next(), Some(Ok(Token::Numeric(1))));
             assert_eq!(expr.next(), Some(Ok(Token::Separator)));
-            assert_eq!(expr.next(), Some(Ok(Token::NumericRange(2,5))));
+            assert_eq!(expr.next(), Some(Ok(Token::NumericRange(2, 5))));
             assert_eq!(expr.next(), None);
         }
     }
@@ -89,9 +91,8 @@ pub mod numeric_list {
 ///
 pub mod channel_list {
     use crate::error::Error;
-    use core::slice::Iter;
     use crate::expression::channel_list::Token::ChannelRange;
-    
+    use core::slice::Iter;
 
     #[derive(Clone, Copy, PartialEq)]
     pub struct ChannelSpec<'a>(&'a [u8], usize);
@@ -102,23 +103,25 @@ pub mod channel_list {
 
         fn into_iter(self) -> Self::IntoIter {
             ChannelSpecIterator {
-                chars: self.0.iter()
+                chars: self.0.iter(),
             }
         }
     }
 
     impl<'a> ChannelSpec<'a> {
-
         /// Returns the dimension of this channel spec
         pub fn dimension(&self) -> usize {
             self.1
         }
 
         /// Returns the length of this channel spec. Identical to `dimension()`
-        pub fn len(&self) -> usize{
+        pub fn len(&self) -> usize {
             self.dimension()
         }
 
+        pub fn is_empty(&self) -> bool {
+            self.len() == 0
+        }
     }
 
     /// Channel list token
@@ -135,7 +138,7 @@ pub mod channel_list {
         /// A character pathname (can be a file, resource etc...)
         PathName(&'a [u8]),
         /// A channel separator i.e. comma
-        Separator
+        Separator,
     }
 
     /// Iterates over a channel spec, returning a result for each dimension.
@@ -143,7 +146,7 @@ pub mod channel_list {
     /// Example: `"1!2!3"` would iterate as `Ok(1),Ok(2),Ok(3)`.
     ///
     pub struct ChannelSpecIterator<'a> {
-        chars: Iter<'a, u8>
+        chars: Iter<'a, u8>,
     }
 
     impl<'a> Iterator for ChannelSpecIterator<'a> {
@@ -155,28 +158,25 @@ pub mod channel_list {
                 if *x == b'!' {
                     self.chars.next();
                 }
-                lexical_core::parse_partial(self.chars.as_slice()).map(|(n, len)| {
-                    self.chars.nth(len);
-                    n
-                }).map_err(|_| Error::ExpressionError)
+                lexical_core::parse_partial(self.chars.as_slice())
+                    .map(|(n, len)| {
+                        self.chars.nth(len);
+                        n
+                    })
+                    .map_err(|_| Error::ExpressionError)
             })
         }
     }
 
-    impl<'a> Token<'a> {
-
-
-    }
-
+    impl<'a> Token<'a> {}
 
     /// Channel list expression tokenizer
     #[derive(Clone)]
-    pub struct Tokenizer<'a>{
-        pub chars: Iter<'a, u8>
+    pub struct Tokenizer<'a> {
+        pub chars: Iter<'a, u8>,
     }
 
     impl<'a> Tokenizer<'a> {
-
         /// Create a new channel-list tokenizer
         ///
         /// # Returns
@@ -187,21 +187,23 @@ pub mod channel_list {
             if let Some(x) = iter.next() {
                 if *x == b'@' {
                     Some(Tokenizer {
-                        chars: iter.clone()
+                        chars: iter.clone(),
                     })
-                }else{
+                } else {
                     None
                 }
-            }else{
+            } else {
                 None
             }
         }
-        
+
         fn read_channel_spec(&mut self) -> Result<(&'a [u8], usize), Error> {
             let mut dim = 1usize;
             // Read full spec
             let s = self.chars.as_slice();
-            while self.chars.clone().next().map_or(false, |ch| ch.is_ascii_digit() || *ch == b'-' || *ch == b'+' || *ch == b'!') {
+            while self.chars.clone().next().map_or(false, |ch| {
+                ch.is_ascii_digit() || *ch == b'-' || *ch == b'+' || *ch == b'!'
+            }) {
                 if let Some(x) = self.chars.next() {
                     if *x == b'!' {
                         dim += 1;
@@ -213,15 +215,12 @@ pub mod channel_list {
 
             if s.is_empty() {
                 Err(Error::InvalidExpression)
-            }else{
+            } else {
                 Ok((s, dim))
-
             }
-
         }
 
         fn read_channel_range(&mut self) -> Result<Token<'a>, Error> {
-
             // Read beginning spec
             let (begin, dim1) = self.read_channel_spec()?;
 
@@ -232,11 +231,14 @@ pub mod channel_list {
                     let (end, dim2) = self.read_channel_spec()?;
 
                     if dim1 != dim2 {
-                        return Err(Error::InvalidExpression)
+                        return Err(Error::InvalidExpression);
                     }
 
                     // Return range
-                    return Ok(ChannelRange(ChannelSpec(begin, dim1), ChannelSpec(end, dim2)))
+                    return Ok(ChannelRange(
+                        ChannelSpec(begin, dim1),
+                        ChannelSpec(end, dim2),
+                    ));
                 }
             }
 
@@ -248,13 +250,14 @@ pub mod channel_list {
             // Read pathname
             let s = self.chars.as_slice();
 
-            if let crate::Token::StringProgramData(s) = crate::tokenizer::Tokenizer::from_str(s).read_string_data(x, true)? {
-                self.chars.nth(s.len()+1);//Forward iterator characters
+            if let crate::Token::StringProgramData(s) =
+                crate::tokenizer::Tokenizer::from_str(s).read_string_data(x, true)?
+            {
+                self.chars.nth(s.len() + 1); //Forward iterator characters
                 Ok(Token::PathName(s))
-            }else{
+            } else {
                 Err(Error::InvalidExpression)
             }
-
         }
 
         fn read_channel_module(&mut self, _name: &'a [u8]) -> Result<Token<'a>, Error> {
@@ -272,20 +275,16 @@ pub mod channel_list {
                     self.chars.next();
                     Ok(Token::Separator)
                 }
-                x if x.is_ascii_digit() || *x == b'+' || *x == b'-' => {
-                    self.read_channel_range()
-                },
-                x if *x == b'"' || *x == b'\'' => {
-                    self.read_channel_path(*x)
-                }
-                _ => Err(Error::InvalidExpression)
+                x if x.is_ascii_digit() || *x == b'+' || *x == b'-' => self.read_channel_range(),
+                x if *x == b'"' || *x == b'\'' => self.read_channel_path(*x),
+                _ => Err(Error::InvalidExpression),
             })
         }
     }
 
     #[cfg(test)]
     mod tests {
-        use crate::expression::channel_list::{Tokenizer, Token, ChannelSpec};
+        use crate::expression::channel_list::{ChannelSpec, Token, Tokenizer};
         use core::fmt;
 
         extern crate std;
@@ -295,16 +294,15 @@ pub mod channel_list {
                 match self {
                     Token::Separator => write!(f, ","),
                     Token::ChannelSpec(x) => write!(f, "{:?}", x.0),
-                    Token::ChannelRange(x,y) => write!(f, "{:?}:{:?}", x.0, y.0),
+                    Token::ChannelRange(x, y) => write!(f, "{:?}:{:?}", x.0, y.0),
                     Token::PathName(x) => write!(f, "{:?}", x),
-                    _ => write!(f, "(UNKNOWN)")
+                    _ => write!(f, "(UNKNOWN)"),
                 }
-
             }
         }
 
         #[test]
-        fn  test_channel_list(){
+        fn test_channel_list() {
             let mut expr = Tokenizer::new(b"@1!2,3!4:5!6,'POTATO'").unwrap();
 
             // Destructure a spec
@@ -315,7 +313,7 @@ pub mod channel_list {
                 assert_eq!(Some(Ok(1)), spec_iter.next());
                 assert_eq!(Some(Ok(2)), spec_iter.next());
                 assert_eq!(None, spec_iter.next());
-            }else{
+            } else {
                 panic!("Not a channel spec")
             }
 
@@ -323,7 +321,10 @@ pub mod channel_list {
 
             // Destructure a range
             let range = expr.next().unwrap().unwrap();
-            assert_eq!(range, Token::ChannelRange(ChannelSpec(b"3!4", 2), ChannelSpec(b"5!6", 2)));
+            assert_eq!(
+                range,
+                Token::ChannelRange(ChannelSpec(b"3!4", 2), ChannelSpec(b"5!6", 2))
+            );
             if let Token::ChannelRange(begin, end) = range {
                 let mut begin_iter = begin.into_iter();
                 assert_eq!(Some(Ok(3)), begin_iter.next());
@@ -333,7 +334,7 @@ pub mod channel_list {
                 assert_eq!(Some(Ok(5)), end_iter.next());
                 assert_eq!(Some(Ok(6)), end_iter.next());
                 assert_eq!(None, end_iter.next());
-            }else {
+            } else {
                 panic!("Not a channel range")
             }
 
@@ -342,19 +343,4 @@ pub mod channel_list {
             assert_eq!(expr.next(), None);
         }
     }
-
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-

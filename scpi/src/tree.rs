@@ -1,10 +1,10 @@
 //! Used to build a SCPI command tree
 
 use crate::command::Command;
-use crate::tokenizer::Tokenizer;
 use crate::error::Error;
-use crate::Context;
 use crate::response::Formatter;
+use crate::tokenizer::Tokenizer;
+use crate::Context;
 
 /// A SCPI command node
 /// These nodes are structured as a command tree where each node represent a SCPI header mnemonic.
@@ -40,22 +40,27 @@ pub struct Node<'a> {
     /// this node and it does not have any subnodes (eg `IMhelping:THISnode:DONTexist), a UndefinedHeaderError will be returned.
     pub sub: Option<&'a [Node<'a>]>,
     ///Marks the node as being optional (called default with inverse behaviour in IEE488)
-    pub optional: bool
+    pub optional: bool,
 }
 
 impl<'a> Node<'a> {
-
-    pub(crate) fn exec(&self, context: &mut Context, args: &mut Tokenizer, response: &mut dyn Formatter, query: bool) -> Result<(), Error>{
+    pub(crate) fn exec(
+        &self,
+        context: &mut Context,
+        args: &mut Tokenizer,
+        response: &mut dyn Formatter,
+        query: bool,
+    ) -> Result<(), Error> {
         if let Some(handler) = self.handler {
             //Execute self
             if query {
                 response.unit_start()?;
                 handler.query(context, args, response)?;
                 response.unit_end()
-            }else{
+            } else {
                 handler.event(context, args)
             }
-        }else if self.sub.is_some() {
+        } else if self.sub.is_some() {
             //No handler, check for a default child
             for child in self.sub.unwrap() {
                 if child.optional {
@@ -64,7 +69,7 @@ impl<'a> Node<'a> {
             }
             //No optional child
             Err(Error::CommandHeaderError)
-        }else{
+        } else {
             Err(Error::CommandHeaderError)
         }
     }

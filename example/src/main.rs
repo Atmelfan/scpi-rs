@@ -34,7 +34,7 @@ use scpi::tokenizer::NumericValues;
 struct SensVoltDcCommand;
 impl Command for SensVoltDcCommand {
     fn event(&self, _context: &mut Context, args: &mut Tokenizer) -> Result<(), Error> {
-        let x: f32 = args.next_data(false)?.unwrap().map_special(|special| match special {
+        let x: f32 = args.next_data(false)?.unwrap().map_character_data(|special| match special {
             x if Token::mnemonic_compare(b"MINimum", x) => Ok(Token::DecimalNumericProgramData(-34.0)),
             x if Token::mnemonic_compare(b"MAXimum", x) => Ok(Token::DecimalNumericProgramData(54564.0)),
             x if Token::mnemonic_compare(b"DEFault", x) => Ok(Token::DecimalNumericProgramData(0.0)),

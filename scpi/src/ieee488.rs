@@ -1,15 +1,6 @@
 //! Contains IEEE 488.2 parser and mandatory commands
 //!
 
-
-
-
-
-
-
-
-
-
 /// Contains basic implementations of mandated IEEE 488.2 commands.
 ///
 /// Mandatory IEEE488.2 commands:
@@ -34,12 +25,11 @@
 pub mod commands {
     use crate::command::{Command, CommandTypeMeta};
     use crate::error::Error;
-    use crate::tokenizer::Tokenizer;
     use crate::response::Formatter;
+    use crate::tokenizer::Tokenizer;
     use crate::Context;
     use crate::{nquery, qonly};
     use core::convert::TryInto;
-
 
     ///## 10.3 *CLS, Clear Status Command
     ///> The Clear Status command clears status data structures, see 11.1.2, and forces the device to the Operation Complete
@@ -50,7 +40,8 @@ pub mod commands {
     ///> TERMINATOR> clears the Output Queue, see 6.3.2.3.
     pub struct ClsCommand;
 
-    impl Command for ClsCommand { nquery!();
+    impl Command for ClsCommand {
+        nquery!();
 
         fn event(&self, context: &mut Context, _args: &mut Tokenizer) -> Result<(), Error> {
             context.device.cls()
@@ -73,7 +64,12 @@ pub mod commands {
             Ok(())
         }
 
-        fn query(&self, context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
+        fn query(
+            &self,
+            context: &mut Context,
+            _args: &mut Tokenizer,
+            response: &mut dyn Formatter,
+        ) -> Result<(), Error> {
             response.u8_data(context.ese)
         }
     }
@@ -83,9 +79,15 @@ pub mod commands {
     ///> Event Status Register. Reading the Standard Event Status Register clears it. See 11.5.1.2.
     pub struct EsrCommand;
 
-    impl Command for EsrCommand { qonly!();
+    impl Command for EsrCommand {
+        qonly!();
 
-        fn query(&self, context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
+        fn query(
+            &self,
+            context: &mut Context,
+            _args: &mut Tokenizer,
+            response: &mut dyn Formatter,
+        ) -> Result<(), Error> {
             response.u8_data(context.esr)?;
             context.esr = 0;
             Ok(())
@@ -108,13 +110,18 @@ pub mod commands {
         pub manufacturer: &'a [u8],
         pub model: &'a [u8],
         pub serial: &'a [u8],
-        pub firmware: &'a [u8]
+        pub firmware: &'a [u8],
     }
 
-    impl<'a> Command for IdnCommand<'a> { qonly!();
+    impl<'a> Command for IdnCommand<'a> {
+        qonly!();
 
-        fn query(&self, _context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
-
+        fn query(
+            &self,
+            _context: &mut Context,
+            _args: &mut Tokenizer,
+            response: &mut dyn Formatter,
+        ) -> Result<(), Error> {
             //TODO: Make this easier
             response.ascii_data(self.manufacturer)?;
             response.separator()?;
@@ -142,7 +149,12 @@ pub mod commands {
             unimplemented!()
         }
 
-        fn query(&self, _context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
+        fn query(
+            &self,
+            _context: &mut Context,
+            _args: &mut Tokenizer,
+            response: &mut dyn Formatter,
+        ) -> Result<(), Error> {
             response.ascii_data(b"1")
         }
     }
@@ -175,7 +187,8 @@ pub mod commands {
     ///>  * The memory register(s) associated with *SAV.
     ///> The scope of the *LRN? response and *RCL (if implemented) is the same as *RST. See 10.17.3 and 10.29.3.
     pub struct RstCommand;
-    impl Command for RstCommand { nquery!();
+    impl Command for RstCommand {
+        nquery!();
 
         fn event(&self, context: &mut Context, _args: &mut Tokenizer) -> Result<(), Error> {
             context.device.rst()
@@ -196,7 +209,12 @@ pub mod commands {
             Ok(())
         }
 
-        fn query(&self, context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
+        fn query(
+            &self,
+            context: &mut Context,
+            _args: &mut Tokenizer,
+            response: &mut dyn Formatter,
+        ) -> Result<(), Error> {
             response.u8_data(context.sre)
         }
     }
@@ -204,9 +222,15 @@ pub mod commands {
     ///## 10.36 *STB?, Read Status Byte Query
     ///> The Read Status Byte query allows the programmer to read the status byte and Master Summary Status bit.
     pub struct StbCommand;
-    impl Command for StbCommand { qonly!();
+    impl Command for StbCommand {
+        qonly!();
 
-        fn query(&self, context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
+        fn query(
+            &self,
+            context: &mut Context,
+            _args: &mut Tokenizer,
+            response: &mut dyn Formatter,
+        ) -> Result<(), Error> {
             response.u8_data(context.get_stb())
         }
     }
@@ -225,15 +249,20 @@ pub mod commands {
     ///> fixed, known values that are stated in the device documentation; or set to values deÞned by the user and stored in local
     ///> memory.
     pub struct TstCommand;
-    impl Command for TstCommand { qonly!();
+    impl Command for TstCommand {
+        qonly!();
 
-        fn query(&self, context: &mut Context, _args: &mut Tokenizer, response: & mut dyn Formatter) -> Result<(), Error> {
+        fn query(
+            &self,
+            context: &mut Context,
+            _args: &mut Tokenizer,
+            response: &mut dyn Formatter,
+        ) -> Result<(), Error> {
             let result = context.device.tst();
             match result {
                 Ok(v) => response.i16_data(v),
-                Err(err) => response.i16_data(err.get_code())
+                Err(err) => response.i16_data(err.get_code()),
             }
-
         }
     }
 
@@ -243,7 +272,8 @@ pub mod commands {
     ///>
     ///> NOTE - In a device that implements only sequential commands, the no-operation-pending flag is always TRUE
     pub struct WaiCommand;
-    impl Command for WaiCommand { nquery!();
+    impl Command for WaiCommand {
+        nquery!();
         fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<(), Error> {
             Ok(())
         }
@@ -252,14 +282,16 @@ pub mod commands {
     #[macro_export]
     macro_rules! ieee488_idn {
         ($manufacturer:literal, $model:literal, $serial:literal, $firmware:literal) => {
-            Node {name: b"*IDN", optional: false,
-                handler: Some(&IdnCommand{
+            Node {
+                name: b"*IDN",
+                optional: false,
+                handler: Some(&IdnCommand {
                     manufacturer: $manufacturer,
                     model: $model,
                     serial: $serial,
-                    firmware: $firmware
+                    firmware: $firmware,
                 }),
-                sub: None
+                sub: None,
             }
         };
     }
@@ -267,9 +299,11 @@ pub mod commands {
     #[macro_export]
     macro_rules! ieee488_cls {
         () => {
-            Node {name: b"*CLS", optional: false,
-                handler: Some(&ClsCommand{}),
-                sub: None
+            Node {
+                name: b"*CLS",
+                optional: false,
+                handler: Some(&ClsCommand {}),
+                sub: None,
             }
         };
     }
@@ -277,9 +311,11 @@ pub mod commands {
     #[macro_export]
     macro_rules! ieee488_ese {
         () => {
-            Node {name: b"*ESE", optional: false,
-                handler: Some(&EseCommand{}),
-                sub: None
+            Node {
+                name: b"*ESE",
+                optional: false,
+                handler: Some(&EseCommand {}),
+                sub: None,
             }
         };
     }
@@ -287,9 +323,11 @@ pub mod commands {
     #[macro_export]
     macro_rules! ieee488_esr {
         () => {
-            Node {name: b"*ESR", optional: false,
-                handler: Some(&EsrCommand{}),
-                sub: None
+            Node {
+                name: b"*ESR",
+                optional: false,
+                handler: Some(&EsrCommand {}),
+                sub: None,
             }
         };
     }
@@ -297,9 +335,11 @@ pub mod commands {
     #[macro_export]
     macro_rules! ieee488_opc {
         () => {
-            Node {name: b"*OPC", optional: false,
-                handler: Some(&OpcCommand{}),
-                sub: None
+            Node {
+                name: b"*OPC",
+                optional: false,
+                handler: Some(&OpcCommand {}),
+                sub: None,
             }
         };
     }
@@ -307,9 +347,11 @@ pub mod commands {
     #[macro_export]
     macro_rules! ieee488_rst {
         () => {
-            Node {name: b"*RST", optional: false,
-                handler: Some(&RstCommand{}),
-                sub: None
+            Node {
+                name: b"*RST",
+                optional: false,
+                handler: Some(&RstCommand {}),
+                sub: None,
             }
         };
     }
@@ -317,9 +359,11 @@ pub mod commands {
     #[macro_export]
     macro_rules! ieee488_sre {
         () => {
-            Node {name: b"*SRE", optional: false,
-                handler: Some(&SreCommand{}),
-                sub: None
+            Node {
+                name: b"*SRE",
+                optional: false,
+                handler: Some(&SreCommand {}),
+                sub: None,
             }
         };
     }
@@ -327,9 +371,11 @@ pub mod commands {
     #[macro_export]
     macro_rules! ieee488_stb {
         () => {
-            Node {name: b"*STB", optional: false,
-                handler: Some(&StbCommand{}),
-                sub: None
+            Node {
+                name: b"*STB",
+                optional: false,
+                handler: Some(&StbCommand {}),
+                sub: None,
             }
         };
     }
@@ -337,9 +383,11 @@ pub mod commands {
     #[macro_export]
     macro_rules! ieee488_tst {
         () => {
-            Node {name: b"*TST", optional: false,
-                handler: Some(&TstCommand{}),
-                sub: None
+            Node {
+                name: b"*TST",
+                optional: false,
+                handler: Some(&TstCommand {}),
+                sub: None,
             }
         };
     }
@@ -347,11 +395,12 @@ pub mod commands {
     #[macro_export]
     macro_rules! ieee488_wai {
         () => {
-            Node {name: b"*WAI", optional: false,
-                handler: Some(&WaiCommand{}),
-                sub: None
+            Node {
+                name: b"*WAI",
+                optional: false,
+                handler: Some(&WaiCommand {}),
+                sub: None,
             }
         };
     }
 }
-
