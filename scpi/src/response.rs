@@ -1,6 +1,6 @@
 use arrayvec::{ArrayVec, Array};
 use lexical_core;
-use crate::error::Error;
+use crate::error::{Error, ExtendedError};
 use lexical_core::{FromLexical, Number, ToLexical};
 
 
@@ -127,9 +127,26 @@ pub trait Formatter {
     /// Format `err` as a error/event response
     /// `<error code>, "<error message>"`
     fn error(&mut self, err: Error) -> Result<(), Error>{
-        self.i16_data(err as i16)?;
+        self.i16_data(err.get_code())?;
         self.separator()?;
-        self.str_data(err.get_message().unwrap())
+        self.str_data(err.get_message())
+    }
+
+    /// Format `err` as a error/event response
+    /// `<error code>, "<error message>"`
+    fn extended_error(&mut self, err: ExtendedError) -> Result<(), Error>{
+        self.i16_data(err.get_code())?;
+        self.separator()?;
+        if let Some(ext) = err.get_extended() {
+            self.push_byte(b'"')?;
+            self.push_str(err.get_message())?;
+            self.push_byte(b';')?;
+            self.push_str(ext)?;
+            self.push_byte(b'"')
+        }else {
+            self.push_str(err.get_message())
+        }
+
     }
 
     /// Formats `s` as \<ARBITRARY ASCII DATA\>

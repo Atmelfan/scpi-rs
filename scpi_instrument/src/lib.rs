@@ -120,7 +120,7 @@ mod tests {
         let result = context.exec(&mut tokenizer, &mut buf);
 
         if let Err(error) = result {
-            assert_eq!(error as isize, 0);
+            assert_eq!(error.get_code(), 0);
         }
     }
 }

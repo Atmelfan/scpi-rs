@@ -1,7 +1,7 @@
 extern crate proc_macro;
 
 use quote::quote;
-use syn::{parse_macro_input, Data, DeriveInput, Meta, MetaNameValue, MetaList, Lit, NestedMeta, LitByteStr};
+use syn::{parse_macro_input, Data, DeriveInput, Meta, MetaNameValue, MetaList, Lit, NestedMeta, LitByteStr, LitInt};
 
 fn get_inner_meta(list: &MetaList) -> Vec<&Meta> {
     list.nested.iter().filter_map(|nested| match *nested {
@@ -29,7 +29,7 @@ fn find_prop_bstr<'a>(meta: &'a Meta, attr: &str, property: &str) -> Option<&'a 
                             } else {
                                 return None
                             }
-                        },
+                        }
                         _ => ()
                     }
                 }
@@ -37,6 +37,62 @@ fn find_prop_bstr<'a>(meta: &'a Meta, attr: &str, property: &str) -> Option<&'a 
             None
         }
         _ => None
+    }
+}
+
+fn find_prop_bint<'a>(meta: &'a Meta, attr: &str, property: &str) -> Option<&'a LitInt>{
+    match meta {
+        Meta::List(list) => {
+            if list.path.is_ident(attr) {
+                //println!("{:?}", list);
+                let inner = get_inner_meta(list);
+
+                for name_value in inner {
+                    match name_value {
+                        Meta::NameValue(MetaNameValue {
+                                            ref path,
+                                            lit: Lit::Int(ref s),
+                                            ..
+                                        }) => {
+                            if path.is_ident(property) {
+                                return Some(s)
+                            } else {
+                                return None
+                            }
+                        }
+                        _ => ()
+                    }
+                }
+            }
+            None
+        }
+        _ => None
+    }
+}
+
+fn find_prop_path<'a>(meta: &'a Meta, attr: &str, property: &str) -> bool {
+    match meta {
+        Meta::List(list) => {
+            if list.path.is_ident(attr) {
+                //println!("{:?}", list);
+                let inner = get_inner_meta(list);
+
+                for name_value in inner {
+                    match name_value {
+                        Meta::Path(path) => {
+                            if path.is_ident(property) {
+                                return true
+                            } else {
+                                return false
+                            }
+                        }
+                        _ => ()
+                    }
+                }
+            }
+            false
+        }
+        _ => false
     }
 }
 
@@ -146,6 +202,7 @@ pub fn derive_error_messages(input: proc_macro::TokenStream) -> proc_macro::Toke
     };
 
     let mut variant_matches = Vec::new();
+    let mut code_variant_matches = Vec::new();
 
     for variant in variants.iter() {
         let variant_name = &variant.ident;
@@ -166,28 +223,51 @@ pub fn derive_error_messages(input: proc_macro::TokenStream) -> proc_macro::Toke
                 //println!("\tb\"{}\" => ({}, {}), ", String::from_utf8(suffix.value()).unwrap(), variant_name, multiplier);
 
                 let x =  quote! {
-                    #name::#variant_name => Some(#message)
+                    #name::#variant_name => #message
                 };
-
                 variant_matches.push(x);
+            }
+            if let Some(code) = find_prop_bint(&meta, "error", "code") {
+                //doc = Some(format!("{:?}, \"{}\"", code, String::from_utf8(message.value()).unwrap()));
+                //let multiplier = find_prop_f(&meta, "error", "multiplier").unwrap_or(1.0f32);
+                let cx =  quote! {
+                    #name::#variant_name => #code
+                };
+                println!("--- {}", cx);
+                //compile_error!("bint");
+                code_variant_matches.push(cx);
+            }
+            if find_prop_path(&meta, "error", "custom"){
+                let x =  quote! {
+                    #name::#variant_name(_,msg) => msg
+                };
+                variant_matches.push(x);
+                let cx =  quote! {
+                    #name::#variant_name(code,_) => code
+                };
+                println!("--- {}", cx);
+                code_variant_matches.push(cx);
             }
 
         }
 
     }
 
-    variant_matches.push(quote!{
-        _ => None
-    });
-
 
     let expanded = quote! {
         // The generated impl.
         impl  #name {
             #[doc="Returns appropriate error message"]
-            pub fn get_message(self) -> Option<&'static [u8]> {
+            pub fn get_message(self) -> &'static [u8] {
                 match self {
                     #(#variant_matches),*
+                }
+            }
+
+            #[doc="Returns appropriate error code"]
+            pub fn get_code(self) -> i16 {
+                match self {
+                    #(#code_variant_matches),*
                 }
             }
         }

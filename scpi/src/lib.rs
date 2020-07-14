@@ -85,6 +85,7 @@ extern crate scpi_derive;
 extern crate arrayvec;
 extern crate lexical_core;
 extern crate arraydeque;
+extern crate uom;
 
 pub mod error;
 pub mod command;

@@ -312,7 +312,7 @@ fn main(){
             //Looka like a lot of stuff being allocated but everything is on the stack and lightweight
             use std::str;
             if let Err(err) = result {
-                println!("{}", str::from_utf8(err.get_message().unwrap()).unwrap());
+                println!("{}", str::from_utf8(err.get_message()).unwrap());
             } else {
                 print!("{}", str::from_utf8(buf.as_slice()).unwrap());
                 //break;

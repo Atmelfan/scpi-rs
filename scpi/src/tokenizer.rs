@@ -8,11 +8,12 @@ use crate::error;
 
 use lexical_core::Float;
 use crate::expression::{numeric_list, channel_list};
+use lexical_core::ErrorCode::{Overflow, Underflow};
 
 /// SCPI tokens
 ///
 ///
-#[derive(Debug,PartialEq)]
+#[derive(Debug,PartialEq, Copy, Clone)]
 pub enum Token<'a> {
     /// Defined as \<mnemonic separator\> consisting of a single `:` character
     HeaderMnemonicSeparator,    //:
@@ -556,8 +557,14 @@ impl<'a> Tokenizer<'a> {
     /// TODO: lexical-core does not accept whitespace between exponent separator and exponent <mantissa>E <exponent>.
     pub(crate) fn read_numeric_data(&mut self) -> Result<Token<'a>, Error> {
         /* Read mantissa */
-        let (f, len) = lexical_core::parse_partial::<f32>(self.chars.as_slice()).map_err(|_|Error::NumericDataError)?;
-        for _ in 0..len { self.chars.next(); };
+        let (f, len) = lexical_core::parse_partial::<f32>(self.chars.as_slice()).map_err(|e|
+            match e.code {
+                lexical_core::ErrorCode::InvalidDigit => Error::InvalidCharacterInNumber,
+                lexical_core::ErrorCode::Overflow | lexical_core::ErrorCode::Underflow => Error::ExponentTooLarge,
+                _ => Error::NumericDataError
+            }
+        )?;
+        self.chars.nth(len-1).unwrap();
         self.skip_ws();
 
         Ok(Token::DecimalNumericProgramData(f))
@@ -661,24 +668,12 @@ impl<'a> Tokenizer<'a> {
                 return Ok(Token::ArbitraryBlockData(u8str));
             }
 
-            let mut i = len;
-            let mut payload_len = 0usize;
-
-            while self.chars.clone().next().map_or(false, |ch| ch.is_ascii_digit() && i > 0) {
-                let c = self.chars.next().unwrap();
-                payload_len = payload_len*10 + ascii_to_digit(*c, 10).unwrap() as usize;
-                i -= 1;
-            }
-            //Not all payload length digits were consumed (i.e. string end or not a digit)
-            if i > 0 || payload_len > self.chars.as_slice().len(){
-                return Err(Error::InvalidBlockData);
-            }
-
+            let payload_len = lexical_core::parse::<usize>(&self.chars.as_slice()[..len as usize]).map_err(|_|Error::InvalidBlockData)?;
+            self.chars.nth(payload_len-1).unwrap();
             let u8str = self.chars.as_slice().get(0..payload_len).ok_or(Error::InvalidBlockData)?;
             for _ in 0..payload_len {
                 self.chars.next();
             }
-
 
             let ret = Ok(Token::ArbitraryBlockData(u8str));
             // Skip to next separator
@@ -769,14 +764,6 @@ mod test_parse {
 
     extern crate std;
 
-    use std::fmt;
-
-    impl fmt::Debug for Error {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            write!(f, "({})", self.clone() as i32)
-        }
-    }
-
     #[test]
     fn test_split_mnemonic(){
         assert_eq!(Token::mnemonic_split_index(b"TRIGger54"), Some((b"TRIGger".as_ref(), b"54".as_ref())));
@@ -852,12 +839,20 @@ mod test_parse {
         assert_eq!(Tokenizer::from_str(b".1E2").read_numeric_data().unwrap(),
                    Token::DecimalNumericProgramData(10f32));
 
+        assert_eq!(Tokenizer::from_str(b".1E2").read_numeric_data().unwrap(),
+                   Token::DecimalNumericProgramData(10f32));
+
     }
 
     #[test]
     fn test_read_suffix_data(){
         assert_eq!(Tokenizer::from_str(b"MOHM").read_suffix_data().unwrap(),
                    Token::SuffixProgramData(b"MOHM"));
+
+        // Error, too long suffix
+        assert_eq!(Tokenizer::from_str(b"SUFFIXTOODAMNLONG").read_suffix_data(),
+                   Err(Error::SuffixTooLong));
+
 
     }
 
@@ -879,6 +874,15 @@ mod test_parse {
 
         assert_eq!(Tokenizer::from_str(b"\"MOHM\",  gui").read_string_data(b'"', true),
                    Ok(Token::StringProgramData(b"MOHM")));
+        assert_eq!(Tokenizer::from_str(b"'MOHM',  gui").read_string_data(b'\'', true),
+                   Ok(Token::StringProgramData(b"MOHM")));
+
+        assert_eq!(Tokenizer::from_str(b"\"MOHM").read_string_data(b'"', true),
+                   Err(Error::InvalidStringData));
+        assert_eq!(Tokenizer::from_str(b"'MOHM").read_string_data(b'"', true),
+                   Err(Error::InvalidStringData));
+        assert_eq!(Tokenizer::from_str(b"'MO\xffHM").read_string_data(b'"', true),
+                   Err(Error::InvalidCharacter));
 
     }
 
@@ -886,6 +890,26 @@ mod test_parse {
     fn test_read_arb_data(){
         assert_eq!(Tokenizer::from_str(b"02\x01\x02,").read_arbitrary_data(b'2'),
                    Ok(Token::ArbitraryBlockData(&[1,2])));
+
+        // Error, too short
+        assert_eq!(Tokenizer::from_str(b"02\x01").read_arbitrary_data(b'2'),
+                   Err(Error::InvalidBlockData));
+
+        // Error, invalid header
+        assert_eq!(Tokenizer::from_str(b"a2\x01\x02,").read_arbitrary_data(b'2'),
+                   Err(Error::InvalidBlockData));
+
+        // Error, header too short/invalid
+        assert_eq!(Tokenizer::from_str(b"2\x01\x02,").read_arbitrary_data(b'2'),
+                   Err(Error::InvalidBlockData));
+
+        // Indefinite length
+        assert_eq!(Tokenizer::from_str(b"\x01\x02\n").read_arbitrary_data(b'0'),
+                   Ok(Token::ArbitraryBlockData(&[1,2])));
+
+        // Error, indefinite not terminated by newline
+        assert_eq!(Tokenizer::from_str(b"\x01\x02").read_arbitrary_data(b'0'),
+                   Err(Error::InvalidBlockData));
 
     }
 

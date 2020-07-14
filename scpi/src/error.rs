@@ -21,9 +21,51 @@ use arraydeque::{ArrayDeque, Saturating, Array};
 ///> the offending part of the command.
 ///
 ///
+///
 
-#[derive(PartialEq, Copy, Clone, ScpiError)]
+pub struct ExtendedError {
+    error: Error,
+    msg: Option<&'static [u8]>
+}
+
+impl ExtendedError {
+    pub fn new(error: Error) -> Self {
+        ExtendedError {
+            error,
+            msg: None
+        }
+    }
+
+    pub fn extended(error: Error, msg: &'static [u8]) -> Self {
+        ExtendedError {
+            error,
+            msg: Some(msg)
+        }
+    }
+
+    pub fn get_code(&self) -> i16 {
+        self.error.get_code()
+    }
+
+    pub fn get_message(&self) -> &'static [u8] {
+        self.error.get_message()
+    }
+
+    pub fn get_extended(&self) -> Option<&'static [u8]> {
+        self.msg
+    }
+}
+
+impl Into<ExtendedError> for Error {
+    fn into(self) -> ExtendedError {
+        ExtendedError::new(self)
+    }
+}
+
+#[derive(Debug, PartialEq, Copy, Clone, ScpiError)]
 pub enum Error {
+    #[error(custom)]
+    Custom(i16, &'static [u8]),
     ///# 28.8.3 No error [-99, 0]
     ///> This message indicates that the device has no errors or events to report.
     /// ---
@@ -31,8 +73,8 @@ pub enum Error {
     ///
     /// The queue is completely empty. Every error/event in the queue has been read or
     /// the queue was purposely cleared by power-on, *CLS, etc
-    #[error(message=b"No error")]
-    NoError = 0,
+    #[error(code=0,message=b"No error")]
+    NoError,
 
     ///# 28.9.10 Command Errors [-199, -100]
     ///> An <error/event number> in the range `[ -199 , -100 ]` indicates that an IEEE 488.2 syntax
@@ -50,103 +92,103 @@ pub enum Error {
     ///This is the generic syntax error for devices that cannot detect more specific
     ///errors. This code indicates only that a Command Error as defined in IEEE 488.2,
     ///11.5.1.1.4 has occurred.
-    #[error(message=b"Command error")]
-    CommandError = -100,
+    #[error(code=-100,message=b"Command error")]
+    CommandError,
     /// `-101, "Invalid character"`
     ///
     /// A syntactic element contains a character which is invalid for that type; for
     /// example, a header containing an ampersand, SETUP&. This error might be used
     /// in place of errors -114, -121, -141, and perhaps some others.
-    #[error(message=b"Invalid character")]
-    InvalidCharacter = -101,
+    #[error(code=-101,message=b"Invalid character")]
+    InvalidCharacter,
     /// `-102, "Syntax error"`
     ///
     /// An unrecognized command or data type was encountered; for example, a string
     /// was received when the device does not accept strings.
-    #[error(message=b"Syntax error")]
-    SyntaxError = -102,
+    #[error(code=-102,message=b"Syntax error")]
+    SyntaxError,
     ///The parser was expecting a separator and encountered an illegal character; for
     ///example, the semicolon was omitted after a program message unit,
     ///*EMC 1:CH1:VOLTS 5
-    #[error(message=b"Invalid separator")]
-    InvalidSeparator = -103,
+    #[error(code=-103,message=b"Invalid separator")]
+    InvalidSeparator,
     ///The parser recognized a data element different than one allowed; for example,
     ///numeric or string data was expected but block data was encountered
-    #[error(message=b"Data type error")]
-    DataTypeError = -104,
+    #[error(code=-104,message=b"Data type error")]
+    DataTypeError,
     ///A Group Execute Trigger was received within a program message (see IEEE
     ///488.2, 7.7)
-    #[error(message=b"GET not allowed")]
-    GetNotAllowed = -105,
+    #[error(code=-105,message=b"GET not allowed")]
+    GetNotAllowed,
 
-    #[error(message=b"Parameter not allowed")]
-    ParameterNotAllowed = -108,
-    #[error(message=b"Missing parameter")]
-    MissingParameter = -109,
-    #[error(message=b"Command header error")]
-    CommandHeaderError = -110,
-    #[error(message=b"Header separator error")]
-    HeaderSeparatorError = -111,
-    #[error(message=b"Program mnemonic too long")]
-    ProgramMnemonicTooLong = -112,
-    #[error(message=b"Undefined header")]
-    UndefinedHeader = -113,
-    #[error(message=b"Header suffix out of range")]
-    HeaderSuffixOutOfRange = -114,
-    #[error(message=b"Unexpected number of parameters")]
-    UnexpectedNumberOfParameters = -115,
-    #[error(message=b"Numeric data error")]
-    NumericDataError = -120,
-    #[error(message=b"Invalid character in number")]
-    InvalidCharacterInNumber = -121,
-    #[error(message=b"Exponent too large")]
-    ExponentTooLarge = -123,
-    #[error(message=b"Too many digits")]
-    TooManyDigits = -124,
-    #[error(message=b"Numeric data not allowed")]
-    NumericDataNotAllowed = -128,
-    #[error(message=b"Suffix error")]
-    SuffixError = -130,
-    #[error(message=b"Invalid suffix")]
-    InvalidSuffix = -131,
-    #[error(message=b"Suffix too long")]
-    SuffixTooLong = -134,
-    #[error(message=b"Suffix not allowed")]
-    SuffixNotAllowed = -138,
-    #[error(message=b"Character data error")]
-    CharacterDataError = -140,
-    #[error(message=b"Invalid character data")]
-    InvalidCharacterData = -141,
-    #[error(message=b"Character data too long")]
-    CharacterDataTooLong = -144,
-    #[error(message=b"Character data not allowed")]
-    CharacterDataNotAllowed = -148,
-    #[error(message=b"String data error")]
-    StringDataError = -150,
-    #[error(message=b"Invalid string data")]
-    InvalidStringData = -151,
-    #[error(message=b"String data not allowed")]
-    StringDataNotAllowed = -158,
-    #[error(message=b"Block data error")]
-    BlockDataError = -160,
-    #[error(message=b"Invalid block data")]
-    InvalidBlockData = -161,
-    #[error(message=b"Block data not allowed")]
-    BlockDataNotAllowed = -168,
-    #[error(message=b"Expression error")]
-    ExpressionError = -170,
-    #[error(message=b"Invalid expression")]
-    InvalidExpression = -171,
-    #[error(message=b"Expression data not allowed")]
-    ExpressionDataNotAllowed = -178,
-    #[error(message=b"Macro error")]
-    MacroError = -180,
-    #[error(message=b"Invalid outside macro definition")]
-    InvalidOutsideMacroDefinition = -181,
-    #[error(message=b"Invalid inside macro definition")]
-    InvalidInsideMacroDefinition = -183,
-    #[error(message=b"Macro parameter error")]
-    MacroParameterError = -184,
+    #[error(code=-108,message=b"Parameter not allowed")]
+    ParameterNotAllowed,
+    #[error(code=-109,message=b"Missing parameter")]
+    MissingParameter,
+    #[error(code=-110,message=b"Command header error")]
+    CommandHeaderError,
+    #[error(code=-111,message=b"Header separator error")]
+    HeaderSeparatorError,
+    #[error(code=-112,message=b"Program mnemonic too long")]
+    ProgramMnemonicTooLong,
+    #[error(code=-113,message=b"Undefined header")]
+    UndefinedHeader,
+    #[error(code=-114,message=b"Header suffix out of range")]
+    HeaderSuffixOutOfRange,
+    #[error(code=-115,message=b"Unexpected number of parameters")]
+    UnexpectedNumberOfParameters,
+    #[error(code=-120,message=b"Numeric data error")]
+    NumericDataError,
+    #[error(code=-121,message=b"Invalid character in number")]
+    InvalidCharacterInNumber,
+    #[error(code=-123,message=b"Exponent too large")]
+    ExponentTooLarge,
+    #[error(code=-124,message=b"Too many digits")]
+    TooManyDigits,
+    #[error(code=-128,message=b"Numeric data not allowed")]
+    NumericDataNotAllowed,
+    #[error(code=-130,message=b"Suffix error")]
+    SuffixError,
+    #[error(code=-131,message=b"Invalid suffix")]
+    InvalidSuffix,
+    #[error(code=-134,message=b"Suffix too long")]
+    SuffixTooLong,
+    #[error(code=-138,message=b"Suffix not allowed")]
+    SuffixNotAllowed,
+    #[error(code=-140,message=b"Character data error")]
+    CharacterDataError,
+    #[error(code=-141,message=b"Invalid character data")]
+    InvalidCharacterData,
+    #[error(code=-144,message=b"Character data too long")]
+    CharacterDataTooLong,
+    #[error(code=-148,message=b"Character data not allowed")]
+    CharacterDataNotAllowed,
+    #[error(code=-150,message=b"String data error")]
+    StringDataError,
+    #[error(code=-151,message=b"Invalid string data")]
+    InvalidStringData,
+    #[error(code=-158,message=b"String data not allowed")]
+    StringDataNotAllowed,
+    #[error(code=-160,message=b"Block data error")]
+    BlockDataError,
+    #[error(code=-161,message=b"Invalid block data")]
+    InvalidBlockData,
+    #[error(code=-168,message=b"Block data not allowed")]
+    BlockDataNotAllowed,
+    #[error(code=-170,message=b"Expression error")]
+    ExpressionError,
+    #[error(code=-171,message=b"Invalid expression")]
+    InvalidExpression,
+    #[error(code=-178,message=b"Expression data not allowed")]
+    ExpressionDataNotAllowed,
+    #[error(code=-180,message=b"Macro error")]
+    MacroError,
+    #[error(code=-181,message=b"Invalid outside macro definition")]
+    InvalidOutsideMacroDefinition,
+    #[error(code=-183,message=b"Invalid inside macro definition")]
+    InvalidInsideMacroDefinition,
+    #[error(code=-184,message=b"Macro parameter error")]
+    MacroParameterError,
 
     ///# 21.8.10 Execution Errors [-299, -200]
     ///> An <error/event number> in the range `[ -299 , -200 ]` indicates that an error has been
@@ -164,116 +206,116 @@ pub enum Error {
     ///This is the generic syntax error for devices that cannot detect more specific
     ///errors. This code indicates only that an Execution Error as defined in IEEE 488.2,
     ///11.5.1.1.5 has occurred.
-    #[error(message=b"Execution error")]
-    ExecutionError = -200,
-    #[error(message=b"Invalid while in local")]
-    InvalidWhileInLocal = -201,
-    #[error(message=b"Settings lost due to rtl")]
-    SettingsLostDueToRTL = -202,
-    #[error(message=b"Command protected")]
-    CommandProtected = -203,
-    #[error(message=b"Trigger error")]
-    TriggerError = -210,
-    #[error(message=b"Trigger ignored")]
-    TriggerIgnored = -211,
-    #[error(message=b"Arm ignored")]
-    ArmIgnored = -212,
-    #[error(message=b"Init ignored")]
-    InitIgnored = -213,
-    #[error(message=b"Trigger deadlock")]
-    TriggerDeadlock = -214,
-    #[error(message=b"Arm deadlock")]
-    ArmDeadlock = -215,
-    #[error(message=b"Parameter error")]
-    ParameterError = -220,
-    #[error(message=b"Settings conflict")]
-    SettingsConflict = -221,
-    #[error(message=b"Data out of range")]
-    DataOutOfRange = -222,
-    #[error(message=b"Too much data")]
-    TooMuchData = -223,
-    #[error(message=b"Illegal parameter value")]
-    IllegalParameterValue = -224,
-    #[error(message=b"Out of memory")]
-    OutOfMemory = -225,
-    #[error(message=b"Lists not same length")]
-    ListsNotSameLength = -226,
-    #[error(message=b"Data corrupt or stale")]
-    DataCorruptOrStale = -230,
-    #[error(message=b"Data questionable")]
-    DataQuestionable = -231,
-    #[error(message=b"Invalid format")]
-    InvalidFormat = -232,
-    #[error(message=b"Invalid version")]
-    InvalidVersion = -233,
-    #[error(message=b"Hardware error")]
-    HardwareError = -240,
-    #[error(message=b"Hardware missing")]
-    HardwareMissing = -241,
-    #[error(message=b"Mass storage error")]
-    MassStorageError = -250,
-    #[error(message=b"Missing mass storage")]
-    MissingMassStorage = -251,
-    #[error(message=b"Missing media")]
-    MissingMedia = -252,
-    #[error(message=b"Corrupt media")]
-    CorruptMedia = -253,
-    #[error(message=b"Media full")]
-    MediaFull = -254,
-    #[error(message=b"Directory full")]
-    DirectoryFull = -255,
-    #[error(message=b"Filename not found")]
-    FileNameNotFound = -256,
-    #[error(message=b"Filename error")]
-    FileNameError = -257,
-    #[error(message=b"Media protected")]
-    MediaProtected = -258,
-    #[error(message=b"Expression error")]
-    ExecExpressionError = -260,//Also declared in 170?
-    #[error(message=b"Math error in expression")]
-    MathErrorInExpression = -261,
-    #[error(message=b"Macro error")]
-    ExecMacroError = -270,
-    #[error(message=b"Macro syntax error")]
-    MacroSyntaxError = -271,
-    #[error(message=b"Macro execution error")]
-    MacroExecutionError = -272,
-    #[error(message=b"Illegal macro label")]
-    IllegalMacroLabel = -273,
-    #[error(message=b"Macro parameter error")]
-    ExecMacroParameterError = -274,
-    #[error(message=b"Macro definition too long")]
-    MacroDefinitionTooLong = -275,
-    #[error(message=b"Macro recursion error")]
-    MacroRecursionError = -276,
-    #[error(message=b"Macro redefinition not allowed")]
-    MacroRedefinitionNotAllowed = -277,
-    #[error(message=b"Macro header not found")]
-    MacroHeaderNotFound = -278,
-    #[error(message=b"Program error")]
-    ProgramError = -280,
-    #[error(message=b"Cannot create program")]
-    CannotCreateProgram = -281,
-    #[error(message=b"Illegal program name")]
-    IllegalProgramName = -282,
-    #[error(message=b"Illegal variable name")]
-    IllegalVariableName = -283,
-    #[error(message=b"Program currently running")]
-    ProgramCurrentlyRunning = -284,
-    #[error(message=b"Program syntax error")]
-    ProgramSyntaxError = -285,
-    #[error(message=b"Program runtime error")]
-    ProgramRuntimeError = -286,
-    #[error(message=b"Memory use error")]
-    MemoryUseError = -290,
-    #[error(message=b"Out of memory")]
-    UseOutOfMemory = -291,
-    #[error(message=b"Referenced name does not exist")]
-    ReferencedNameDoesNotExist = -292,
-    #[error(message=b"Referenced name already exists")]
-    ReferencedNameAlreadyExists = -293,
-    #[error(message=b"Incompatible type")]
-    IncompatibleType = -294,
+    #[error(code=-200,message=b"Execution error")]
+    ExecutionError,
+    #[error(code=-201,message=b"Invalid while in local")]
+    InvalidWhileInLocal,
+    #[error(code=-202,message=b"Settings lost due to rtl")]
+    SettingsLostDueToRTL,
+    #[error(code=-203,message=b"Command protected")]
+    CommandProtected,
+    #[error(code=-210,message=b"Trigger error")]
+    TriggerError,
+    #[error(code=-211,message=b"Trigger ignored")]
+    TriggerIgnored,
+    #[error(code=-212,message=b"Arm ignored")]
+    ArmIgnored,
+    #[error(code=-213,message=b"Init ignored")]
+    InitIgnored,
+    #[error(code=-214,message=b"Trigger deadlock")]
+    TriggerDeadlock,
+    #[error(code=-215,message=b"Arm deadlock")]
+    ArmDeadlock,
+    #[error(code=-220,message=b"Parameter error")]
+    ParameterError,
+    #[error(code=-221,message=b"Settings conflict")]
+    SettingsConflict,
+    #[error(code=-222,message=b"Data out of range")]
+    DataOutOfRange,
+    #[error(code=-223,message=b"Too much data")]
+    TooMuchData,
+    #[error(code=-224,message=b"Illegal parameter value")]
+    IllegalParameterValue,
+    #[error(code=-225,message=b"Out of memory")]
+    OutOfMemory,
+    #[error(code=-226,message=b"Lists not same length")]
+    ListsNotSameLength,
+    #[error(code=-230,message=b"Data corrupt or stale")]
+    DataCorruptOrStale,
+    #[error(code=-231,message=b"Data questionable")]
+    DataQuestionable,
+    #[error(code=-232,message=b"Invalid format")]
+    InvalidFormat,
+    #[error(code=-233,message=b"Invalid version")]
+    InvalidVersion,
+    #[error(code=-240,message=b"Hardware error")]
+    HardwareError,
+    #[error(code=-241,message=b"Hardware missing")]
+    HardwareMissing,
+    #[error(code=-250,message=b"Mass storage error")]
+    MassStorageError,
+    #[error(code=-251,message=b"Missing mass storage")]
+    MissingMassStorage,
+    #[error(code=-252,message=b"Missing media")]
+    MissingMedia,
+    #[error(code=-253,message=b"Corrupt media")]
+    CorruptMedia,
+    #[error(code=-254,message=b"Media full")]
+    MediaFull,
+    #[error(code=-255,message=b"Directory full")]
+    DirectoryFull,
+    #[error(code=-256,message=b"Filename not found")]
+    FileNameNotFound,
+    #[error(code=-257,message=b"Filename error")]
+    FileNameError,
+    #[error(code=-258,message=b"Media protected")]
+    MediaProtected,
+    #[error(code=-260,message=b"Expression error")]
+    ExecExpressionError,//Also declared in 170?
+    #[error(code=-261,message=b"Math error in expression")]
+    MathErrorInExpression,
+    #[error(code=-270,message=b"Macro error")]
+    ExecMacroError,
+    #[error(code=-271,message=b"Macro syntax error")]
+    MacroSyntaxError,
+    #[error(code=-272,message=b"Macro execution error")]
+    MacroExecutionError,
+    #[error(code=-273,message=b"Illegal macro label")]
+    IllegalMacroLabel,
+    #[error(code=-274,message=b"Macro parameter error")]
+    ExecMacroParameterError,
+    #[error(code=-275,message=b"Macro definition too long")]
+    MacroDefinitionTooLong,
+    #[error(code=-276,message=b"Macro recursion error")]
+    MacroRecursionError,
+    #[error(code=-277,message=b"Macro redefinition not allowed")]
+    MacroRedefinitionNotAllowed,
+    #[error(code=-278,message=b"Macro header not found")]
+    MacroHeaderNotFound,
+    #[error(code=-280,message=b"Program error")]
+    ProgramError,
+    #[error(code=-281,message=b"Cannot create program")]
+    CannotCreateProgram,
+    #[error(code=-282,message=b"Illegal program name")]
+    IllegalProgramName,
+    #[error(code=-283,message=b"Illegal variable name")]
+    IllegalVariableName,
+    #[error(code=-284,message=b"Program currently running")]
+    ProgramCurrentlyRunning,
+    #[error(code=-285,message=b"Program syntax error")]
+    ProgramSyntaxError,
+    #[error(code=-286,message=b"Program runtime error")]
+    ProgramRuntimeError,
+    #[error(code=-290,message=b"Memory use error")]
+    MemoryUseError,
+    #[error(code=-291,message=b"Out of memory")]
+    UseOutOfMemory,
+    #[error(code=-292,message=b"Referenced name does not exist")]
+    ReferencedNameDoesNotExist,
+    #[error(code=-293,message=b"Referenced name already exists")]
+    ReferencedNameAlreadyExists,
+    #[error(code=-294,message=b"Incompatible type")]
+    IncompatibleType,
 
     ///# Device-specific error `[-399, -300]`
     ///> An <error/event number> in the range `[ -399 , -300 ]` or `[ 1 , 32767 ]` indicates that the
@@ -294,40 +336,40 @@ pub enum Error {
     /// This is the generic device-dependent error for devices that cannot detect more
     /// specific errors. This code indicates only that a Device-Dependent Error as defined
     /// in IEEE 488.2, 11.5.1.1.6 has occurred.
-    #[error(message=b"Device-specific error")]
-    DeviceSpecificError = -300,
-    #[error(message=b"System error")]
-    SystemError = -310,
-    #[error(message=b"Memory error")]
-    MemoryError = -311,
-    #[error(message=b"PUD memory lost")]
-    PudMemoryLost = -312,
-    #[error(message=b"Calibration memory lost")]
-    CalibrationMemoryLost = -313,
-    #[error(message=b"Save/recall memory lost")]
-    SaveRecallMemoryLost = -314,
-    #[error(message=b"Configuration memory lost")]
-    ConfigurationMemoryLost = -315,
-    #[error(message=b"Storage fault")]
-    StorageFault = -320,
-    #[error(message=b"Out of memory")]
-    StOutOfMemory = -321,
-    #[error(message=b"Self-test failed")]
-    SelfTestFailed = -330,
-    #[error(message=b"Calibration failed")]
-    CalibrationFailed = -340,
-    #[error(message=b"Queue overflow")]
-    QueueOverflow = -350,
-    #[error(message=b"Communication error")]
-    CommunicationError = -360,
-    #[error(message=b"Parity error in program message")]
-    ParityErrorInProgramMessage = -361,
-    #[error(message=b"Framing error in program message")]
-    FramingErrorInProgramMessage = -362,
-    #[error(message=b"Input buffer overrun")]
-    InputBufferOverrun = -363,
-    #[error(message=b"Time out error")]
-    TimeOutError = -365,
+    #[error(code=-300,message=b"Device-specific error")]
+    DeviceSpecificError,
+    #[error(code=-310,message=b"System error")]
+    SystemError,
+    #[error(code=-311,message=b"Memory error")]
+    MemoryError,
+    #[error(code=-312,message=b"PUD memory lost")]
+    PudMemoryLost,
+    #[error(code=-313,message=b"Calibration memory lost")]
+    CalibrationMemoryLost,
+    #[error(code=-314,message=b"Save/recall memory lost")]
+    SaveRecallMemoryLost,
+    #[error(code=-315,message=b"Configuration memory lost")]
+    ConfigurationMemoryLost,
+    #[error(code=-320,message=b"Storage fault")]
+    StorageFault,
+    #[error(code=-321,message=b"Out of memory")]
+    StOutOfMemory,
+    #[error(code=-330,message=b"Self-test failed")]
+    SelfTestFailed,
+    #[error(code=-340,message=b"Calibration failed")]
+    CalibrationFailed,
+    #[error(code=-350,message=b"Queue overflow")]
+    QueueOverflow,
+    #[error(code=-360,message=b"Communication error")]
+    CommunicationError,
+    #[error(code=-361,message=b"Parity error in program message")]
+    ParityErrorInProgramMessage,
+    #[error(code=-362,message=b"Framing error in program message")]
+    FramingErrorInProgramMessage,
+    #[error(code=-363,message=b"Input buffer overrun")]
+    InputBufferOverrun,
+    #[error(code=-365,message=b"Time out error")]
+    TimeOutError,
 
     ///# Query error [-499, -400]
     ///> An <error/event number> in the range `[ -499 , -400 ]` indicates that the output queue control
@@ -344,16 +386,16 @@ pub enum Error {
     /// This is the generic query error for devices that cannot detect more specific errors.
     /// This code indicates only that a Query Error as defined in IEEE 488.2, 11.5.1.1.7
     /// and 6.3 has occurred.
-    #[error(message=b"Query error")]
-    QueryError = -400,
-    #[error(message=b"Query INTERRUPTED")]
-    QueryInterrupted = -410,
-    #[error(message=b"Query UNTERMINATED")]
-    QueryUnterminated = -420,
-    #[error(message=b"Query DEADLOCKED")]
-    QueryDeadlocked = -430,
-    #[error(message=b"Query UNTERMINATED after indefinite response")]
-    QueryUnterminatedAfterIndefiniteResponse = -440,
+    #[error(code=-400,message=b"Query error")]
+    QueryError,
+    #[error(code=-410,message=b"Query INTERRUPTED")]
+    QueryInterrupted,
+    #[error(code=-420,message=b"Query UNTERMINATED")]
+    QueryUnterminated,
+    #[error(code=-430,message=b"Query DEADLOCKED")]
+    QueryDeadlocked,
+    #[error(code=-440,message=b"Query UNTERMINATED after indefinite response")]
+    QueryUnterminatedAfterIndefiniteResponse,
 
     ///# Power on event [-599, -500]
     ///> An <error/event number> in the range `[-599:-500]` is used when the instrument wishes to
@@ -362,8 +404,8 @@ pub enum Error {
     ///> on bit, (bit 7) of the Standard Event Status Register. See IEEE 488.2, section 11.5.1.
     /// ---
     /// The instrument has detected an off to on transition in its power supply.
-    #[error(message=b"Power on")]
-    PowerOn = -500,
+    #[error(code=-500,message=b"Power on")]
+    PowerOn,
 
     ///# User request event [-699, -600]
     ///> An <error/event number> in the range `[-699:-600]` is used when the instrument wishes to
@@ -372,8 +414,8 @@ pub enum Error {
     ///> the Standard Event Status Register. See IEEE 488.2, section 11.5.1.
     /// ---
     /// The instrument has detected the activation of a user request local control
-    #[error(message=b"User request")]
-    UserRequest = -600,
+    #[error(code=-600,message=b"User request")]
+    UserRequest,
 
     ///# Request control event [-799, -700]
     ///> An <error/event number> in the range `[-799:-700]` is used when the instrument wishes to
@@ -383,8 +425,8 @@ pub enum Error {
     ///> section 11.5.1.
     /// ---
     /// The instrument requested to become the active IEEE 488.1 controller-in-charge
-    #[error(message=b"Request control")]
-    RequestControl = -700,
+    #[error(code=-700,message=b"Request control")]
+    RequestControl,
 
     ///# Operation complete event [-899, -800]
     ///> An <error/event number> in the range `[-899:-800]` is used when the instrument wishes to
@@ -397,8 +439,8 @@ pub enum Error {
     /// ---
     /// The instrument has completed all selected pending operations in accordance with
     /// the IEEE 488.2, 12.5.2 synchronization protocol
-    #[error(message=b"Operation complete")]
-    OperationComplete = -800,
+    #[error(code=-800,message=b"Operation complete")]
+    OperationComplete,
 }
 
 impl<'a> Error {
@@ -406,7 +448,7 @@ impl<'a> Error {
      * Returns a bitmask for the appropriate bit in the ESR for this event/error.
      */
     pub fn esr_mask(self) -> u8 {
-        match self as i32 {
+        match self.get_code() {
             -99..=0 => 0u8,//No bit
             -199..=-100 => 0x20u8,//bit 5
             -299..=-200 => 0x10u8,//bit 4

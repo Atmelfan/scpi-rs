@@ -231,7 +231,7 @@ pub mod commands {
             let result = context.device.tst();
             match result {
                 Ok(v) => response.i16_data(v),
-                Err(err) => response.i16_data(err as i16)
+                Err(err) => response.i16_data(err.get_code())
             }
 
         }
