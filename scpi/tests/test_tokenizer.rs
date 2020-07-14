@@ -1,6 +1,4 @@
-use scpi::error::Error;
 use scpi::tokenizer::{Token, Tokenizer};
-use std::borrow::Borrow;
 
 extern crate std;
 

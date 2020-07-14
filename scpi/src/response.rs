@@ -234,7 +234,7 @@ pub struct ArrayVecFormatter<T: Array<Item = u8>> {
     index: u8,
 }
 
-impl<T: Array<Item = u8>> Default for ArrayVecFormatter<T>{
+impl<T: Array<Item = u8>> Default for ArrayVecFormatter<T> {
     fn default() -> Self {
         ArrayVecFormatter {
             vec: ArrayVec::<T>::new(),

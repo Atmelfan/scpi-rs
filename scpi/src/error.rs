@@ -476,7 +476,7 @@ pub struct ArrayErrorQueue<T: Array<Item = Error>> {
     vec: ArrayDeque<T>,
 }
 
-impl<T: Array<Item = Error>>  Default for ArrayErrorQueue<T> {
+impl<T: Array<Item = Error>> Default for ArrayErrorQueue<T> {
     fn default() -> Self {
         ArrayErrorQueue {
             vec: ArrayDeque::<T, Saturating>::new(),

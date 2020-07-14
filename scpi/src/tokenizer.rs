@@ -646,7 +646,7 @@ impl<'a> Tokenizer<'a> {
             b'H' | b'h' => 16u32,
             b'Q' | b'q' => 8u32,
             b'B' | b'b' => 2u32,
-            _ => return  Err(Error::NumericDataError) ,
+            _ => return Err(Error::NumericDataError),
         };
 
         let mut acc = 0u32;

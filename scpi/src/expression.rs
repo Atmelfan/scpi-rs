@@ -68,7 +68,6 @@ pub mod numeric_list {
                     Token::Separator => write!(f, ","),
                     Token::Numeric(x) => write!(f, "{}", x),
                     Token::NumericRange(x, y) => write!(f, "{}:{}", x, y),
-                    _ => write!(f, "(UNKNOWN)"),
                 }
             }
         }
