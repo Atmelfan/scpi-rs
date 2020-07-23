@@ -242,7 +242,7 @@ pub mod commands {
     ///> documentation, see 4.9.
     ///>
     ///> The *TST? query shall not require any local operator interaction. It shall not create bus conditions that are violations
-    ///> to the IEEE Std 488.1-1987 [4] or IEEE Std 488.2-1992 standards. Otherwise, the scope of the self-test is completely
+    ///> to the IEEE Std 488.1-1987 or IEEE Std 488.2-1992 standards. Otherwise, the scope of the self-test is completely
     ///> at the discretion of the device designer.
     ///>
     ///> Upon successful completion of *TST?, the device settings shall be restored to their values prior to the *TST?; set to

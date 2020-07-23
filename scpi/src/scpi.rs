@@ -420,7 +420,7 @@ pub mod commands {
         }
     }
 
-    ///# 20.3.4 [:EVENt]?
+    ///# 20.3.4 \[:EVENt\]?
     ///> `STATus:QUEStionable:EVENt?`
     ///> Defined the same as STATus:OPERation:EVENt. See Section 20.1.4 for details.
     pub struct StatQuesEvenCommand;

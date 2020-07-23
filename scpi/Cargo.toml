@@ -18,14 +18,15 @@ readme = "../README.md"
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-scpi_derive = {path = "../scpi_derive", version="0.1.1"}
-lexical-core = {version="^0.6.2", features=["radix"], default-features=false}
+scpi_derive = { path = "../scpi_derive", version="0.1.1" }
+lexical-core = { version="^0.6.2", features=["radix"], default-features=false }
 arraydeque = { version = "0.4", default-features = false }
-arrayvec = {version = "0.5.1", default-features=false}
+arrayvec = { version = "0.5.1", default-features=false }
 
 [features]
 default = []
 extended-error = []
+arbitrary-utf8-string = []
 
 
 
