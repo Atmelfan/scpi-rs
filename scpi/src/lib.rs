@@ -127,8 +127,8 @@ pub trait Device {
     /// Called by *TST?
     /// Return zero if self-test is successful or a positive user-error code or a
     /// standard negative error code (as a Error enum variant).
-    fn tst(&mut self) -> Result<i16> {
-        Ok(0)
+    fn tst(&mut self) -> Result<()> {
+        Ok(())
     }
 }
 
@@ -181,7 +181,7 @@ impl<'a> Context<'a> {
     }
 
     /// Put an error into the queue and set corresponding ESR bits
-    pub fn push_error(&mut self, err: Error){
+    pub fn push_error(&mut self, err: Error) {
         self.esr |= err.esr_mask();
         self.errors.push_back_error(err);
     }

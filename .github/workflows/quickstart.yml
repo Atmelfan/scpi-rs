@@ -31,6 +31,15 @@ jobs:
   test:
     name: Test Suite
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - x86_64-unknown-linux-gnu
+          - x86-unknown-linux-gnu
+          - thumbv6m-none-eabi
+          - thumbv7m-none-eabi
+          - thumbv7em-none-eabi
+          - thumbv7em-none-eabihf
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2

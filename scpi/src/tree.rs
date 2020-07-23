@@ -6,6 +6,17 @@ use crate::response::Formatter;
 use crate::tokenizer::Tokenizer;
 use crate::Context;
 
+#[macro_export]
+macro_rules! scpi_tree {
+    ($($node:expr),*) => {
+    &Node{name: b"ROOT", optional: false, handler: None, sub: Some(&[
+        $(
+            $node
+        ),*
+    ])}
+    };
+}
+
 /// A SCPI command node
 /// These nodes are structured as a command tree where each node represent a SCPI header mnemonic.
 ///
@@ -13,17 +24,18 @@ use crate::Context;
 ///
 /// ```
 /// use scpi::tree::Node;
+/// use scpi::scpi_tree;
 /// use scpi::ieee488::commands::*;
 ///
-/// let root = &Node{name: b"ROOT", optional: false, handler: None, sub: Some(&[
+/// let root = scpi_tree![
 ///     Node{name: b"*IDN?", optional: false,  handler: Some(&IdnCommand{
-///            manufacturer: b"GPA-Robotics",
-///            model: b"Potato",
-///            serial: b"42",
-///            firmware: b"0"
-///        }), sub: None},
+///         manufacturer: b"GPA-Robotics",
+///         model: b"Potato",
+///         serial: b"42",
+///         firmware: b"0"
+///     }), sub: None}
 ///     //...
-/// ])};
+/// ];
 /// ```
 /// Note that all strings are ascii-/bytestrings, this is because only ASCII is defined in SCPI thus
 /// the normal UTF8 &str in rust would be improper. To send a unicode string you can use Arbitrary Block Data

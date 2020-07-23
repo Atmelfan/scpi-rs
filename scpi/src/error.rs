@@ -26,7 +26,7 @@ use arraydeque::{Array, ArrayDeque, Saturating};
 
 #[cfg(feature = "extended-error")]
 #[macro_export]
-macro_rules! error {
+macro_rules! scpi_error {
     ($error:expr) => {
         Err(Error::new($error))
     };
@@ -36,7 +36,7 @@ macro_rules! error {
 }
 #[cfg(not(feature = "extended-error"))]
 #[macro_export]
-macro_rules! error {
+macro_rules! scpi_error {
     ($error:expr) => {
         Err(Error::new($error))
     };
@@ -580,5 +580,22 @@ mod test_error_queue {
             Error::new(ErrorCode::Custom(2, b"Two"))
         );
         assert_eq!(errors.pop_front_error(), Error::new(ErrorCode::NoError));
+    }
+
+    #[test]
+    fn test_queue_overflow() {
+        // Check that errorqueue returns NoError when there are no errors
+        let mut errors = ArrayErrorQueue::<[Error; 2]>::new();
+        errors.push_back_error(ErrorCode::Custom(1, b"One").into());
+        errors.push_back_error(ErrorCode::Custom(2, b"Two").into());
+        errors.push_back_error(ErrorCode::Custom(3, b"Three").into());
+        assert_eq!(
+            errors.pop_front_error(),
+            Error::new(ErrorCode::Custom(1, b"One"))
+        );
+        assert_eq!(
+            errors.pop_front_error(),
+            Error::new(ErrorCode::QueueOverflow)
+        );
     }
 }

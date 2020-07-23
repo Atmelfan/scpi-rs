@@ -13,7 +13,6 @@ use scpi::scpi::commands::*;
 use scpi::suffix::SuffixUnitElement;
 use scpi::tokenizer::NumericValues;
 use scpi::{
-    error,
     ieee488_cls,
     ieee488_ese,
     ieee488_esr,
@@ -29,8 +28,13 @@ use scpi::{
     qonly,
     scpi_status,
     scpi_system,
+    scpi_tree,
+    scpi_error
 };
 use std::convert::TryInto;
+
+use git_version::git_version;
+const GIT_VERSION: &[u8] = git_version!().as_bytes();
 
 struct SensVoltDcCommand;
 impl Command for SensVoltDcCommand {
@@ -105,7 +109,7 @@ impl Command for ErrorCustomCommand {
     nquery!();
 
     fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<()> {
-        error!(ErrorCode::Custom(1, b"Custom error"))
+        scpi_error!(ErrorCode::Custom(1, b"Custom error"))
     }
 }
 
@@ -116,7 +120,7 @@ impl Command for ErrorExtendedCommand {
     nquery!();
 
     fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<()> {
-        error!(ErrorCode::Custom(1, b"Extended error"); b"Additional information")
+        scpi_error!(ErrorCode::Custom(1, b"Extended error"); b"Additional information")
     }
 }
 
@@ -175,7 +179,9 @@ impl Command for ExamNodeArgCommand {
     ) -> Result<()> {
         let x: u8 = args.next_data(false)?.unwrap().try_into()?;
 
-        let s: &[u8] = args.next_data(true)?.map_or(Ok(b"POTATO".as_ref()), |f| f.try_into())?;
+        let s: &[u8] = args
+            .next_data(true)?
+            .map_or(Ok(b"POTATO".as_ref()), |f| f.try_into())?;
 
         response.u8_data(x)?;
         response.separator()?;
@@ -283,153 +289,148 @@ impl Device for MyDevice {
 fn main() {
     let mut my_device = MyDevice {};
 
-    let tree = Node {
-        name: b"ROOT",
-        optional: true,
-        handler: None,
-        sub: Some(&[
-            // Create default IEEE488 mandated commands
-            ieee488_cls!(),
-            ieee488_ese!(),
-            ieee488_esr!(),
-            ieee488_idn!(b"GPA-Robotics", b"T800-101", b"0", b"0"),
-            ieee488_opc!(),
-            ieee488_rst!(),
-            ieee488_sre!(),
-            ieee488_stb!(),
-            ieee488_tst!(),
-            ieee488_wai!(),
-            // Create default SCPI mandated STATus subsystem
-            scpi_status!(),
-            // Create default SCPI mandated SYSTem subsystem
-            scpi_system!(),
-            //Test
-            Node {
-                name: b"ABORt",
+    let tree = scpi_tree![
+        // Create default IEEE488 mandated commands
+        ieee488_cls!(),
+        ieee488_ese!(),
+        ieee488_esr!(),
+        ieee488_idn!(b"GPA-Robotics", b"T800-101", b"0", GIT_VERSION),
+        ieee488_opc!(),
+        ieee488_rst!(),
+        ieee488_sre!(),
+        ieee488_stb!(),
+        ieee488_tst!(),
+        ieee488_wai!(),
+        // Create default SCPI mandated STATus subsystem
+        scpi_status!(),
+        // Create default SCPI mandated SYSTem subsystem
+        scpi_system!(),
+        //Test
+        Node {
+            name: b"ABORt",
+            handler: None,
+            optional: false,
+            sub: None,
+        },
+        Node {
+            name: b"INITiate",
+            handler: None,
+            optional: false,
+            sub: Some(&[Node {
+                name: b"IMMediate",
                 handler: None,
-                optional: false,
-                sub: None,
-            },
-            Node {
-                name: b"INITiate",
-                handler: None,
-                optional: false,
-                sub: Some(&[Node {
-                    name: b"IMMediate",
-                    handler: None,
-                    optional: true,
-                    sub: None,
-                }]),
-            },
-            Node {
-                name: b"EXAMple",
                 optional: true,
-                handler: None,
-                sub: Some(&[
-                    Node {
-                        name: b"HELLO",
-                        optional: false,
-                        handler: None,
-                        sub: Some(&[Node {
-                            name: b"WORLD",
-                            optional: true,
-                            handler: Some(&HelloWorldCommand {}),
+                sub: None,
+            }]),
+        },
+        Node {
+            name: b"EXAMple",
+            optional: true,
+            handler: None,
+            sub: Some(&[
+                Node {
+                    name: b"HELLO",
+                    optional: false,
+                    handler: None,
+                    sub: Some(&[Node {
+                        name: b"WORLD",
+                        optional: true,
+                        handler: Some(&HelloWorldCommand {}),
+                        sub: None,
+                    }]),
+                },
+                Node {
+                    name: b"ERRor",
+                    optional: false,
+                    handler: None,
+                    sub: Some(&[
+                        Node {
+                            name: b"CUSTom",
+                            optional: false,
+                            handler: Some(&ErrorCustomCommand {}),
                             sub: None,
-                        }]),
-                    },
-                    Node {
-                        name: b"ERRor",
-                        optional: false,
-                        handler: None,
-                        sub: Some(&[
-                            Node {
-                                name: b"CUSTom",
-                                optional: false,
-                                handler: Some(&ErrorCustomCommand {}),
-                                sub: None,
-                            },
-                            #[cfg(feature = "extended-error")]
-                            Node {
-                                name: b"EXTended",
-                                optional: false,
-                                handler: Some(&ErrorExtendedCommand {}),
-                                sub: None,
-                            },
-                            Node {
-                                name: b"MULtiple",
-                                optional: false,
-                                handler: Some(&ErrorMultipleCommand {}),
-                                sub: None,
-                            },
-                        ]),
-                    },
-                    Node {
-                        name: b"NODE",
-                        optional: false,
-                        handler: None,
-                        sub: Some(&[
-                            Node {
-                                name: b"DEFault",
-                                optional: true,
-                                handler: Some(&ExamNodeDefCommand {}),
-                                sub: None,
-                            },
-                            Node {
-                                name: b"ARGuments",
-                                optional: true,
-                                handler: Some(&ExamNodeArgCommand {}),
-                                sub: None,
-                            },
-                        ]),
-                    },
-                    Node {
-                        name: b"TYPes",
-                        optional: false,
-                        handler: None,
-                        sub: Some(&[
-                            Node {
-                                name: b"NUMeric",
-                                optional: false,
-                                handler: None,
-                                sub: Some(&[
-                                    Node {
-                                        name: b"DECimal",
-                                        optional: true,
-                                        handler: Some(&ExamTypNumDecCommand {}),
-                                        sub: None,
-                                    },
-                                    Node {
-                                        name: b"VOLT",
-                                        optional: false,
-                                        handler: Some(&ExamTypNumVoltCommand {}),
-                                        sub: None,
-                                    },
-                                    Node {
-                                        name: b"RADian",
-                                        optional: false,
-                                        handler: Some(&ExamTypNumRadCommand {}),
-                                        sub: None,
-                                    },
-                                ]),
-                            },
-                            Node {
-                                name: b"STRing",
-                                optional: false,
-                                handler: None,
-                                sub: None,
-                            },
-                            Node {
-                                name: b"ARBitrary",
-                                optional: false,
-                                handler: None,
-                                sub: None,
-                            },
-                        ]),
-                    },
-                ]),
-            },
-        ]),
-    };
+                        },
+                        #[cfg(feature = "extended-error")]
+                        Node {
+                            name: b"EXTended",
+                            optional: false,
+                            handler: Some(&ErrorExtendedCommand {}),
+                            sub: None,
+                        },
+                        Node {
+                            name: b"MULtiple",
+                            optional: false,
+                            handler: Some(&ErrorMultipleCommand {}),
+                            sub: None,
+                        },
+                    ]),
+                },
+                Node {
+                    name: b"NODE",
+                    optional: false,
+                    handler: None,
+                    sub: Some(&[
+                        Node {
+                            name: b"DEFault",
+                            optional: true,
+                            handler: Some(&ExamNodeDefCommand {}),
+                            sub: None,
+                        },
+                        Node {
+                            name: b"ARGuments",
+                            optional: true,
+                            handler: Some(&ExamNodeArgCommand {}),
+                            sub: None,
+                        },
+                    ]),
+                },
+                Node {
+                    name: b"TYPes",
+                    optional: false,
+                    handler: None,
+                    sub: Some(&[
+                        Node {
+                            name: b"NUMeric",
+                            optional: false,
+                            handler: None,
+                            sub: Some(&[
+                                Node {
+                                    name: b"DECimal",
+                                    optional: true,
+                                    handler: Some(&ExamTypNumDecCommand {}),
+                                    sub: None,
+                                },
+                                Node {
+                                    name: b"VOLT",
+                                    optional: false,
+                                    handler: Some(&ExamTypNumVoltCommand {}),
+                                    sub: None,
+                                },
+                                Node {
+                                    name: b"RADian",
+                                    optional: false,
+                                    handler: Some(&ExamTypNumRadCommand {}),
+                                    sub: None,
+                                },
+                            ]),
+                        },
+                        Node {
+                            name: b"STRing",
+                            optional: false,
+                            handler: None,
+                            sub: None,
+                        },
+                        Node {
+                            name: b"ARBitrary",
+                            optional: false,
+                            handler: None,
+                            sub: None,
+                        },
+                    ]),
+                },
+            ]),
+        }
+    ];
 
     let mut errors = ArrayErrorQueue::<[Error; 10]>::new();
 

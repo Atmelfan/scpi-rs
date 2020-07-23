@@ -260,8 +260,11 @@ pub mod commands {
         ) -> Result<()> {
             let result = context.device.tst();
             match result {
-                Ok(v) => response.i16_data(v),
-                Err(err) => response.i16_data(err.get_code()),
+                Ok(()) => response.i16_data(0),
+                Err(err) => {
+                    context.push_error(err);
+                    response.error(err)
+                }
             }
         }
     }
@@ -281,7 +284,7 @@ pub mod commands {
 
     #[macro_export]
     macro_rules! ieee488_idn {
-        ($manufacturer:literal, $model:literal, $serial:literal, $firmware:literal) => {
+        ($manufacturer:expr, $model:expr, $serial:expr, $firmware:expr) => {
             Node {
                 name: b"*IDN",
                 optional: false,

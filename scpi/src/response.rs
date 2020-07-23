@@ -141,7 +141,7 @@ pub trait Formatter {
             self.push_str(ext)?;
             self.push_byte(b'"')
         } else {
-            self.push_str(err.get_message())
+            self.str_data(err.get_message())
         }
     }
 

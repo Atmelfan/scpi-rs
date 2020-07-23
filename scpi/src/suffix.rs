@@ -373,6 +373,7 @@ impl SuffixUnitElement {
     /// * `str` - Suffix string, example `PCT` or `DBUV`.
     /// * `val` - Value to scale
     pub fn from_str(str: &[u8], val: f32) -> Result<(SuffixUnitElement, f32), SuffixError> {
+        #[allow(unused_imports)]
         use crate::lexical_core::Float;
         // If suffix start with "DB", try to parse it as a decibel unit
         if str[..2].eq_ignore_ascii_case(b"DB") && !str.eq_ignore_ascii_case(b"DBM") {
