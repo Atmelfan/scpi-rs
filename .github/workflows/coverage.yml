@@ -23,19 +23,9 @@ jobs:
           toolchain: nightly
           override: true
 
-      - name: Run grcov
+      - name: Push to coveralls.io
         env:
-          PROJECT_NAME: "scpi"
-          RUSTFLAGS: "-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code ks=off"
-          CARGO_INCREMENTAL: 0
+          COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_TOKEN }}
         run: |
-          cargo build --verbose --manifest-path=scpi/Cargo.toml
-          cargo test --verbose --manifest-path=scpi/Cargo.toml
-          zip -0 cov.zip $(find . -name "$PROJECT_NAME*.gc*" -print)
-          grcov cov.zip -s . -t lcov --llvm --ignore-not-existing --ignore "/*" -o lcov.info
-
-      - name: Push grcov results to Coveralls via GitHub Action
-        uses: coverallsapp/github-action@v1.0.1
-        with:
-          github-token: ${{ secrets.COVERALLS_TOKEN }}
-          path-to-lcov: "lcov.info"
+          cargo install cargo-tarpaulin
+          cargo tarpaulin --ciserver github-ci --coveralls $COVERALLS_TOKEN
