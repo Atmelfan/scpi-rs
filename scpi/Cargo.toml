@@ -14,6 +14,8 @@ documentation = "https://docs.rs/crate/scpi"
 repository = "https://github.com/Atmelfan/scpi-rs"
 readme = "../README.md"
 
+[badges]
+maintenance = { status = "actively-developed" }
 
 [dependencies]
 scpi_derive = {path = "../scpi_derive", version="0.1.1"}

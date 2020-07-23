@@ -1,6 +1,7 @@
 # SCPI
 
 ![Quickstart](https://github.com/Atmelfan/scpi-rs/workflows/Quickstart/badge.svg)
+[![Coverage Status](https://coveralls.io/repos/github/Atmelfan/scpi-rs/badge.svg?branch=feature-extended-error)](https://coveralls.io/github/Atmelfan/scpi-rs?branch=feature-extended-error)
 
 This crate attempts to implement the IEE488.2 / SCPI protocol commonly used by measurement instruments and tools.
 See [IVI Foundation](http://www.ivifoundation.org/specifications/default.aspx) (SCPI-99 and IEE488.2).
