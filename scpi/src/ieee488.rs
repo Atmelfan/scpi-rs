@@ -24,7 +24,7 @@
 /// Note that the comments about the default mandatory commands below are from the IEEE 488.2-1992 document and explain their purpose, not my implementation.
 pub mod commands {
     use crate::command::{Command, CommandTypeMeta};
-    use crate::error::Error;
+    use crate::error::{ErrorCode, Result};
     use crate::response::Formatter;
     use crate::tokenizer::Tokenizer;
     use crate::Context;
@@ -43,7 +43,7 @@ pub mod commands {
     impl Command for ClsCommand {
         nquery!();
 
-        fn event(&self, context: &mut Context, _args: &mut Tokenizer) -> Result<(), Error> {
+        fn event(&self, context: &mut Context, _args: &mut Tokenizer) -> Result<()> {
             context.device.cls()
         }
     }
@@ -56,7 +56,7 @@ pub mod commands {
     pub struct EseCommand;
 
     impl Command for EseCommand {
-        fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<(), Error> {
+        fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<()> {
             if let Some(ese) = args.next_data(true)? {
                 //Try_into will automatically check min/max for ese datatype (u8)
                 context.ese = ese.try_into()?;
@@ -69,7 +69,7 @@ pub mod commands {
             context: &mut Context,
             _args: &mut Tokenizer,
             response: &mut dyn Formatter,
-        ) -> Result<(), Error> {
+        ) -> Result<()> {
             response.u8_data(context.ese)
         }
     }
@@ -87,7 +87,7 @@ pub mod commands {
             context: &mut Context,
             _args: &mut Tokenizer,
             response: &mut dyn Formatter,
-        ) -> Result<(), Error> {
+        ) -> Result<()> {
             response.u8_data(context.esr)?;
             context.esr = 0;
             Ok(())
@@ -121,7 +121,7 @@ pub mod commands {
             _context: &mut Context,
             _args: &mut Tokenizer,
             response: &mut dyn Formatter,
-        ) -> Result<(), Error> {
+        ) -> Result<()> {
             //TODO: Make this easier
             response.ascii_data(self.manufacturer)?;
             response.separator()?;
@@ -145,7 +145,7 @@ pub mod commands {
     ///
     pub struct OpcCommand;
     impl Command for OpcCommand {
-        fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<(), Error> {
+        fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<()> {
             unimplemented!()
         }
 
@@ -154,7 +154,7 @@ pub mod commands {
             _context: &mut Context,
             _args: &mut Tokenizer,
             response: &mut dyn Formatter,
-        ) -> Result<(), Error> {
+        ) -> Result<()> {
             response.ascii_data(b"1")
         }
     }
@@ -190,7 +190,7 @@ pub mod commands {
     impl Command for RstCommand {
         nquery!();
 
-        fn event(&self, context: &mut Context, _args: &mut Tokenizer) -> Result<(), Error> {
+        fn event(&self, context: &mut Context, _args: &mut Tokenizer) -> Result<()> {
             context.device.rst()
         }
     }
@@ -202,7 +202,7 @@ pub mod commands {
     ///> Enable Register, see 11.3.2.
     pub struct SreCommand;
     impl Command for SreCommand {
-        fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<(), Error> {
+        fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<()> {
             if let Some(sre) = args.next_data(true)? {
                 context.sre = sre.try_into()?;
             }
@@ -214,7 +214,7 @@ pub mod commands {
             context: &mut Context,
             _args: &mut Tokenizer,
             response: &mut dyn Formatter,
-        ) -> Result<(), Error> {
+        ) -> Result<()> {
             response.u8_data(context.sre)
         }
     }
@@ -230,7 +230,7 @@ pub mod commands {
             context: &mut Context,
             _args: &mut Tokenizer,
             response: &mut dyn Formatter,
-        ) -> Result<(), Error> {
+        ) -> Result<()> {
             response.u8_data(context.get_stb())
         }
     }
@@ -257,7 +257,7 @@ pub mod commands {
             context: &mut Context,
             _args: &mut Tokenizer,
             response: &mut dyn Formatter,
-        ) -> Result<(), Error> {
+        ) -> Result<()> {
             let result = context.device.tst();
             match result {
                 Ok(v) => response.i16_data(v),
@@ -274,7 +274,7 @@ pub mod commands {
     pub struct WaiCommand;
     impl Command for WaiCommand {
         nquery!();
-        fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<(), Error> {
+        fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<()> {
             Ok(())
         }
     }

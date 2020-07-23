@@ -182,7 +182,7 @@ impl EventRegister {
 ///
 pub mod commands {
     use crate::command::{Command, CommandTypeMeta};
-    use crate::error::Error;
+    use crate::error::{ErrorCode, Result};
     use crate::response::Formatter;
     use crate::tokenizer::Tokenizer;
     use crate::Context;
@@ -203,7 +203,7 @@ pub mod commands {
             context: &mut Context,
             _args: &mut Tokenizer,
             response: &mut dyn Formatter,
-        ) -> Result<(), Error> {
+        ) -> Result<()> {
             //Always return first error (NoError if empty)
             response.error(context.errors.pop_front_error())
         }
@@ -225,7 +225,7 @@ pub mod commands {
             context: &mut Context,
             _args: &mut Tokenizer,
             response: &mut dyn Formatter,
-        ) -> Result<(), Error> {
+        ) -> Result<()> {
             //Always return first error (NoError if empty)
             response.usize_data(context.errors.len())
         }
@@ -245,13 +245,13 @@ pub mod commands {
             context: &mut Context,
             _args: &mut Tokenizer,
             response: &mut dyn Formatter,
-        ) -> Result<(), Error> {
+        ) -> Result<()> {
             //Always return first error (NoError if empty)
             let first = context.errors.pop_front_error();
             response.error(first)?;
             loop {
                 let err = context.errors.pop_front_error();
-                if err == Error::NoError {
+                if err == ErrorCode::NoError {
                     break;
                 }
                 response.separator()?;
@@ -279,7 +279,7 @@ pub mod commands {
             _context: &mut Context,
             _args: &mut Tokenizer,
             response: &mut dyn Formatter,
-        ) -> Result<(), Error> {
+        ) -> Result<()> {
             //Return {year}.{rev}
             response.u16_data(self.year)?;
             response.ascii_data(b".")?;
@@ -305,7 +305,7 @@ pub mod commands {
             context: &mut Context,
             _args: &mut Tokenizer,
             response: &mut dyn Formatter,
-        ) -> Result<(), Error> {
+        ) -> Result<()> {
             //Always return first error (NoError if empty)
             response.u16_data(context.operation.event & 0x7FFFu16)?;
             context.operation.event = 0;
@@ -327,7 +327,7 @@ pub mod commands {
             context: &mut Context,
             _args: &mut Tokenizer,
             response: &mut dyn Formatter,
-        ) -> Result<(), Error> {
+        ) -> Result<()> {
             //Always return first error (NoError if empty)
             response.u16_data(context.operation.condition & 0x7FFFu16)
         }
@@ -347,7 +347,7 @@ pub mod commands {
     pub struct StatOperEnabCommand;
 
     impl Command for StatOperEnabCommand {
-        fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<(), Error> {
+        fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<()> {
             context.operation.enable = args.next_data(false)?.unwrap().try_into()?;
             Ok(())
         }
@@ -357,7 +357,7 @@ pub mod commands {
             context: &mut Context,
             _args: &mut Tokenizer,
             response: &mut dyn Formatter,
-        ) -> Result<(), Error> {
+        ) -> Result<()> {
             response.u16_data(context.operation.enable & 0x7FFFu16)
         }
     }
@@ -376,7 +376,7 @@ pub mod commands {
     pub struct StatOperNtrCommand;
 
     impl Command for StatOperNtrCommand {
-        fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<(), Error> {
+        fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<()> {
             context.operation.ntr_filter = args.next_data(false)?.unwrap().try_into()?;
             Ok(())
         }
@@ -386,7 +386,7 @@ pub mod commands {
             context: &mut Context,
             _args: &mut Tokenizer,
             response: &mut dyn Formatter,
-        ) -> Result<(), Error> {
+        ) -> Result<()> {
             response.u16_data(context.operation.ntr_filter & 0x7FFFu16)
         }
     }
@@ -405,7 +405,7 @@ pub mod commands {
     pub struct StatOperPtrCommand;
 
     impl Command for StatOperPtrCommand {
-        fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<(), Error> {
+        fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<()> {
             context.operation.ptr_filter = args.next_data(false)?.unwrap().try_into()?;
             Ok(())
         }
@@ -415,7 +415,7 @@ pub mod commands {
             context: &mut Context,
             _args: &mut Tokenizer,
             response: &mut dyn Formatter,
-        ) -> Result<(), Error> {
+        ) -> Result<()> {
             response.u16_data(context.operation.ptr_filter & 0x7FFFu16)
         }
     }
@@ -433,7 +433,7 @@ pub mod commands {
             context: &mut Context,
             _args: &mut Tokenizer,
             response: &mut dyn Formatter,
-        ) -> Result<(), Error> {
+        ) -> Result<()> {
             //Always return first error (NoError if empty)
             response.u16_data(context.questionable.event & 0x7FFFu16)?;
             context.operation.event = 0;
@@ -454,7 +454,7 @@ pub mod commands {
             context: &mut Context,
             _args: &mut Tokenizer,
             response: &mut dyn Formatter,
-        ) -> Result<(), Error> {
+        ) -> Result<()> {
             //Always return first error (NoError if empty)
             response.u16_data(context.questionable.condition & 0x7FFFu16)
         }
@@ -466,7 +466,7 @@ pub mod commands {
     pub struct StatQuesEnabCommand;
 
     impl Command for StatQuesEnabCommand {
-        fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<(), Error> {
+        fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<()> {
             context.questionable.enable = args.next_data(false)?.unwrap().try_into()?;
             Ok(())
         }
@@ -476,7 +476,7 @@ pub mod commands {
             context: &mut Context,
             _args: &mut Tokenizer,
             response: &mut dyn Formatter,
-        ) -> Result<(), Error> {
+        ) -> Result<()> {
             response.u16_data(context.questionable.enable & 0x7FFFu16)
         }
     }
@@ -487,7 +487,7 @@ pub mod commands {
     pub struct StatQuesNtrCommand;
 
     impl Command for StatQuesNtrCommand {
-        fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<(), Error> {
+        fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<()> {
             context.operation.ntr_filter = args.next_data(false)?.unwrap().try_into()?;
             Ok(())
         }
@@ -497,7 +497,7 @@ pub mod commands {
             context: &mut Context,
             _args: &mut Tokenizer,
             response: &mut dyn Formatter,
-        ) -> Result<(), Error> {
+        ) -> Result<()> {
             response.u16_data(context.operation.ntr_filter & 0x7FFFu16)
         }
     }
@@ -508,7 +508,7 @@ pub mod commands {
     pub struct StatQuesPtrCommand;
 
     impl Command for StatQuesPtrCommand {
-        fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<(), Error> {
+        fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<()> {
             context.operation.ptr_filter = args.next_data(false)?.unwrap().try_into()?;
             Ok(())
         }
@@ -518,7 +518,7 @@ pub mod commands {
             context: &mut Context,
             _args: &mut Tokenizer,
             response: &mut dyn Formatter,
-        ) -> Result<(), Error> {
+        ) -> Result<()> {
             response.u16_data(context.operation.ptr_filter & 0x7FFFu16)
         }
     }
@@ -536,7 +536,7 @@ pub mod commands {
 
     impl Command for StatPresCommand {
         nquery!();
-        fn event(&self, context: &mut Context, _args: &mut Tokenizer) -> Result<(), Error> {
+        fn event(&self, context: &mut Context, _args: &mut Tokenizer) -> Result<()> {
             context.questionable.preset();
             context.operation.preset();
             Ok(())

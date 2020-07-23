@@ -2,7 +2,7 @@
 //!
 //!
 
-use crate::error::Error;
+use crate::error::Result;
 use crate::response::Formatter;
 use crate::tokenizer::Tokenizer;
 use crate::Context;
@@ -13,11 +13,8 @@ use crate::Context;
 /// # Example
 ///
 /// ```rust
-/// use scpi::command::Command;
-/// use scpi::error::Error;
-/// use scpi::tokenizer::Tokenizer;
-/// use scpi::response::Formatter;
-/// use scpi::Context;
+/// use scpi::prelude::*;
+/// use scpi::error::Result;
 ///
 /// struct MyCommand {
 ///    //...
@@ -25,7 +22,7 @@ use crate::Context;
 ///
 /// // Implement Command for MyCommand
 /// impl Command for MyCommand {
-///     fn event(&self,context: &mut Context, args: &mut Tokenizer) -> Result<(), Error> {
+///     fn event(&self,context: &mut Context, args: &mut Tokenizer) -> Result<()> {
 ///         //Read a optional argument x
 ///         if let Some(x) = args.next_data(true)? {
 ///             // Non-optional argument y if x is present
@@ -40,8 +37,8 @@ use crate::Context;
 ///         Ok(())
 ///     }
 ///
-///     fn query(&self,context: &mut Context, args: &mut Tokenizer, response: &mut dyn Formatter) -> Result<(), Error> {
-///         Err(Error::UndefinedHeader)//Query not allowed
+///     fn query(&self,context: &mut Context, args: &mut Tokenizer, response: &mut dyn Formatter) -> Result<()> {
+///         Err(ErrorCode::UndefinedHeader.into())//Query not allowed
 ///     }
 ///
 /// }
@@ -56,7 +53,7 @@ pub trait Command {
     }
 
     /// Called when the event form is used
-    fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<(), Error>;
+    fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<()>;
 
     ///Called when the query form is used
     fn query(
@@ -64,7 +61,7 @@ pub trait Command {
         context: &mut Context,
         args: &mut Tokenizer,
         response: &mut dyn Formatter,
-    ) -> Result<(), Error>;
+    ) -> Result<()>;
 }
 
 pub enum CommandTypeMeta {
@@ -83,8 +80,8 @@ macro_rules! qonly {
             CommandTypeMeta::QueryOnly
         }
 
-        fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<(), Error> {
-            Err(Error::UndefinedHeader)
+        fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<()> {
+            Err(ErrorCode::UndefinedHeader.into())
         }
     };
 }
@@ -103,8 +100,8 @@ macro_rules! nquery {
             _context: &mut Context,
             _args: &mut Tokenizer,
             _response: &mut dyn Formatter,
-        ) -> Result<(), Error> {
-            Err(Error::UndefinedHeader)
+        ) -> Result<()> {
+            Err(ErrorCode::UndefinedHeader.into())
         }
     };
 }

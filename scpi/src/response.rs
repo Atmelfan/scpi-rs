@@ -1,4 +1,4 @@
-use crate::error::{Error, ExtendedError};
+use crate::error::{Error, ErrorCode, Result};
 use arrayvec::{Array, ArrayVec};
 use lexical_core::Number;
 
@@ -24,7 +24,7 @@ use lexical_core::Number;
 macro_rules! push_x {
     ($name:ident, $primitive:ty) => {
         #[doc = "Format as a \\<NR1 NUMERIC RESPONSE DATA\\>"]
-        fn $name(&mut self, x: $primitive) -> Result<(), Error> {
+        fn $name(&mut self, x: $primitive) -> Result<()> {
             let mut buf = [b'0'; <$primitive>::FORMATTED_SIZE_DECIMAL];
             let slc = lexical_core::write::<$primitive>(x, &mut buf);
             self.push_str(slc)
@@ -34,7 +34,7 @@ macro_rules! push_x {
 macro_rules! push_x_radix {
     ($name:ident, $primitive:ty, 16) => {
         #[doc = "Format as a \\<HEXADECIMAL NUMERIC RESPONSE DATA\\>"]
-        fn $name(&mut self, x: $primitive) -> Result<(), Error> {
+        fn $name(&mut self, x: $primitive) -> Result<()> {
             let mut buf = [b'0'; <$primitive>::FORMATTED_SIZE];
             let slc = lexical_core::write_radix::<$primitive>(x, 16, &mut buf);
             self.push_str(b"#H")?;
@@ -43,7 +43,7 @@ macro_rules! push_x_radix {
     };
     ($name:ident, $primitive:ty, 8) => {
         #[doc = "Format as a \\<OCTAL NUMERIC RESPONSE DATA\\>"]
-        fn $name(&mut self, x: $primitive) -> Result<(), Error> {
+        fn $name(&mut self, x: $primitive) -> Result<()> {
             let mut buf = [b'0'; <$primitive>::FORMATTED_SIZE];
             let slc = lexical_core::write_radix::<$primitive>(x, 8, &mut buf);
             self.push_str(b"#Q")?;
@@ -52,7 +52,7 @@ macro_rules! push_x_radix {
     };
     ($name:ident, $primitive:ty, 2) => {
         #[doc = "Format as a \\<BINARY NUMERIC RESPONSE DATA\\>"]
-        fn $name(&mut self, x: $primitive) -> Result<(), Error> {
+        fn $name(&mut self, x: $primitive) -> Result<()> {
             let mut buf = [b'0'; <$primitive>::FORMATTED_SIZE];
             let slc = lexical_core::write_radix::<$primitive>(x, 2, &mut buf);
             self.push_str(b"#B")?;
@@ -80,10 +80,10 @@ pub trait Formatter {
     /* I/O */
 
     /// Push raw string to output
-    fn push_str(&mut self, s: &[u8]) -> Result<(), Error>;
+    fn push_str(&mut self, s: &[u8]) -> Result<()>;
 
     ///Push single byte to output
-    fn push_byte(&mut self, b: u8) -> Result<(), Error>;
+    fn push_byte(&mut self, b: u8) -> Result<()>;
 
     /// Get underlying buffer as a byte slice
     fn as_slice(&self) -> &[u8];
@@ -101,27 +101,28 @@ pub trait Formatter {
     /* Control */
 
     /// Start a response message
-    fn message_start(&mut self) -> Result<(), Error>;
+    fn message_start(&mut self) -> Result<()>;
 
     /// Start a unit
-    fn unit_start(&mut self) -> Result<(), Error>;
+    fn unit_start(&mut self) -> Result<()>;
 
     /// End a unit
-    fn unit_end(&mut self) -> Result<(), Error>;
+    fn unit_end(&mut self) -> Result<()>;
 
     /// End a response message
-    fn message_end(&mut self) -> Result<(), Error>;
+    fn message_end(&mut self) -> Result<()>;
 
     /* Formatters */
 
     /// Insert a data separator
-    fn separator(&mut self) -> Result<(), Error> {
+    fn separator(&mut self) -> Result<()> {
         self.push_byte(RESPONSE_DATA_SEPARATOR)
     }
 
     /// Format `err` as a error/event response
     /// `<error code>, "<error message>"`
-    fn error(&mut self, err: Error) -> Result<(), Error> {
+    #[cfg(not(feature = "extended-error"))]
+    fn error(&mut self, err: Error) -> Result<()> {
         self.i16_data(err.get_code())?;
         self.separator()?;
         self.str_data(err.get_message())
@@ -129,7 +130,8 @@ pub trait Formatter {
 
     /// Format `err` as a error/event response
     /// `<error code>, "<error message>"`
-    fn extended_error(&mut self, err: ExtendedError) -> Result<(), Error> {
+    #[cfg(feature = "extended-error")]
+    fn error(&mut self, err: Error) -> Result<()> {
         self.i16_data(err.get_code())?;
         self.separator()?;
         if let Some(ext) = err.get_extended() {
@@ -145,7 +147,7 @@ pub trait Formatter {
 
     /// Formats `s` as \<ARBITRARY ASCII DATA\>
     /// TODO: Verify ASCII data
-    fn ascii_data(&mut self, s: &[u8]) -> Result<(), Error> {
+    fn ascii_data(&mut self, s: &[u8]) -> Result<()> {
         //        if !s.is_ascii() {
         //            panic!("")
         //        }
@@ -154,14 +156,14 @@ pub trait Formatter {
 
     /// Formats `s` as \<STRING RESPONSE DATA\>
     /// TODO: Escape any double quotes
-    fn str_data(&mut self, s: &[u8]) -> Result<(), Error> {
+    fn str_data(&mut self, s: &[u8]) -> Result<()> {
         self.push_byte(b'"')?;
         self.push_str(s)?;
         self.push_byte(b'"')
     }
 
     /// Formats `s` as \<HEADER RESPONSE DATA\>
-    fn header_data(&mut self, s: &[u8]) -> Result<(), Error> {
+    fn header_data(&mut self, s: &[u8]) -> Result<()> {
         self.push_str(s)?;
         self.push_byte(b' ')
     }
@@ -172,7 +174,7 @@ pub trait Formatter {
     /// * NaN - Should be formatted as "9.91E+37"
     /// * +/-Infinity - Should be formatted as "(-)9.9E+37"
     ///
-    fn f32_data(&mut self, value: f32) -> Result<(), Error> {
+    fn f32_data(&mut self, value: f32) -> Result<()> {
         if value.is_nan() {
             // NaN is represented by 9.91E+37
             self.push_str(b"9.91E+37")
@@ -251,14 +253,16 @@ impl<T: Array<Item = u8>> ArrayVecFormatter<T> {
 
 impl<T: Array<Item = u8>> Formatter for ArrayVecFormatter<T> {
     /// Internal use
-    fn push_str(&mut self, s: &[u8]) -> Result<(), Error> {
+    fn push_str(&mut self, s: &[u8]) -> Result<()> {
         self.vec
             .try_extend_from_slice(s)
-            .map_err(|_| Error::OutOfMemory)
+            .map_err(|_| ErrorCode::OutOfMemory.into())
     }
 
-    fn push_byte(&mut self, b: u8) -> Result<(), Error> {
-        self.vec.try_push(b).map_err(|_| Error::OutOfMemory)
+    fn push_byte(&mut self, b: u8) -> Result<()> {
+        self.vec
+            .try_push(b)
+            .map_err(|_| ErrorCode::OutOfMemory.into())
     }
 
     fn as_slice(&self) -> &[u8] {
@@ -273,12 +277,12 @@ impl<T: Array<Item = u8>> Formatter for ArrayVecFormatter<T> {
         self.vec.len()
     }
 
-    fn message_start(&mut self) -> Result<(), Error> {
+    fn message_start(&mut self) -> Result<()> {
         self.index = 0;
         Ok(())
     }
 
-    fn unit_start(&mut self) -> Result<(), Error> {
+    fn unit_start(&mut self) -> Result<()> {
         self.index += 1;
         //Add a unit separator if not first unit
         if self.index > 1 {
@@ -287,11 +291,11 @@ impl<T: Array<Item = u8>> Formatter for ArrayVecFormatter<T> {
         Ok(())
     }
 
-    fn unit_end(&mut self) -> Result<(), Error> {
+    fn unit_end(&mut self) -> Result<()> {
         Ok(())
     }
 
-    fn message_end(&mut self) -> Result<(), Error> {
+    fn message_end(&mut self) -> Result<()> {
         self.push_byte(RESPONSE_MESSAGE_TERMINATOR)
     }
 }

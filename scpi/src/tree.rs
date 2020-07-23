@@ -1,7 +1,7 @@
 //! Used to build a SCPI command tree
 
 use crate::command::Command;
-use crate::error::Error;
+use crate::error::{ErrorCode, Result};
 use crate::response::Formatter;
 use crate::tokenizer::Tokenizer;
 use crate::Context;
@@ -50,7 +50,7 @@ impl<'a> Node<'a> {
         args: &mut Tokenizer,
         response: &mut dyn Formatter,
         query: bool,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         if let Some(handler) = self.handler {
             //Execute self
             if query {
@@ -68,9 +68,9 @@ impl<'a> Node<'a> {
                 }
             }
             //No optional child
-            Err(Error::CommandHeaderError)
+            Err(ErrorCode::CommandHeaderError.into())
         } else {
-            Err(Error::CommandHeaderError)
+            Err(ErrorCode::CommandHeaderError.into())
         }
     }
 }

@@ -99,13 +99,14 @@ pub mod tree;
 ///
 pub mod prelude {
     pub use crate::command::{Command, CommandTypeMeta};
-    pub use crate::error::{ArrayErrorQueue, Error, ErrorQueue};
+    pub use crate::error::{ArrayErrorQueue, Error, ErrorCode, ErrorQueue};
+    pub use crate::response::Formatter;
     pub use crate::tokenizer::{Token, Tokenizer};
     pub use crate::tree::Node;
     pub use crate::{Context, Device};
 }
 
-use crate::error::{Error, ErrorQueue};
+use crate::error::{ErrorCode, ErrorQueue, Result};
 use crate::response::Formatter;
 use crate::scpi::EventRegister;
 use crate::tokenizer::{Token, Tokenizer};
@@ -118,15 +119,15 @@ use crate::tree::Node;
 ///
 pub trait Device {
     /// Called by *CLS
-    fn cls(&mut self) -> Result<(), Error>;
+    fn cls(&mut self) -> Result<()>;
 
     /// Called by *RST
-    fn rst(&mut self) -> Result<(), Error>;
+    fn rst(&mut self) -> Result<()>;
 
     /// Called by *TST?
     /// Return zero if self-test is successful or a positive user-error code or a
     /// standard negative error code (as a Error enum variant).
-    fn tst(&mut self) -> Result<i16, Error> {
+    fn tst(&mut self) -> Result<i16> {
         Ok(0)
     }
 }
@@ -193,7 +194,7 @@ impl<'a> Context<'a> {
         &mut self,
         tokenstream: &mut Tokenizer,
         response: &mut dyn Formatter,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         response.clear();
         self.execute(tokenstream, response).map_err(|err| {
             //Set appropriate bits in ESR
@@ -207,11 +208,7 @@ impl<'a> Context<'a> {
         })
     }
 
-    fn execute(
-        &mut self,
-        tokenstream: &mut Tokenizer,
-        response: &mut dyn Formatter,
-    ) -> Result<(), Error> {
+    fn execute(&mut self, tokenstream: &mut Tokenizer, response: &mut dyn Formatter) -> Result<()> {
         // Point the current branch to root
         let mut is_query = false;
         let mut is_common = false;
@@ -228,7 +225,7 @@ impl<'a> Context<'a> {
                 Token::ProgramMnemonic(_) => {
                     //Common nodes always use ROOT as base node
                     let subcommands = if is_common { self.root.sub } else { branch.sub }
-                        .ok_or(Error::UndefinedHeader)?;
+                        .ok_or(ErrorCode::UndefinedHeader)?;
 
                     for sub in subcommands {
                         if is_common {
@@ -253,7 +250,7 @@ impl<'a> Context<'a> {
                         }
                     }
 
-                    return Err(Error::UndefinedHeader);
+                    return Err(ErrorCode::UndefinedHeader.into());
                 }
                 Token::HeaderMnemonicSeparator => {
                     //This node will be used as branch
@@ -297,10 +294,10 @@ impl<'a> Context<'a> {
                                     | Token::StringProgramData(_)
                                     | Token::ArbitraryBlockData(_)
                                     | Token::ProgramDataSeparator => {
-                                        return Err(Error::ParameterNotAllowed)
+                                        return Err(ErrorCode::ParameterNotAllowed.into())
                                     }
                                     /* Shouldn't happen? */
-                                    _ => return Err(Error::SyntaxError),
+                                    _ => return Err(ErrorCode::SyntaxError.into()),
                                 }
                             }
                         } else {

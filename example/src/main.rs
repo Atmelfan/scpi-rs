@@ -1,6 +1,7 @@
 struct MyDevice;
 
 //use strum::EnumMessage;
+use scpi::error::Result;
 use scpi::prelude::*;
 use scpi::response::{ArrayVecFormatter, Formatter};
 use std::io;
@@ -31,7 +32,7 @@ use std::convert::TryInto;
 
 struct SensVoltDcCommand;
 impl Command for SensVoltDcCommand {
-    fn event(&self, _context: &mut Context, args: &mut Tokenizer) -> Result<(), Error> {
+    fn event(&self, _context: &mut Context, args: &mut Tokenizer) -> Result<()> {
         let x: f32 = args
             .next_data(false)?
             .unwrap()
@@ -45,7 +46,7 @@ impl Command for SensVoltDcCommand {
                 x if Token::mnemonic_compare(b"DEFault", x) => {
                     Ok(Token::DecimalNumericProgramData(0.0))
                 }
-                _ => Err(Error::IllegalParameterValue),
+                _ => Err(ErrorCode::IllegalParameterValue.into()),
             })?
             .try_into()?;
         //x *= args.next_suffix_multiplier(Unit::Volt)?;//If no suffix (1.0), else (SUFFIX/Volt). If incompatible, error.
@@ -58,15 +59,15 @@ impl Command for SensVoltDcCommand {
         _context: &mut Context,
         _args: &mut Tokenizer,
         response: &mut dyn Formatter,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         response.ascii_data(b"[:SENSe]:VOLTage[:DC]?")
     }
 }
 
 struct SensVoltAcCommand;
 impl Command for SensVoltAcCommand {
-    fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<(), Error> {
-        Err(Error::UndefinedHeader)
+    fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<()> {
+        Err(ErrorCode::UndefinedHeader.into())
     }
 
     fn query(
@@ -74,7 +75,7 @@ impl Command for SensVoltAcCommand {
         _context: &mut Context,
         _args: &mut Tokenizer,
         response: &mut dyn Formatter,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         response.ascii_data(b"[:SENSe]:VOLTage:AC?")
     }
 }
@@ -90,7 +91,7 @@ impl Command for HelloWorldCommand {
         _context: &mut Context,
         _args: &mut Tokenizer,
         response: &mut dyn Formatter,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         response.str_data(b"Hello world")
     }
 }
@@ -101,7 +102,7 @@ impl Command for HelloWorldCommand {
 /// Note: `EXAMple` is actually a default command too, try entering `NODE?`.
 struct ExamNodeDefCommand {}
 impl Command for ExamNodeDefCommand {
-    fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<(), Error> {
+    fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<()> {
         Ok(())
     }
 
@@ -110,7 +111,7 @@ impl Command for ExamNodeDefCommand {
         _context: &mut Context,
         _args: &mut Tokenizer,
         response: &mut dyn Formatter,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         response.ascii_data(b"DEFault")
     }
 }
@@ -124,7 +125,7 @@ impl Command for ExamNodeDefCommand {
 /// Note: `EXAMple` is actually a default command too, try entering `NODE?`.
 struct ExamNodeArgCommand {}
 impl Command for ExamNodeArgCommand {
-    fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<(), Error> {
+    fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<()> {
         Ok(())
     }
 
@@ -133,7 +134,7 @@ impl Command for ExamNodeArgCommand {
         _context: &mut Context,
         args: &mut Tokenizer,
         response: &mut dyn Formatter,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         let x: u8 = args.next_data(false)?.unwrap().try_into()?;
 
         let mut s = b"POTATO".as_ref();
@@ -157,7 +158,7 @@ impl Command for ExamTypNumDecCommand {
         _context: &mut Context,
         args: &mut Tokenizer,
         response: &mut dyn Formatter,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         //Optional value which also accepts MIN/MAX/DEFault
         let x: f32 = args
             .next_data(true)?
@@ -166,7 +167,7 @@ impl Command for ExamTypNumDecCommand {
                 NumericValues::Maximum => Ok(100f32),
                 NumericValues::Minimum => Ok(0f32),
                 NumericValues::Default => Ok(1f32),
-                _ => Err(Error::IllegalParameterValue),
+                _ => Err(ErrorCode::IllegalParameterValue.into()),
             })?;
         response.f32_data(x)?;
         Ok(())
@@ -182,21 +183,21 @@ impl Command for ExamTypNumVoltCommand {
         _context: &mut Context,
         args: &mut Tokenizer,
         response: &mut dyn Formatter,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         //Optional parameter (default value of 1.0f32), accepts volt suffix, accepts MIN/MAX/DEFault
         let x: f32 = args
             .next_decimal(true, |val, suffix| {
                 let (s, v): (SuffixUnitElement, f32) = SuffixUnitElement::from_str(suffix, val)
-                    .map_err(|_| Error::SuffixNotAllowed)?;
+                    .map_err(|_| ErrorCode::SuffixNotAllowed)?;
                 s.convert(SuffixUnitElement::Volt, v)
-                    .map_err(|_| Error::SuffixNotAllowed)
+                    .map_err(|_| ErrorCode::SuffixNotAllowed)
             })?
             .unwrap_or(Token::DecimalNumericProgramData(1.0))
             .numeric(|n| match n {
                 NumericValues::Maximum => Ok(100f32),
                 NumericValues::Minimum => Ok(0f32),
                 NumericValues::Default => Ok(1f32),
-                _ => Err(Error::IllegalParameterValue),
+                _ => Err(ErrorCode::IllegalParameterValue.into()),
             })?;
         response.f32_data(x)?;
         Ok(())
@@ -212,21 +213,21 @@ impl Command for ExamTypNumRadCommand {
         _context: &mut Context,
         args: &mut Tokenizer,
         response: &mut dyn Formatter,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         //Optional parameter (default value of 1.0f32), accepts volt suffix, accepts MIN/MAX/DEFault
         let x: f32 = args
             .next_decimal(true, |val, suffix| {
                 let (s, v): (SuffixUnitElement, f32) = SuffixUnitElement::from_str(suffix, val)
-                    .map_err(|_| Error::SuffixNotAllowed)?;
+                    .map_err(|_| ErrorCode::SuffixNotAllowed)?;
                 s.convert(SuffixUnitElement::Radian, v)
-                    .map_err(|_| Error::SuffixNotAllowed)
+                    .map_err(|_| ErrorCode::SuffixNotAllowed)
             })?
             .unwrap_or(Token::DecimalNumericProgramData(1.0))
             .numeric_range(0f32, 100f32, |n| match n {
                 NumericValues::Maximum => Ok(100f32),
                 NumericValues::Minimum => Ok(0f32),
                 NumericValues::Default => Ok(1f32),
-                _ => Err(Error::IllegalParameterValue),
+                _ => Err(ErrorCode::IllegalParameterValue.into()),
             })?;
         response.ascii_data(b"RADian ")?;
         response.f32_data(x)?;
@@ -235,11 +236,11 @@ impl Command for ExamTypNumRadCommand {
 }
 
 impl Device for MyDevice {
-    fn cls(&mut self) -> Result<(), Error> {
+    fn cls(&mut self) -> Result<()> {
         Ok(())
     }
 
-    fn rst(&mut self) -> Result<(), Error> {
+    fn rst(&mut self) -> Result<()> {
         Ok(())
     }
 }

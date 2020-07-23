@@ -47,6 +47,11 @@ jobs:
         with:
           command: test
 
+      - name: Run cargo test feature 'extended-error'
+        uses: actions-rs/cargo@v1
+        with:
+          command: test --features extended-error
+
   lints:
     name: Lints
     runs-on: ubuntu-latest

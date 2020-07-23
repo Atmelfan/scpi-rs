@@ -1,7 +1,7 @@
 /// Contains numeric-list tokenizer
 ///
 pub mod numeric_list {
-    use crate::error::Error;
+    use crate::error::ErrorCode;
     use core::slice::Iter;
 
     #[derive(Clone, PartialEq)]
@@ -18,10 +18,10 @@ pub mod numeric_list {
     }
 
     impl<'a> Tokenizer<'a> {
-        fn read_numeric_data(&mut self) -> Result<Token, Error> {
+        fn read_numeric_data(&mut self) -> Result<Token, ErrorCode> {
             /* Read mantissa */
             let (begin, len) = lexical_core::parse_partial::<isize>(self.chars.as_slice())
-                .map_err(|_| Error::NumericDataError)?;
+                .map_err(|_| ErrorCode::NumericDataError)?;
             self.chars.nth(len - 1);
 
             if let Some(c) = self.chars.clone().next() {
@@ -29,7 +29,7 @@ pub mod numeric_list {
                 if *c == b':' {
                     self.chars.next();
                     let (end, len) = lexical_core::parse_partial::<isize>(self.chars.as_slice())
-                        .map_err(|_| Error::NumericDataError)?;
+                        .map_err(|_| ErrorCode::NumericDataError)?;
                     self.chars.nth(len - 1);
                     return Ok(Token::NumericRange(begin, end));
                 }
@@ -40,7 +40,7 @@ pub mod numeric_list {
     }
 
     impl<'a> Iterator for Tokenizer<'a> {
-        type Item = Result<Token, Error>;
+        type Item = Result<Token, ErrorCode>;
 
         fn next(&mut self) -> Option<Self::Item> {
             let x = self.chars.clone().next()?;
@@ -50,7 +50,7 @@ pub mod numeric_list {
                     Ok(Token::Separator)
                 }
                 x if x.is_ascii_digit() || *x == b'-' || *x == b'+' => self.read_numeric_data(),
-                _ => Err(Error::InvalidExpression),
+                _ => Err(ErrorCode::InvalidExpression),
             })
         }
     }
@@ -89,7 +89,7 @@ pub mod numeric_list {
 ///
 ///
 pub mod channel_list {
-    use crate::error::Error;
+    use crate::error::ErrorCode;
     use crate::expression::channel_list::Token::ChannelRange;
     use core::slice::Iter;
 
@@ -97,7 +97,7 @@ pub mod channel_list {
     pub struct ChannelSpec<'a>(&'a [u8], usize);
 
     impl<'a> IntoIterator for ChannelSpec<'a> {
-        type Item = Result<isize, Error>;
+        type Item = Result<isize, ErrorCode>;
         type IntoIter = ChannelSpecIterator<'a>;
 
         fn into_iter(self) -> Self::IntoIter {
@@ -149,7 +149,7 @@ pub mod channel_list {
     }
 
     impl<'a> Iterator for ChannelSpecIterator<'a> {
-        type Item = Result<isize, Error>;
+        type Item = Result<isize, ErrorCode>;
 
         fn next(&mut self) -> Option<Self::Item> {
             let x = self.chars.clone().next()?;
@@ -162,7 +162,7 @@ pub mod channel_list {
                         self.chars.nth(len);
                         n
                     })
-                    .map_err(|_| Error::ExpressionError)
+                    .map_err(|_| ErrorCode::ExpressionError)
             })
         }
     }
@@ -196,7 +196,7 @@ pub mod channel_list {
             }
         }
 
-        fn read_channel_spec(&mut self) -> Result<(&'a [u8], usize), Error> {
+        fn read_channel_spec(&mut self) -> Result<(&'a [u8], usize), ErrorCode> {
             let mut dim = 1usize;
             // Read full spec
             let s = self.chars.as_slice();
@@ -213,13 +213,13 @@ pub mod channel_list {
             let s = &s[0..s.len() - self.chars.as_slice().len()];
 
             if s.is_empty() {
-                Err(Error::InvalidExpression)
+                Err(ErrorCode::InvalidExpression)
             } else {
                 Ok((s, dim))
             }
         }
 
-        fn read_channel_range(&mut self) -> Result<Token<'a>, Error> {
+        fn read_channel_range(&mut self) -> Result<Token<'a>, ErrorCode> {
             // Read beginning spec
             let (begin, dim1) = self.read_channel_spec()?;
 
@@ -230,7 +230,7 @@ pub mod channel_list {
                     let (end, dim2) = self.read_channel_spec()?;
 
                     if dim1 != dim2 {
-                        return Err(Error::InvalidExpression);
+                        return Err(ErrorCode::InvalidExpression);
                     }
 
                     // Return range
@@ -245,7 +245,7 @@ pub mod channel_list {
             Ok(Token::ChannelSpec(ChannelSpec(begin, dim1)))
         }
 
-        fn read_channel_path(&mut self, x: u8) -> Result<Token<'a>, Error> {
+        fn read_channel_path(&mut self, x: u8) -> Result<Token<'a>, ErrorCode> {
             // Read pathname
             let s = self.chars.as_slice();
 
@@ -255,7 +255,7 @@ pub mod channel_list {
                 self.chars.nth(s.len() + 1); //Forward iterator characters
                 Ok(Token::PathName(s))
             } else {
-                Err(Error::InvalidExpression)
+                Err(ErrorCode::InvalidExpression)
             }
         }
 
@@ -266,7 +266,7 @@ pub mod channel_list {
     }
 
     impl<'a> Iterator for Tokenizer<'a> {
-        type Item = Result<Token<'a>, Error>;
+        type Item = Result<Token<'a>, ErrorCode>;
 
         fn next(&mut self) -> Option<Self::Item> {
             let x = self.chars.clone().next()?;
@@ -277,7 +277,7 @@ pub mod channel_list {
                 }
                 x if x.is_ascii_digit() || *x == b'+' || *x == b'-' => self.read_channel_range(),
                 x if *x == b'"' || *x == b'\'' => self.read_channel_path(*x),
-                _ => Err(Error::InvalidExpression),
+                _ => Err(ErrorCode::InvalidExpression),
             })
         }
     }

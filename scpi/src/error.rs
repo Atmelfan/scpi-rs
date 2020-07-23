@@ -22,45 +22,116 @@ use arraydeque::{Array, ArrayDeque, Saturating};
 ///
 ///
 ///
+///
 
-pub struct ExtendedError {
-    error: Error,
-    msg: Option<&'static [u8]>,
+#[cfg(feature = "extended-error")]
+#[macro_export]
+macro_rules! error {
+    ($error:expr) => {
+        Err(Error::new($error))
+    };
+    ($error:expr;$ext_msg:literal) => {
+        Err(Error::extended($error, $ext_msg))
+    };
+}
+#[cfg(not(feature = "extended-error"))]
+#[macro_export]
+macro_rules! error {
+    ($error:expr) => {
+        Err(Error::new($error))
+    };
+    ($error:expr;$ext_msg:literal) => {
+        Err(Error::new($error))
+    };
 }
 
-impl ExtendedError {
-    pub fn new(error: Error) -> Self {
-        ExtendedError { error, msg: None }
+#[cfg(feature = "extended-error")]
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub struct Error(ErrorCode, Option<&'static [u8]>);
+#[cfg(not(feature = "extended-error"))]
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub struct Error(ErrorCode);
+
+pub type Result<T> = core::result::Result<T, Error>;
+
+impl Error {
+    #[cfg(not(feature = "extended-error"))]
+    pub fn new(code: ErrorCode) -> Self {
+        Self(code)
     }
 
-    pub fn extended(error: Error, msg: &'static [u8]) -> Self {
-        ExtendedError {
-            error,
-            msg: Some(msg),
-        }
+    #[cfg(feature = "extended-error")]
+    pub fn new(code: ErrorCode) -> Self {
+        Self(code, None)
+    }
+
+    #[cfg(feature = "extended-error")]
+    pub fn extended(code: ErrorCode, msg: &'static [u8]) -> Self {
+        Self(code, Some(msg))
     }
 
     pub fn get_code(&self) -> i16 {
-        self.error.get_code()
+        self.0.get_code()
     }
 
     pub fn get_message(&self) -> &'static [u8] {
-        self.error.get_message()
+        self.0.get_message()
     }
 
+    #[cfg(feature = "extended-error")]
     pub fn get_extended(&self) -> Option<&'static [u8]> {
-        self.msg
+        self.1
+    }
+
+    /**
+     * Returns a bitmask for the appropriate bit in the ESR for this event/error.
+     */
+    pub fn esr_mask(&self) -> u8 {
+        match self.0.get_code() {
+            -99..=0 => 0u8,        //No bit
+            -199..=-100 => 0x20u8, //bit 5
+            -299..=-200 => 0x10u8, //bit 4
+            -399..=-300 => 0x08u8, //bit 3
+            -499..=-400 => 0x04u8, //bit 2
+            -599..=-500 => 0x80u8, //bit 7
+            -699..=-600 => 0x40u8, //bit 6
+            -799..=-700 => 0x02u8, //bit 1
+            -899..=-800 => 0x01u8, //bit 0
+            _ => 0x08u8,           //bit 3
+        }
     }
 }
 
-impl Into<ExtendedError> for Error {
-    fn into(self) -> ExtendedError {
-        ExtendedError::new(self)
+impl PartialEq<ErrorCode> for Error {
+    fn eq(&self, other: &ErrorCode) -> bool {
+        &self.0 == other
+    }
+}
+
+impl PartialEq<Error> for ErrorCode {
+    fn eq(&self, other: &Error) -> bool {
+        self == &other.0
+    }
+}
+
+impl From<ErrorCode> for Error {
+    #[cfg(feature = "extended-error")]
+    fn from(err: ErrorCode) -> Self {
+        Error(err, None)
+    }
+
+    #[cfg(not(feature = "extended-error"))]
+    fn from(err: ErrorCode) -> Self {
+        Error(err)
     }
 }
 
 #[derive(Debug, PartialEq, Copy, Clone, ScpiError)]
-pub enum Error {
+pub enum ErrorCode {
+    ///# Custom error
+    /// Used for custom error in the range`[ -399 , -300 ]` or `[ 1 , 32767 ]`.
+    /// See **Device-specific error** for closer description.
+    ///
     #[error(custom)]
     Custom(i16, &'static [u8]),
     ///# 28.8.3 No error [-99, 0]
@@ -440,26 +511,6 @@ pub enum Error {
     OperationComplete,
 }
 
-impl<'a> Error {
-    /**
-     * Returns a bitmask for the appropriate bit in the ESR for this event/error.
-     */
-    pub fn esr_mask(self) -> u8 {
-        match self.get_code() {
-            -99..=0 => 0u8,        //No bit
-            -199..=-100 => 0x20u8, //bit 5
-            -299..=-200 => 0x10u8, //bit 4
-            -399..=-300 => 0x08u8, //bit 3
-            -499..=-400 => 0x04u8, //bit 2
-            -599..=-500 => 0x80u8, //bit 7
-            -699..=-600 => 0x40u8, //bit 6
-            -799..=-700 => 0x02u8, //bit 1
-            -899..=-800 => 0x01u8, //bit 0
-            _ => 0x08u8,           //bit 3
-        }
-    }
-}
-
 pub trait ErrorQueue {
     fn push_back_error(&mut self, err: Error);
 
@@ -495,15 +546,39 @@ impl<T: Array<Item = Error>> ErrorQueue for ArrayErrorQueue<T> {
         //Try to queue an error, replace last with QueueOverflow if full
         if self.vec.push_back(err).is_err() {
             self.vec.pop_back();
-            self.vec.push_back(Error::QueueOverflow).ok();
+            self.vec.push_back(ErrorCode::QueueOverflow.into()).ok();
         }
     }
 
     fn pop_front_error(&mut self) -> Error {
-        self.vec.pop_front().unwrap_or(Error::NoError)
+        self.vec
+            .pop_front()
+            .unwrap_or_else(|| ErrorCode::NoError.into())
     }
 
     fn len(&self) -> usize {
         self.vec.len()
+    }
+}
+
+#[cfg(test)]
+mod test_error_queue {
+    use super::{ArrayErrorQueue, Error, ErrorCode, ErrorQueue};
+
+    #[test]
+    fn test_queue_noerror() {
+        // Check that errorqueue returns NoError when there are no errors
+        let mut errors = ArrayErrorQueue::<[Error; 10]>::new();
+        errors.push_back_error(ErrorCode::Custom(1, b"One").into());
+        errors.push_back_error(ErrorCode::Custom(2, b"Two").into());
+        assert_eq!(
+            errors.pop_front_error(),
+            Error::new(ErrorCode::Custom(1, b"One"))
+        );
+        assert_eq!(
+            errors.pop_front_error(),
+            Error::new(ErrorCode::Custom(2, b"Two"))
+        );
+        assert_eq!(errors.pop_front_error(), Error::new(ErrorCode::NoError));
     }
 }
