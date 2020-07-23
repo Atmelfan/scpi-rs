@@ -763,6 +763,7 @@ impl<'a> Tokenizer<'a> {
     /// Non standard custom arbitrary data block format #s"..."/#s'...'
     /// The parser will automatically check and convert the data to a UTF8 string, emitting
     /// a InvalidBlockData error if the string is not valid UTF8.
+    #[cfg(feature = "arbitrary-utf8-string")]
     fn read_utf8_data(&mut self, _format: u8) -> Result<Token<'a>, ErrorCode> {
         if let Some(x) = self.chars.clone().next() {
             if *x != b'"' && *x != b'\'' {
@@ -1041,6 +1042,33 @@ mod test_parse {
         );
     }
 
+    #[cfg(feature = "arbitrary-utf8-string")]
+    #[test]
+    fn test_read_arb_utf8() {
+        assert_eq!(
+            Tokenizer::new("'åäö'".as_bytes()).read_utf8_data(b's'),
+            Ok(Token::Utf8BlockData("åäö"))
+        );
+        assert_eq!(
+            Tokenizer::new("\"åäö\"".as_bytes()).read_utf8_data(b's'),
+            Ok(Token::Utf8BlockData("åäö"))
+        );
+        assert_eq!(
+            Tokenizer::new("'å''äö'".as_bytes()).read_utf8_data(b's'),
+            Ok(Token::Utf8BlockData("å''äö"))
+        );
+        //Missing quote
+        assert_eq!(
+            Tokenizer::new("'å''äö".as_bytes()).read_utf8_data(b's'),
+            Err(ErrorCode::InvalidStringData)
+        );
+        //Invalid utf8
+        assert_eq!(
+            Tokenizer::new(b"'\xff'").read_utf8_data(b's'),
+            Err(ErrorCode::InvalidBlockData)
+        );
+    }
+
     #[test]
     fn test_read_expr_data() {
         assert_eq!(
@@ -1176,6 +1204,7 @@ impl<'a> Iterator for Tokenizer<'a> {
                 } else if let Some(x) = self.chars.next() {
                     Some(match x {
                         /* Arbitrary block */
+                        #[cfg(feature = "arbitrary-utf8-string")]
                         x if *x == b's' => self.read_utf8_data(*x),
                         x if x.is_ascii_digit() => self.read_arbitrary_data(*x),
                         /*Non-decimal numeric*/

@@ -26,8 +26,11 @@ scpi = "=0.x.y"
 
 # Features
 These features are by default turned off.
-- `extended-error` - Allows extended error messages of the form `error code, "error message; extended message"`. 
+- `extended-error` - Allows extended error messages of the form `<error code>, "error message;extended message"`. 
 Requires more data and program memory.
+- `arbitrary-utf8-string` - Allows UTF8 arbitrary data block, `#s"Detta är en utf8 sträng med roliga bokstäver`. 
+Checked by the parser and emits a InvalidBlockData if the UTF8 data is malformed. 
+                             
 
 # Getting started
 TODO, look at `example` (or `example-cortexm` for embedded) directory for now
@@ -64,12 +67,6 @@ Not necessary for a 1.0.0 version but would be nice to have in no particular ord
  * Arbitrary data block struct serializer/deserializer integration with [packed_struct](https://docs.rs/packed_struct/0.3.0/packed_struct/)
  * Support for overlapped commands using futures
  * Double-precision float (`f64`) support.
-
-# Extensions
-The parser extends the SCPI-99 standard with some custom syntax:
-
- * UTF8 arbitrary data block, `#s"Detta är en utf8 sträng med roliga bokstäver`. Checked by the parser and emits a InvalidBlockData if the UTF8 data is malformed. 
- 
 
 # Contribution
 Contributions are welcome because I don't know what the fuck I'm doing.
