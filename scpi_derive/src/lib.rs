@@ -171,6 +171,7 @@ pub fn derive_error_messages(input: proc_macro::TokenStream) -> proc_macro::Toke
 
     let mut variant_matches = Vec::new();
     let mut code_variant_matches = Vec::new();
+    let mut variant_code_matches = Vec::new();
 
     for variant in variants.iter() {
         let variant_name = &variant.ident;
@@ -204,6 +205,11 @@ pub fn derive_error_messages(input: proc_macro::TokenStream) -> proc_macro::Toke
                 println!("--- {}", cx);
                 //compile_error!("bint");
                 code_variant_matches.push(cx);
+
+                let ccx = quote! {
+                    #code => Some(#name::#variant_name)
+                };
+                variant_code_matches.push(ccx);
             }
             if find_prop_path(&meta, "error", "custom") {
                 let x = quote! {
@@ -235,10 +241,16 @@ pub fn derive_error_messages(input: proc_macro::TokenStream) -> proc_macro::Toke
                     #(#code_variant_matches),*
                 }
             }
+
+            #[doc="Returns appropriate error from code (if any)"]
+            pub fn get_error(code: i16) -> Option<Self> {
+                match code {
+                    #(#variant_code_matches),*,
+                    _ => None
+                }
+            }
         }
     };
-
-    //println!("{}", expanded);
 
     // Hand the output tokens back to the compiler.
     proc_macro::TokenStream::from(expanded)

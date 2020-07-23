@@ -3,7 +3,6 @@ struct MyDevice;
 //use strum::EnumMessage;
 use scpi::error::Result;
 use scpi::prelude::*;
-use scpi::response::{ArrayVecFormatter, Formatter};
 use std::io;
 use std::io::BufRead;
 

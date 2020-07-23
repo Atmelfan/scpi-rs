@@ -386,7 +386,7 @@ impl SuffixUnitElement {
                 _ => 20f32,
             };
 
-            Ok((unit, 10f32.powf(val / ratio) * mul))
+            Ok((unit, 10f32.round().powf(val / ratio) * mul))
         } else {
             let (unit, mul) = Self::from_suffix(&str)?;
 

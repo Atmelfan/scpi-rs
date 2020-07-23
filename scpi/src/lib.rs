@@ -100,7 +100,7 @@ pub mod tree;
 pub mod prelude {
     pub use crate::command::{Command, CommandTypeMeta};
     pub use crate::error::{ArrayErrorQueue, Error, ErrorCode, ErrorQueue};
-    pub use crate::response::Formatter;
+    pub use crate::response::{ArrayVecFormatter, Formatter};
     pub use crate::tokenizer::{Token, Tokenizer};
     pub use crate::tree::Node;
     pub use crate::{Context, Device};
