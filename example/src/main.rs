@@ -26,10 +26,10 @@ use scpi::{
     nquery,
     //Helpers
     qonly,
+    scpi_error,
     scpi_status,
     scpi_system,
     scpi_tree,
-    scpi_error
 };
 use std::convert::TryInto;
 
