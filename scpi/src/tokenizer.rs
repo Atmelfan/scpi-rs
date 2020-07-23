@@ -328,10 +328,12 @@ macro_rules! impl_tryfrom_integer {
             type Error = error::Error;
 
             fn try_from(value: Token) -> Result<Self, Self::Error> {
+                #[allow(unused_imports)]
+                use crate::lexical_core::Float;
                 match value {
                     Token::DecimalNumericProgramData(value) => {
                         if value.is_finite() {
-                            <$from>::try_from((value + 0.5f32) as i32)
+                            <$from>::try_from(value.round() as i32)
                                 .map_err(|_| ErrorCode::DataOutOfRange.into())
                         } else {
                             // Nan/Inf -> Integer is undefined, return DataOutOfRange
