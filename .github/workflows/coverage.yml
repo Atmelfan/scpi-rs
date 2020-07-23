@@ -26,7 +26,7 @@ jobs:
       - name: Run grcov
         env:
           PROJECT_NAME: "scpi"
-          RUSTFLAGS: "-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-chec  ks=off -Zno-landing-pads"
+          RUSTFLAGS: "-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-chec  ks=off"
           CARGO_INCREMENTAL: 0
         run: |
           cargo build --verbose --manifest-path=scpi/Cargo.toml
