@@ -23,11 +23,16 @@ Add `scpi` to your dependencies. The precise version should be specified as the 
 scpi = "=0.x.y"
 ```
 
+# Features
+These features are by default turned off.
+- `extended-error` - Allows extended error messages of the form `error code, "error message; extended message"`. 
+Requires more data and program memory.
+
 # Getting started
 TODO, look at `example` (or `example-cortexm` for embedded) directory for now
 
 # Character coding
-SCPI is strictly ASCII and will throw a error InvalidCharacter if any non-ascii `(>127)` characters are encountered (Exception: Arbitrary data blocks).
+SCPI is strictly ASCII and will throw a error InvalidCharacter if any non-ascii `(>127)` characters are encountered (Exception: Arbitrary data blocks). 
 This library uses byte-slices for all strings and must be converted to UTF8 str type. The try_into\<str\> trait will do this automatically and throw an error if unsuccessful. 
 
 # Error handling

@@ -9,3 +9,7 @@ publish = false
 
 [dependencies]
 scpi = {path = "../scpi"}
+
+[features]
+default = []
+extended-error = ["scpi/extended-error"]

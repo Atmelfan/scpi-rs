@@ -13,6 +13,7 @@ use scpi::scpi::commands::*;
 use scpi::suffix::SuffixUnitElement;
 use scpi::tokenizer::NumericValues;
 use scpi::{
+    error,
     ieee488_cls,
     ieee488_ese,
     ieee488_esr,
@@ -23,6 +24,7 @@ use scpi::{
     ieee488_stb,
     ieee488_tst,
     ieee488_wai,
+    nquery,
     //Helpers
     qonly,
     scpi_status,
@@ -96,6 +98,42 @@ impl Command for HelloWorldCommand {
     }
 }
 
+/// `EXAMple:ERRor:CUSTom`
+/// Example custom error event
+struct ErrorCustomCommand {}
+impl Command for ErrorCustomCommand {
+    nquery!();
+
+    fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<()> {
+        error!(ErrorCode::Custom(1, b"Custom error"))
+    }
+}
+
+/// `EXAMple:ERRor:EXTended`
+/// Example extended error event
+struct ErrorExtendedCommand {}
+impl Command for ErrorExtendedCommand {
+    nquery!();
+
+    fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<()> {
+        error!(ErrorCode::Custom(1, b"Extended error"); b"Additional information")
+    }
+}
+
+/// `EXAMple:ERRor:MULtiple`
+/// Inserts multiple errors without terminating execution
+struct ErrorMultipleCommand {}
+impl Command for ErrorMultipleCommand {
+    nquery!();
+
+    fn event(&self, context: &mut Context, _args: &mut Tokenizer) -> Result<()> {
+        context.push_error(ErrorCode::Custom(1, b"One").into());
+        context.push_error(ErrorCode::Custom(2, b"Two").into());
+        context.push_error(ErrorCode::Custom(3, b"Three").into());
+        Ok(())
+    }
+}
+
 /// `EXAMple:NODE:[DEFault]`
 /// Dummy command to demonstrate default commands.
 ///
@@ -116,10 +154,10 @@ impl Command for ExamNodeDefCommand {
     }
 }
 
-/// `EXAMple:NODE:[DEFault]`
+/// `EXAMple:NODE:ARGuments`
 /// Dummy command to demonstrate default commands.
 ///
-/// `EXAMple:NODE:[DEFault]? <NRf> | <non-decimal numeric> [, <string>]`
+/// `EXAMple:NODE:ARGuments? <NRf> | <non-decimal numeric> [, <string>]`
 /// Dummy command to demonstrate default commands.
 ///
 /// Note: `EXAMple` is actually a default command too, try entering `NODE?`.
@@ -137,10 +175,7 @@ impl Command for ExamNodeArgCommand {
     ) -> Result<()> {
         let x: u8 = args.next_data(false)?.unwrap().try_into()?;
 
-        let mut s = b"POTATO".as_ref();
-        if let Some(y) = args.next_data(true)? {
-            s = y.try_into()?;
-        }
+        let s: &[u8] = args.next_data(true)?.map_or(Ok(b"POTATO".as_ref()), |f| f.try_into())?;
 
         response.u8_data(x)?;
         response.separator()?;
@@ -301,6 +336,32 @@ fn main() {
                             handler: Some(&HelloWorldCommand {}),
                             sub: None,
                         }]),
+                    },
+                    Node {
+                        name: b"ERRor",
+                        optional: false,
+                        handler: None,
+                        sub: Some(&[
+                            Node {
+                                name: b"CUSTom",
+                                optional: false,
+                                handler: Some(&ErrorCustomCommand {}),
+                                sub: None,
+                            },
+                            #[cfg(feature = "extended-error")]
+                            Node {
+                                name: b"EXTended",
+                                optional: false,
+                                handler: Some(&ErrorExtendedCommand {}),
+                                sub: None,
+                            },
+                            Node {
+                                name: b"MULtiple",
+                                optional: false,
+                                handler: Some(&ErrorMultipleCommand {}),
+                                sub: None,
+                            },
+                        ]),
                     },
                     Node {
                         name: b"NODE",

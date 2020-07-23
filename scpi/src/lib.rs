@@ -106,7 +106,7 @@ pub mod prelude {
     pub use crate::{Context, Device};
 }
 
-use crate::error::{ErrorCode, ErrorQueue, Result};
+use crate::error::{Error, ErrorCode, ErrorQueue, Result};
 use crate::response::Formatter;
 use crate::scpi::EventRegister;
 use crate::tokenizer::{Token, Tokenizer};
@@ -180,6 +180,12 @@ impl<'a> Context<'a> {
         }
     }
 
+    /// Put an error into the queue and set corresponding ESR bits
+    pub fn push_error(&mut self, err: Error){
+        self.esr |= err.esr_mask();
+        self.errors.push_back_error(err);
+    }
+
     /// Executes one SCPI message (terminated by `\n`) and queue any errors.
     ///
     /// # Arguments
@@ -198,10 +204,7 @@ impl<'a> Context<'a> {
         response.clear();
         self.execute(tokenstream, response).map_err(|err| {
             //Set appropriate bits in ESR
-            self.esr |= err.clone().esr_mask();
-
-            //Queue error
-            self.errors.push_back_error(err);
+            self.push_error(err);
 
             //Original error
             err
