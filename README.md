@@ -1,7 +1,9 @@
 # SCPI
 
 ![Quickstart](https://github.com/Atmelfan/scpi-rs/workflows/Quickstart/badge.svg)
-[![Coverage Status](https://coveralls.io/repos/github/Atmelfan/scpi-rs/badge.svg?branch=feature-extended-error)](https://coveralls.io/github/Atmelfan/scpi-rs?branch=feature-extended-error)
+[![codecov](https://codecov.io/gh/Atmelfan/scpi-rs/branch/master/graph/badge.svg)](https://codecov.io/gh/Atmelfan/scpi-rs)
+[![](http://meritbadge.herokuapp.com/scpi)](https://crates.io/crates/scpi)
+[![](https://img.shields.io/github/license/Atmelfan/scpi-rs)](https://img.shields.io/github/license/Atmelfan/scpi-rs)
 
 This crate attempts to implement the IEE488.2 / SCPI protocol commonly used by measurement instruments and tools.
 See [IVI Foundation](http://www.ivifoundation.org/specifications/default.aspx) (SCPI-99 and IEE488.2).
