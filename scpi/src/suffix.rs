@@ -1,9 +1,11 @@
+use crate::error::{Error, ErrorCode};
+use crate::suffix::SuffixUnitElement::Watt;
 use core::f32::consts::PI;
 use core::slice::Iter;
 
 /// Standard suffix units
 ///
-#[derive(PartialEq, ScpiUnit)]
+#[derive(PartialEq, Copy, Clone, Debug, ScpiUnit)]
 pub enum SuffixUnitElement {
     ///# Absorbed dose
     #[unit(suffix = b"GY", multiplier = 1.0)]
@@ -163,8 +165,6 @@ pub enum SuffixUnitElement {
     #[unit(suffix = b"W", multiplier = 1.0)]
     #[unit(suffix = b"MW", multiplier = 1.0e-3)]
     Watt, //W
-    #[unit(suffix = b"DBM", multiplier = 1.0)]
-    DbMilliwatt, //DBM (equivalent to DBMW)
     ///Pressure
     #[unit(suffix = b"ATM", multiplier = 1.0)]
     Atmosphere, //ATM
@@ -218,24 +218,43 @@ pub enum SuffixUnitElement {
 
 /// Error which may be emitted by suffix parser and conversion.
 ///
+#[derive(PartialEq, Copy, Clone, Debug, ScpiError)]
 pub enum SuffixError {
     /// Suffix has invalid syntax (example `S//M2` or `S.2`)
+    #[error(code=-1, message=b"Syntax")]
     Syntax,
     /// Suffix element has a exponent of zero
+    #[error(code=-2, message=b"Zero dimension")]
     ZeroExponent,
     /// Suffix is not recognized
+    #[error(code=-3, message=b"Unknown suffix")]
     Unknown,
     /// Conversion only works to certain basic units (eg Second, not Day, etc)
+    #[error(code=-4, message=b"Not a base unit")]
     NotABaseUnit,
     /// Trying to convert between incompatible quantities (example: Farad -> Meter)
+    #[error(code=-5, message=b"Incompatible quantity")]
     IncompatibleQuantity,
     /// Trying to convert between different dimensions (example Meter^3 -> Meter
+    #[error(code=-6, message=b"Incompatibe dimension")]
     IncompatibleDimension,
+}
+
+impl From<SuffixError> for Error {
+    #[cfg(not(feature = "extended-error"))]
+    fn from(_se: SuffixError) -> Self {
+        Error::new(ErrorCode::SuffixError)
+    }
+
+    #[cfg(feature = "extended-error")]
+    fn from(se: SuffixError) -> Self {
+        Error::extended(ErrorCode::SuffixError, se.get_message())
+    }
 }
 
 /// A suffix token
 ///
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum Token<'a> {
     /// A `.`, separates suffix elements
     Separator,
@@ -251,6 +270,10 @@ pub struct Tokenizer<'a> {
 }
 
 impl<'a> Tokenizer<'a> {
+    pub fn new(s: &'a [u8]) -> Self {
+        Tokenizer { chars: s.iter() }
+    }
+
     fn read_element(&mut self) -> Result<Token<'a>, SuffixError> {
         //Read suffix element
         let s = self.chars.as_slice();
@@ -268,21 +291,25 @@ impl<'a> Tokenizer<'a> {
             }
         }
         let element = &s[0..s.len() - self.chars.as_slice().len()];
+        if element.is_empty() {
+            return Err(SuffixError::Syntax);
+        }
 
         //Try to read an exponent
-        let mut exponent = 1i8;
-        if let Some(mut ex) = self.chars.clone().next() {
-            if *ex == b'-' {
-                self.chars.next();
-                ex = self.chars.next().ok_or(SuffixError::Syntax)?;
-                if ex.is_ascii_digit() {
-                    exponent = -((*ex - b'0') as i8);
-                } else {
-                }
-            }
-            if ex.is_ascii_digit() {
-                exponent = (ex - b'0') as i8;
-            }
+        let (exponent, len) = if self
+            .chars
+            .clone()
+            .next()
+            .map_or(false, |x| x.is_ascii_digit() || *x == b'-' || *x == b'+')
+        {
+            lexical_core::parse_partial::<i8>(&self.chars.as_slice())
+                .map_err(|_| SuffixError::Syntax)
+        } else {
+            Ok((1i8, 0usize))
+        }?;
+
+        if len > 0 {
+            self.chars.nth(len - 1).unwrap();
         }
 
         //Exponent is 0?
@@ -302,8 +329,14 @@ impl<'a> Iterator for Tokenizer<'a> {
         let x = self.chars.clone().next()?;
         match x {
             /* Per */
-            b'/' => Some(Ok(Token::Per)),
-            b'.' => Some(Ok(Token::Separator)),
+            b'/' => {
+                self.chars.next().unwrap();
+                Some(Ok(Token::Per))
+            }
+            b'.' => {
+                self.chars.next().unwrap();
+                Some(Ok(Token::Separator))
+            }
             x if x.is_ascii_alphabetic() => Some(self.read_element()),
             _ => Some(Err(SuffixError::Syntax)),
         }
@@ -375,9 +408,17 @@ impl SuffixUnitElement {
     pub fn from_str(str: &[u8], val: f32) -> Result<(SuffixUnitElement, f32), SuffixError> {
         #[allow(unused_imports)]
         use crate::lexical_core::Float;
-        // If suffix start with "DB", try to parse it as a decibel unit
-        if str[..2].eq_ignore_ascii_case(b"DB") && !str.eq_ignore_ascii_case(b"DBM") {
-            let (unit, mul): (SuffixUnitElement, f32) = Self::from_suffix(&str[2..])?;
+        // If suffix start with "DB", try to parse it as a decibel
+        if str
+            .get(..2)
+            .map_or(false, |s| s.eq_ignore_ascii_case(b"DB"))
+        {
+            // DBM is a special alias of DBMW
+            let (unit, mul): (SuffixUnitElement, f32) = if str.eq_ignore_ascii_case(b"DBM") {
+                (Watt, 1e-3)
+            } else {
+                Self::from_suffix(&str[2..])?
+            };
 
             // Power units have a ratio of 10
             // Quantitative units, 20
@@ -392,5 +433,101 @@ impl SuffixUnitElement {
 
             Ok((unit, mul * val))
         }
+    }
+}
+
+#[cfg(test)]
+mod test_suffix {
+    use crate::error::{Error, ErrorCode};
+    use crate::suffix::SuffixError;
+    use crate::suffix::{SuffixUnitElement, Token, Tokenizer};
+
+    extern crate std;
+
+    #[test]
+    fn test_from_str() {
+        // Ok
+        let volt = SuffixUnitElement::from_str(b"V", 1.0);
+        assert_eq!(volt, Ok((SuffixUnitElement::Volt, 1.0)));
+        let millivolt = SuffixUnitElement::from_str(b"mV", 1.0);
+        assert_eq!(millivolt, Ok((SuffixUnitElement::Volt, 1.0e-3)));
+        let dbvolt = SuffixUnitElement::from_str(b"dBV", 40.0);
+        assert_eq!(dbvolt, Ok((SuffixUnitElement::Volt, 100.0)));
+        let dbwatt = SuffixUnitElement::from_str(b"dBW", 40.0);
+        assert_eq!(dbwatt, Ok((SuffixUnitElement::Watt, 10000.0)));
+        let dbm = SuffixUnitElement::from_str(b"DBM", 0.0);
+        assert_eq!(dbm, Ok((SuffixUnitElement::Watt, 1e-3)));
+
+        //Not ok
+        let invalid = SuffixUnitElement::from_str(b"X", 1.0);
+        assert_eq!(invalid, Err(SuffixError::Unknown));
+        let invaliddb = SuffixUnitElement::from_str(b"DBX", 1.0);
+        assert_eq!(invaliddb, Err(SuffixError::Unknown));
+    }
+
+    #[test]
+    fn test_read_element() {
+        //Ok
+        assert_eq!(
+            Tokenizer::new(b"M").read_element(),
+            Ok(Token::Element(b"M", 1i8))
+        );
+        assert_eq!(
+            Tokenizer::new(b"M2").read_element(),
+            Ok(Token::Element(b"M", 2i8))
+        );
+        assert_eq!(
+            Tokenizer::new(b"M+2").read_element(),
+            Ok(Token::Element(b"M", 2i8))
+        );
+        assert_eq!(
+            Tokenizer::new(b"M-2").read_element(),
+            Ok(Token::Element(b"M", -2i8))
+        );
+        //
+        assert_eq!(
+            Tokenizer::new(b"2").read_element(),
+            Err(SuffixError::Syntax)
+        );
+        assert_eq!(
+            Tokenizer::new(b"M256").read_element(),
+            Err(SuffixError::Syntax)
+        );
+        assert_eq!(
+            Tokenizer::new(b"&2").read_element(),
+            Err(SuffixError::Syntax)
+        );
+    }
+
+    #[test]
+    fn test_suffix_tokenizer() {
+        let mut tok = Tokenizer::new(b"M.S-2/M3");
+        assert_eq!(tok.next(), Some(Ok(Token::Element(b"M", 1i8))));
+        assert_eq!(tok.next(), Some(Ok(Token::Separator)));
+        assert_eq!(tok.next(), Some(Ok(Token::Element(b"S", -2i8))));
+        assert_eq!(tok.next(), Some(Ok(Token::Per)));
+        assert_eq!(tok.next(), Some(Ok(Token::Element(b"M", 3i8))));
+        assert_eq!(tok.next(), None);
+
+        let mut tok2 = Tokenizer::new(b"_M.S-2/M3");
+        assert_eq!(tok2.next(), Some(Err(SuffixError::Syntax)));
+    }
+
+    #[cfg(not(feature = "extended-error"))]
+    #[test]
+    fn test_suffix_error_into_error() {
+        assert_eq!(
+            SuffixError::Syntax.into(),
+            Error::new(ErrorCode::SuffixError)
+        )
+    }
+
+    #[cfg(feature = "extended-error")]
+    #[test]
+    fn test_suffix_error_into_error() {
+        assert_eq!(
+            Error::from(SuffixError::Syntax),
+            Error::extended(ErrorCode::SuffixError, b"Syntax")
+        )
     }
 }
