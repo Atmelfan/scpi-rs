@@ -466,6 +466,21 @@ mod test_suffix {
     }
 
     #[test]
+    fn test_get_code() {
+        assert_eq!(ErrorCode::CommandError.get_code(), -100);
+    }
+
+    #[test]
+    fn test_get_message() {
+        assert_eq!(ErrorCode::CommandError.get_message(), b"Command error");
+    }
+
+    #[test]
+    fn test_from_code() {
+        assert_eq!(ErrorCode::get_error(-100), Some(ErrorCode::CommandError));
+    }
+
+    #[test]
     fn test_read_element() {
         //Ok
         assert_eq!(
@@ -497,6 +512,10 @@ mod test_suffix {
             Tokenizer::new(b"&2").read_element(),
             Err(SuffixError::Syntax)
         );
+        assert_eq!(
+            Tokenizer::new(b"S0").read_element(),
+            Err(SuffixError::ZeroExponent)
+        );
     }
 
     #[test]
@@ -517,7 +536,7 @@ mod test_suffix {
     #[test]
     fn test_suffix_error_into_error() {
         assert_eq!(
-            SuffixError::Syntax.into(),
+            Error::from(SuffixError::Syntax),
             Error::new(ErrorCode::SuffixError)
         )
     }
