@@ -64,6 +64,7 @@ pub trait Command {
     ) -> Result<()>;
 }
 
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub enum CommandTypeMeta {
     Unknown,
     NoQuery,
@@ -104,4 +105,64 @@ macro_rules! nquery {
             Err(ErrorCode::UndefinedHeader.into())
         }
     };
+}
+
+#[cfg(test)]
+mod test_command {
+    use crate::error::Result;
+    use crate::prelude::*;
+
+    struct Query {}
+    impl Command for Query {
+        qonly!();
+
+        fn query(
+            &self,
+            _context: &mut Context,
+            _args: &mut Tokenizer,
+            _response: &mut dyn Formatter,
+        ) -> Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn test_query() {
+        assert_eq!(Query {}.meta(), CommandTypeMeta::QueryOnly);
+    }
+
+    struct Event {}
+    impl Command for Event {
+        nquery!();
+
+        fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn test_event() {
+        assert_eq!(Event {}.meta(), CommandTypeMeta::NoQuery);
+    }
+
+    struct Default {}
+    impl Command for Default {
+        fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<()> {
+            Ok(())
+        }
+
+        fn query(
+            &self,
+            _context: &mut Context,
+            _args: &mut Tokenizer,
+            _response: &mut dyn Formatter,
+        ) -> Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn test_default() {
+        assert_eq!(Default {}.meta(), CommandTypeMeta::Unknown);
+    }
 }
