@@ -23,6 +23,10 @@ jobs:
           toolchain: nightly
           override: true
 
+      - name: Install Tarpaulin
+        run: |
+          cargo install cargo-tarpaulin
+
       - name: Generate code coverage
         run: |
           cargo +nightly tarpaulin --verbose --all-features --workspace --timeout 120 --out Xml
