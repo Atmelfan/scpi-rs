@@ -441,6 +441,7 @@ mod test_suffix {
     use crate::error::{Error, ErrorCode};
     use crate::suffix::SuffixError;
     use crate::suffix::{SuffixUnitElement, Token, Tokenizer};
+    use core::f32::consts::PI;
 
     extern crate std;
 
@@ -463,6 +464,14 @@ mod test_suffix {
         assert_eq!(invalid, Err(SuffixError::Unknown));
         let invaliddb = SuffixUnitElement::from_str(b"DBX", 1.0);
         assert_eq!(invaliddb, Err(SuffixError::Unknown));
+    }
+
+    #[test]
+    fn test_convert() {
+        assert_eq!(SuffixUnitElement::Degree.convert(SuffixUnitElement::Radian, 180f32), Ok(PI));
+        assert_eq!(SuffixUnitElement::Minute.convert(SuffixUnitElement::Second, 1f32), Ok(60f32));
+        assert_eq!(SuffixUnitElement::Degree.convert(SuffixUnitElement::Second, 1f32), Err(SuffixError::IncompatibleQuantity));
+        assert_eq!(SuffixUnitElement::Degree.convert(SuffixUnitElement::Farad, 1f32), Err(SuffixError::NotABaseUnit));
     }
 
     #[test]
