@@ -436,7 +436,7 @@ pub mod commands {
         ) -> Result<()> {
             //Always return first error (NoError if empty)
             response.u16_data(context.questionable.event & 0x7FFFu16)?;
-            context.operation.event = 0;
+            context.questionable.event = 0;
             Ok(())
         }
     }
@@ -488,7 +488,7 @@ pub mod commands {
 
     impl Command for StatQuesNtrCommand {
         fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<()> {
-            context.operation.ntr_filter = args.next_data(false)?.unwrap().try_into()?;
+            context.questionable.ntr_filter = args.next_data(false)?.unwrap().try_into()?;
             Ok(())
         }
 
@@ -498,7 +498,7 @@ pub mod commands {
             _args: &mut Tokenizer,
             response: &mut dyn Formatter,
         ) -> Result<()> {
-            response.u16_data(context.operation.ntr_filter & 0x7FFFu16)
+            response.u16_data(context.questionable.ntr_filter & 0x7FFFu16)
         }
     }
 
@@ -509,7 +509,7 @@ pub mod commands {
 
     impl Command for StatQuesPtrCommand {
         fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<()> {
-            context.operation.ptr_filter = args.next_data(false)?.unwrap().try_into()?;
+            context.questionable.ptr_filter = args.next_data(false)?.unwrap().try_into()?;
             Ok(())
         }
 
@@ -519,7 +519,7 @@ pub mod commands {
             _args: &mut Tokenizer,
             response: &mut dyn Formatter,
         ) -> Result<()> {
-            response.u16_data(context.operation.ptr_filter & 0x7FFFu16)
+            response.u16_data(context.questionable.ptr_filter & 0x7FFFu16)
         }
     }
 

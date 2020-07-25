@@ -44,6 +44,17 @@ pub mod commands {
         nquery!();
 
         fn event(&self, context: &mut Context, _args: &mut Tokenizer) -> Result<()> {
+            // Clear SESR
+            context.esr = 0;
+            // Clear operation register
+            context.operation.set_condition(0);
+            context.operation.clear_event();
+            // Clear questionable register
+            context.questionable.set_condition(0);
+            context.questionable.clear_event();
+            // Clear error buffer
+            context.errors.clear();
+            // Clear any device specific status
             context.device.cls()
         }
     }
@@ -145,8 +156,9 @@ pub mod commands {
     ///
     pub struct OpcCommand;
     impl Command for OpcCommand {
-        fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<()> {
-            unimplemented!()
+        fn event(&self, context: &mut Context, _args: &mut Tokenizer) -> Result<()> {
+            context.push_error(ErrorCode::OperationComplete.into());
+            Ok(())
         }
 
         fn query(
@@ -231,7 +243,9 @@ pub mod commands {
             _args: &mut Tokenizer,
             response: &mut dyn Formatter,
         ) -> Result<()> {
-            response.u8_data(context.get_stb())
+            // Set MAV bit as a message should always exist after
+            // a query even if there's no output buffer.
+            response.u8_data(context.get_stb() | 0x10)
         }
     }
 

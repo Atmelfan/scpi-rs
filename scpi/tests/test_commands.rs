@@ -32,6 +32,18 @@ const IEEE488_TREE: &Node = scpi_tree![
         optional: false,
         handler: Some(&ErrorCommand {}),
         sub: None,
+    },
+    Node {
+        name: b"*OPER",
+        optional: false,
+        handler: Some(&OperCommand {}),
+        sub: None,
+    },
+    Node {
+        name: b"*QUES",
+        optional: false,
+        handler: Some(&QuesCommand {}),
+        sub: None,
     }
 ];
 
@@ -47,6 +59,30 @@ impl Command for ErrorCommand {
                 .unwrap_or(ErrorCode::Custom(errcode, b""))
                 .into(),
         );
+        Ok(())
+    }
+}
+
+struct OperCommand {}
+
+impl Command for OperCommand {
+    nquery!();
+
+    fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<()> {
+        let condition: u16 = args.next_data(false)?.unwrap().try_into()?;
+        context.operation.set_condition(condition);
+        Ok(())
+    }
+}
+
+struct QuesCommand {}
+
+impl Command for QuesCommand {
+    nquery!();
+
+    fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<()> {
+        let condition: u16 = args.next_data(false)?.unwrap().try_into()?;
+        context.questionable.set_condition(condition);
         Ok(())
     }
 }
@@ -197,6 +233,10 @@ fn test_opc() {
         assert_eq!(result, Ok(()));
         assert_eq!(response, b"1\n");
     });
+    execute_str!(ctx, b"*rst;*opc;*esr?" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"1\n");
+    });
 }
 
 #[test]
@@ -258,9 +298,135 @@ fn test_esr() {
         assert_eq!(result, Ok(()));
         assert_eq!(response, b"1\n");
     });
-    //All 8 errors logged?
-    execute_str!(ctx, b"syst:err:count?" => result, response {
+}
+
+#[test]
+fn test_stb() {
+    // STB should be zero
+    context!(ctx, dev);
+    execute_str!(ctx, b"*stb?" => result, response {
         assert_eq!(result, Ok(()));
-        assert_eq!(response, b"8\n");
+        assert_eq!(response, b"16\n");
+    });
+    //Trigger a command error and se that MAV is set
+    execute_str!(ctx, b"*err -100;*stb?" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"20\n");
+    });
+    //Enable Command error in ESE and see that ESB, error queue bit and MA is set
+    execute_str!(ctx, b"*ese 32;*stb?" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"52\n");
+    });
+    //Enable Service request (for error queue bit) and see that ESB, error queue bit and MA is set
+    execute_str!(ctx, b"*sre 4;*stb?" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"116\n");
+    });
+    //Clear esr, MAV and MSS should still be set
+    execute_str!(ctx, b"*esr?;*stb?" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"32;84\n");
+    });
+    // Clear error
+    execute_str!(ctx, b"syst:err?" => result, _response {
+        assert_eq!(result, Ok(()));
+    });
+    // MAV is set
+    execute_str!(ctx, b"*stb?" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"16\n");
+    });
+
+}
+
+#[test]
+fn test_syst_err() {
+    // Test SYSTem:ERRor commands
+    context!(ctx, dev);
+    execute_str!(ctx, b"syst:err:next?" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"0,\"No error\"\n");
+    });
+    execute_str!(ctx, b"*err -100;syst:err?" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"-100,\"Command error\"\n");
+    });
+    execute_str!(ctx, b"*err -100;*err -200;syst:err:count?;all?" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response.eq_ignore_ascii_case(b"2;-100,\"Command error\",-200,\"Execution error\"\n"), true);
     });
 }
+
+#[test]
+fn test_syst_version() {
+    context!(ctx, dev);
+    execute_str!(ctx, b"syst:version?" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"1999.0\n");
+    });
+}
+
+#[test]
+fn test_stat_operation() {
+    context!(ctx, dev);
+    execute_str!(ctx, b"stat:oper:cond?;ptr #H00FF;ntr #HFF00" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"0\n");
+    });
+    execute_str!(ctx, b"*oper #HFFFF;stat:oper:cond?;event?" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"32767;255\n");
+    });
+    execute_str!(ctx, b"*oper #H0000;stat:oper:cond?;event?" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"0;32512\n");
+    });
+    execute_str!(ctx, b"stat:oper:cond?;event?" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"0;0\n");
+    });
+    //Check enable/enable?
+    execute_str!(ctx, b"stat:oper:enable 65535;enable?" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"32767\n");
+    });
+    //Check that operation summary bit is set in STB
+    execute_str!(ctx, b"*stb?;*oper #HFFFF;*stb?" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"16;144\n");
+    });
+}
+
+#[test]
+fn test_stat_questionable() {
+    context!(ctx, dev);
+    execute_str!(ctx, b"stat:ques:cond?;ptr #H00FF;ntr #HFF00" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"0\n");
+    });
+    execute_str!(ctx, b"*ques #HFFFF;stat:ques:cond?;event?" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"32767;255\n");
+    });
+    execute_str!(ctx, b"*ques #H0000;stat:ques:cond?;event?" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"0;32512\n");
+    });
+    execute_str!(ctx, b"stat:ques:cond?;event?" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"0;0\n");
+    });
+    //Check enable/enable?
+    execute_str!(ctx, b"stat:ques:enable 65535;enable?" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"32767\n");
+    });
+    //Check that operation summary bit is set in STB
+    execute_str!(ctx, b"*stb?;*ques #HFFFF;*stb?" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"16;24\n");
+    });
+}
+
+

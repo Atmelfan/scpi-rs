@@ -130,6 +130,11 @@ pub trait Device {
     fn tst(&mut self) -> Result<()> {
         Ok(())
     }
+
+    /// Return true if a message is available in output queue
+    fn mav(&self) -> bool {
+        false
+    }
 }
 
 /// Context in which to execute a message.
@@ -346,7 +351,7 @@ impl<'a> Context<'a> {
         }
         //Set error queue empty bit
         if !self.errors.is_empty() {
-            reg |= 0x10;
+            reg |= 0x04;
         }
         //Set event bit
         if self.esr & self.ese != 0 {
@@ -355,6 +360,10 @@ impl<'a> Context<'a> {
         //Set MSS bit
         if reg & self.sre != 0 {
             reg |= 0x40;
+        }
+        //Set MAV bit
+        if self.device.mav() {
+            reg |= 0x10;
         }
 
         reg

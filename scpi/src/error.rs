@@ -1035,6 +1035,9 @@ pub trait ErrorQueue {
     /// Current length of queue
     fn len(&self) -> usize;
 
+    /// Clear queue
+    fn clear(&mut self);
+
     /// Is queue empty?
     fn is_empty(&self) -> bool {
         self.len() == 0
@@ -1077,6 +1080,10 @@ impl<T: Array<Item = Error>> ErrorQueue for ArrayErrorQueue<T> {
 
     fn len(&self) -> usize {
         self.vec.len()
+    }
+
+    fn clear(&mut self) {
+        self.vec.clear()
     }
 }
 
