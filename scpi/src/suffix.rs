@@ -468,10 +468,22 @@ mod test_suffix {
 
     #[test]
     fn test_convert() {
-        assert_eq!(SuffixUnitElement::Degree.convert(SuffixUnitElement::Radian, 180f32), Ok(PI));
-        assert_eq!(SuffixUnitElement::Minute.convert(SuffixUnitElement::Second, 1f32), Ok(60f32));
-        assert_eq!(SuffixUnitElement::Degree.convert(SuffixUnitElement::Second, 1f32), Err(SuffixError::IncompatibleQuantity));
-        assert_eq!(SuffixUnitElement::Degree.convert(SuffixUnitElement::Farad, 1f32), Err(SuffixError::NotABaseUnit));
+        assert_eq!(
+            SuffixUnitElement::Degree.convert(SuffixUnitElement::Radian, 180f32),
+            Ok(PI)
+        );
+        assert_eq!(
+            SuffixUnitElement::Minute.convert(SuffixUnitElement::Second, 1f32),
+            Ok(60f32)
+        );
+        assert_eq!(
+            SuffixUnitElement::Degree.convert(SuffixUnitElement::Second, 1f32),
+            Err(SuffixError::IncompatibleQuantity)
+        );
+        assert_eq!(
+            SuffixUnitElement::Degree.convert(SuffixUnitElement::Farad, 1f32),
+            Err(SuffixError::NotABaseUnit)
+        );
     }
 
     #[test]
