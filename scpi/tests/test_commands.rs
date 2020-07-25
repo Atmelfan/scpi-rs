@@ -337,7 +337,6 @@ fn test_stb() {
         assert_eq!(result, Ok(()));
         assert_eq!(response, b"16\n");
     });
-
 }
 
 #[test]
@@ -428,5 +427,3 @@ fn test_stat_questionable() {
         assert_eq!(response, b"16;24\n");
     });
 }
-
-
