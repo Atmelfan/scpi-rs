@@ -412,33 +412,6 @@ pub struct Tokenizer<'a> {
 }
 
 impl<'a> Tokenizer<'a> {
-    /// Attempts to consume a data separator
-    /// Returns an error if next token is not a separator.
-    /// If next token is a terminator or end,
-    /// no error will be returned and token will not be consumed
-    pub fn next_separator(&mut self) -> Result<(), ErrorCode> {
-        if let Some(item) = self.clone().next() {
-            //Check if next item is a data object
-            let token = item?;
-            match token {
-                Token::ProgramDataSeparator => {
-                    //Valid data object, consume and return
-                    self.next();
-                    Ok(())
-                }
-                Token::ProgramMessageUnitSeparator | Token::ProgramMessageTerminator => {
-                    //Message separator or terminator is also ok but do not consume
-                    Ok(())
-                }
-                Token::SuffixProgramData(_) => Err(ErrorCode::SuffixNotAllowed),
-                _ => Err(ErrorCode::InvalidSeparator),
-            }
-        } else {
-            //No more tokens, end of message
-            Ok(())
-        }
-    }
-
     /// Attempts to consume a data object.
     /// If no data is found, none if returned if optional=true else Error:MissingParam.
     ///
@@ -525,23 +498,6 @@ impl<'a> Tokenizer<'a> {
             }
         } else {
             Ok(None)
-        }
-    }
-
-    pub fn next_arb(&mut self) -> Result<&'a [u8], Error> {
-        if let Some(tok) = self.next() {
-            let val = tok?;
-            match val {
-                Token::ArbitraryBlockData(f) => Ok(f),
-                Token::DecimalNumericProgramData(_)
-                | Token::NonDecimalNumericProgramData(_)
-                | Token::StringProgramData(_)
-                | Token::CharacterProgramData(_)
-                | Token::SuffixProgramData(_) => Err(ErrorCode::DataTypeError.into()),
-                _ => Err(ErrorCode::MissingParameter.into()),
-            }
-        } else {
-            Err(ErrorCode::MissingParameter.into())
         }
     }
 }
