@@ -44,15 +44,13 @@ pub enum NumericValues<'a> {
 
 impl<'a> Token<'a> {
     pub fn is_data_object(&self) -> bool {
-        match self {
-            Token::CharacterProgramData(_)
+        matches!(self, Token::CharacterProgramData(_)
             | Token::DecimalNumericProgramData(_)
             | Token::SuffixProgramData(_)
             | Token::NonDecimalNumericProgramData(_)
             | Token::StringProgramData(_)
-            | Token::ArbitraryBlockData(_) => true,
-            _ => false,
-        }
+            | Token::ArbitraryBlockData(_)
+        )
     }
 
     pub(crate) fn mnemonic_split_index(mnemonic: &'a [u8]) -> Option<(&'a [u8], &'a [u8])> {
