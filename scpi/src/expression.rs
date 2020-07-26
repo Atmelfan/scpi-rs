@@ -15,6 +15,7 @@ pub mod numeric_list {
     #[derive(Clone)]
     pub struct Tokenizer<'a> {
         pub chars: Iter<'a, u8>,
+        pub expect_num: bool,
     }
 
     impl<'a> Tokenizer<'a> {
@@ -30,8 +31,12 @@ pub mod numeric_list {
                     self.chars.next();
                     let (end, len) = lexical_core::parse_partial::<isize>(self.chars.as_slice())
                         .map_err(|_| ErrorCode::NumericDataError)?;
-                    self.chars.nth(len - 1);
-                    return Ok(Token::NumericRange(begin, end));
+                    return if len == 0 {
+                        Err(ErrorCode::InvalidExpression)
+                    } else {
+                        self.chars.nth(len - 1);
+                        Ok(Token::NumericRange(begin, end))
+                    };
                 }
             }
 
@@ -46,10 +51,18 @@ pub mod numeric_list {
             let x = self.chars.clone().next()?;
             Some(match x {
                 b',' => {
-                    self.chars.next();
-                    Ok(Token::Separator)
+                    if self.expect_num {
+                        Err(ErrorCode::InvalidExpression)
+                    } else {
+                        self.chars.next().unwrap();
+                        self.expect_num = true;
+                        Ok(Token::Separator)
+                    }
                 }
-                x if x.is_ascii_digit() || *x == b'-' || *x == b'+' => self.read_numeric_data(),
+                x if x.is_ascii_digit() || *x == b'-' || *x == b'+' => {
+                    self.expect_num = false;
+                    self.read_numeric_data()
+                }
                 _ => Err(ErrorCode::InvalidExpression),
             })
         }
@@ -57,6 +70,7 @@ pub mod numeric_list {
 
     #[cfg(test)]
     mod tests {
+        use crate::error::ErrorCode;
         use crate::expression::numeric_list::{Token, Tokenizer};
         use core::fmt;
 
@@ -73,14 +87,57 @@ pub mod numeric_list {
         }
 
         #[test]
+        fn test_numeric_data() {
+            let spec = Tokenizer {
+                chars: b"2".iter(),
+                expect_num: true,
+            }
+            .read_numeric_data();
+            assert_eq!(spec, Ok(Token::Numeric(2)));
+            let range = Tokenizer {
+                chars: b"2:5".iter(),
+                expect_num: true,
+            }
+            .read_numeric_data();
+            assert_eq!(range, Ok(Token::NumericRange(2, 5)));
+            let specfail = Tokenizer {
+                chars: b"2::5".iter(),
+                expect_num: true,
+            }
+            .read_numeric_data();
+            assert_eq!(specfail, Err(ErrorCode::InvalidExpression));
+        }
+
+        #[test]
         fn test_numeric_list() {
             let mut expr = Tokenizer {
                 chars: b"1,2:5".iter(),
+                expect_num: true,
             };
             assert_eq!(expr.next(), Some(Ok(Token::Numeric(1))));
             assert_eq!(expr.next(), Some(Ok(Token::Separator)));
             assert_eq!(expr.next(), Some(Ok(Token::NumericRange(2, 5))));
             assert_eq!(expr.next(), None);
+        }
+
+        #[test]
+        fn test_numeric_leading() {
+            let mut expr = Tokenizer {
+                chars: b",1,2:5".iter(),
+                expect_num: true,
+            };
+            assert_eq!(expr.next(), Some(Err(ErrorCode::InvalidExpression)));
+        }
+
+        #[test]
+        fn test_numeric_repeated() {
+            let mut expr = Tokenizer {
+                chars: b"1,,2:5".iter(),
+                expect_num: true,
+            };
+            assert_eq!(expr.next(), Some(Ok(Token::Numeric(1))));
+            assert_eq!(expr.next(), Some(Ok(Token::Separator)));
+            assert_eq!(expr.next(), Some(Err(ErrorCode::InvalidExpression)));
         }
     }
 }
@@ -159,7 +216,7 @@ pub mod channel_list {
                 }
                 lexical_core::parse_partial(self.chars.as_slice())
                     .map(|(n, len)| {
-                        self.chars.nth(len);
+                        self.chars.nth(len - 1).unwrap();
                         n
                     })
                     .map_err(|_| ErrorCode::ExpressionError)
@@ -272,7 +329,7 @@ pub mod channel_list {
             let x = self.chars.clone().next()?;
             Some(match x {
                 b',' => {
-                    self.chars.next();
+                    self.chars.next().unwrap();
                     Ok(Token::Separator)
                 }
                 x if x.is_ascii_digit() || *x == b'+' || *x == b'-' => self.read_channel_range(),
@@ -303,15 +360,15 @@ pub mod channel_list {
 
         #[test]
         fn test_channel_list() {
-            let mut expr = Tokenizer::new(b"@1!2,3!4:5!6,'POTATO'").unwrap();
+            let mut expr = Tokenizer::new(b"@1!12,3!4:5!6,'POTATO'").unwrap();
 
             // Destructure a spec
             let spec = expr.next().unwrap().unwrap();
-            assert_eq!(spec, Token::ChannelSpec(ChannelSpec(b"1!2", 2)));
+            assert_eq!(spec, Token::ChannelSpec(ChannelSpec(b"1!12", 2)));
             if let Token::ChannelSpec(spec) = spec {
                 let mut spec_iter = spec.into_iter();
                 assert_eq!(Some(Ok(1)), spec_iter.next());
-                assert_eq!(Some(Ok(2)), spec_iter.next());
+                assert_eq!(Some(Ok(12)), spec_iter.next());
                 assert_eq!(None, spec_iter.next());
             } else {
                 panic!("Not a channel spec")

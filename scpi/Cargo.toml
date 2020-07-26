@@ -12,14 +12,14 @@ categories = ["command-line-interface", "embedded", "parsing", "no-std"]
 homepage = "https://github.com/Atmelfan/scpi-rs"
 documentation = "https://docs.rs/crate/scpi"
 repository = "https://github.com/Atmelfan/scpi-rs"
-readme = "../README.md"
+readme = "README.md"
 
 [badges]
 maintenance = { status = "actively-developed" }
 
 [dependencies]
 scpi_derive = { path = "../scpi_derive", version="0.1.1" }
-lexical-core = { version="^0.6.2", features=["radix"], default-features=false }
+lexical-core = { version="0.7", features=["radix"], default-features=false }
 arraydeque = { version = "0.4", default-features = false }
 arrayvec = { version = "0.5.1", default-features=false }
 

@@ -191,6 +191,21 @@ impl<'a> Context<'a> {
         self.errors.push_back_error(err);
     }
 
+    /// Executes one SCPI message and queue any errors.
+    ///
+    /// # Arguments
+    ///  * `s` - Message to execute
+    ///  * `response` - A Formatter used to write a response
+    ///
+    /// # Returns
+    ///  * `Ok(())` - If message (and all units within) was executed successfully
+    ///  * `Err(error)` - If parser detected or a command returned an error
+    ///
+    pub fn run(&mut self, s: &[u8], response: &mut dyn Formatter) -> Result<()> {
+        let mut tokenizer = Tokenizer::new(s);
+        self.exec(&mut tokenizer, response)
+    }
+
     /// Executes one SCPI message (terminated by `\n`) and queue any errors.
     ///
     /// # Arguments
@@ -290,23 +305,15 @@ impl<'a> Context<'a> {
                             // Should have a terminator, unit terminator or END after arguments
                             // If, not, the handler has not consumed all arguments (error) or an unexpected token appeared.'
                             // TODO: This should abort above command!
-                            if let Some(t) = tokenstream.next() {
-                                match t? {
-                                    Token::ProgramMessageTerminator
-                                    | Token::ProgramMessageUnitSeparator => (),
-                                    /* Leftover data objects */
-                                    Token::CharacterProgramData(_)
-                                    | Token::DecimalNumericProgramData(_)
-                                    | Token::SuffixProgramData(_)
-                                    | Token::NonDecimalNumericProgramData(_)
-                                    | Token::StringProgramData(_)
-                                    | Token::ArbitraryBlockData(_)
-                                    | Token::ProgramDataSeparator => {
-                                        return Err(ErrorCode::ParameterNotAllowed.into())
+                            if let Some(t) = tokenstream.next_data(true)? {
+                                return match t {
+                                    /* Leftover suffix */
+                                    Token::SuffixProgramData(_) => {
+                                        Err(ErrorCode::SuffixNotAllowed.into())
                                     }
-                                    /* Shouldn't happen? */
-                                    _ => return Err(ErrorCode::SyntaxError.into()),
-                                }
+                                    /* Leftover data objects */
+                                    _ => Err(ErrorCode::ParameterNotAllowed.into()),
+                                };
                             }
                         } else {
                             //No header separator was found = no arguments, pass an empty tokenizer

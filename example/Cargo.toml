@@ -11,6 +11,14 @@ publish = false
 scpi = {path = "../scpi"}
 git-version = "0.3.4"
 
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "my_benchmark"
+harness = false
+path = "src/bench.rs"
+
 [features]
 default = []
 extended-error = ["scpi/extended-error"]

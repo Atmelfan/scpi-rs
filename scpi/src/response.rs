@@ -1,4 +1,5 @@
 use crate::error::{Error, ErrorCode, Result};
+use crate::tokenizer::Arbitrary;
 use arrayvec::{Array, ArrayVec};
 use lexical_core::Number;
 
@@ -166,6 +167,16 @@ pub trait Formatter {
     fn header_data(&mut self, s: &[u8]) -> Result<()> {
         self.push_str(s)?;
         self.push_byte(b' ')
+    }
+
+    /// Formats `s` as \<ARBITRARY BLOCK RESPONSE DATA\>
+    fn arb_data(&mut self, arb: Arbitrary) -> Result<()> {
+        self.push_byte(b'#')?;
+        let mut buf = [0u8; usize::FORMATTED_SIZE_DECIMAL];
+        let slc = lexical_core::write::<usize>(arb.0.len(), &mut buf);
+        self.usize_data(slc.len())?;
+        self.push_str(slc)?;
+        self.push_str(arb.0)
     }
 
     /// Format and push a f32 with as \<NR3 NUMERIC RESPONSE DATA\>

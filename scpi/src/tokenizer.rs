@@ -121,13 +121,16 @@ impl<'a> Token<'a> {
     ///
     pub fn numeric_list(&self) -> Result<numeric_list::Tokenizer, ErrorCode> {
         if let Token::ExpressionProgramData(str) = self {
-            Ok(numeric_list::Tokenizer { chars: str.iter() })
+            Ok(numeric_list::Tokenizer {
+                chars: str.iter(),
+                expect_num: true,
+            })
         } else {
             Err(ErrorCode::DataTypeError)
         }
     }
 
-    pub fn channel_list(&self) -> Result<channel_list::Tokenizer, ErrorCode> {
+    pub fn channel_list(&'a self) -> Result<channel_list::Tokenizer, ErrorCode> {
         if let Token::ExpressionProgramData(str) = self {
             channel_list::Tokenizer::new(str).ok_or(ErrorCode::ExecExpressionError)
         } else {
@@ -308,15 +311,32 @@ impl<'a> TryFrom<Token<'a>> for &'a str {
 
     fn try_from(value: Token<'a>) -> Result<&'a str, Self::Error> {
         match value {
-            Token::StringProgramData(s) => {
+            Token::StringProgramData(s) | Token::ArbitraryBlockData(s) => {
                 str::from_utf8(s).map_err(|_| ErrorCode::StringDataError.into())
             }
             Token::Utf8BlockData(s) => Ok(s),
             Token::SuffixProgramData(_)
             | Token::NonDecimalNumericProgramData(_)
             | Token::DecimalNumericProgramData(_)
-            | Token::ArbitraryBlockData(_)
             | Token::CharacterProgramData(_) => Err(ErrorCode::DataTypeError.into()),
+            _ => Err(ErrorCode::SyntaxError.into()),
+        }
+    }
+}
+
+pub struct Arbitrary<'a>(pub &'a [u8]);
+impl<'a> TryFrom<Token<'a>> for Arbitrary<'a> {
+    type Error = error::Error;
+
+    fn try_from(value: Token<'a>) -> Result<Arbitrary<'a>, Self::Error> {
+        match value {
+            Token::StringProgramData(_)
+            | Token::SuffixProgramData(_)
+            | Token::NonDecimalNumericProgramData(_)
+            | Token::DecimalNumericProgramData(_)
+            | Token::Utf8BlockData(_)
+            | Token::CharacterProgramData(_) => Err(ErrorCode::DataTypeError.into()),
+            Token::ArbitraryBlockData(s) => Ok(Arbitrary(s)),
             _ => Err(ErrorCode::SyntaxError.into()),
         }
     }
@@ -333,7 +353,7 @@ macro_rules! impl_tryfrom_integer {
                 match value {
                     Token::DecimalNumericProgramData(value) => {
                         if value.is_finite() {
-                            <$from>::try_from(value.round() as i32)
+                            <$from>::try_from(value.round() as i64)
                                 .map_err(|_| ErrorCode::DataOutOfRange.into())
                         } else {
                             // Nan/Inf -> Integer is undefined, return DataOutOfRange
@@ -415,7 +435,8 @@ impl<'a> Tokenizer<'a> {
                 | Token::SuffixProgramData(_)
                 | Token::NonDecimalNumericProgramData(_)
                 | Token::StringProgramData(_)
-                | Token::ArbitraryBlockData(_) => {
+                | Token::ArbitraryBlockData(_)
+                | Token::ExpressionProgramData(_) => {
                     //Valid data object, consume and return
                     self.next();
                     Ok(Some(token))
@@ -456,13 +477,9 @@ impl<'a> Tokenizer<'a> {
     /// * Ok(CharacterProgramData) - If a CharacterProgramData is found. Typically a special value.
     ///
     ///
-    pub fn next_decimal<F>(
-        &mut self,
-        optional: bool,
-        suffix: F,
-    ) -> Result<Option<Token<'a>>, ErrorCode>
+    pub fn next_decimal<F>(&mut self, optional: bool, suffix: F) -> Result<Option<Token<'a>>, Error>
     where
-        F: FnOnce(f32, &[u8]) -> Result<f32, ErrorCode>,
+        F: FnOnce(f32, &[u8]) -> Result<f32, Error>,
     {
         let val = self.next_data(optional)?;
         if let Some(t) = val {
@@ -483,14 +500,14 @@ impl<'a> Tokenizer<'a> {
                     Ok(Some(t))
                 }
                 Token::CharacterProgramData(_) => Ok(Some(t)),
-                _ => Err(ErrorCode::MissingParameter),
+                _ => Err(ErrorCode::MissingParameter.into()),
             }
         } else {
             Ok(None)
         }
     }
 
-    pub fn next_arb(&mut self) -> Result<&'a [u8], ErrorCode> {
+    pub fn next_arb(&mut self) -> Result<&'a [u8], Error> {
         if let Some(tok) = self.next() {
             let val = tok?;
             match val {
@@ -499,11 +516,11 @@ impl<'a> Tokenizer<'a> {
                 | Token::NonDecimalNumericProgramData(_)
                 | Token::StringProgramData(_)
                 | Token::CharacterProgramData(_)
-                | Token::SuffixProgramData(_) => Err(ErrorCode::DataTypeError),
-                _ => Err(ErrorCode::MissingParameter),
+                | Token::SuffixProgramData(_) => Err(ErrorCode::DataTypeError.into()),
+                _ => Err(ErrorCode::MissingParameter.into()),
             }
         } else {
-            Err(ErrorCode::MissingParameter)
+            Err(ErrorCode::MissingParameter.into())
         }
     }
 }
@@ -742,7 +759,7 @@ impl<'a> Tokenizer<'a> {
 
             let payload_len = lexical_core::parse::<usize>(&self.chars.as_slice()[..len as usize])
                 .map_err(|_| ErrorCode::InvalidBlockData)?;
-            self.chars.nth(payload_len - 1).unwrap();
+            self.chars.nth(len as usize - 1).unwrap();
             let u8str = self
                 .chars
                 .as_slice()
@@ -878,8 +895,10 @@ mod test_parse {
         assert!(Token::ProgramMnemonic(b"trigger").eq_mnemonic(b"TRIGger1"));
         assert!(Token::ProgramMnemonic(b"trig").eq_mnemonic(b"TRIGger1"));
         assert!(Token::ProgramMnemonic(b"trigger1").eq_mnemonic(b"TRIGger1"));
+        assert!(Token::ProgramMnemonic(b"trigger1").eq_mnemonic(b"TRIGger"));
         assert!(Token::ProgramMnemonic(b"trig1").eq_mnemonic(b"TRIGger1"));
         assert!(!Token::ProgramMnemonic(b"trigger2").eq_mnemonic(b"TRIGger1"));
+        assert!(!Token::ProgramMnemonic(b"trig2").eq_mnemonic(b"TRIGger1"));
         assert!(!Token::ProgramMnemonic(b"trig2").eq_mnemonic(b"TRIGger1"));
 
         assert!(Token::ProgramMnemonic(b"trigger2").eq_mnemonic(b"TRIGger2"));
@@ -1010,6 +1029,10 @@ mod test_parse {
     fn test_read_arb_data() {
         assert_eq!(
             Tokenizer::new(b"02\x01\x02,").read_arbitrary_data(b'2'),
+            Ok(Token::ArbitraryBlockData(&[1, 2]))
+        );
+        assert_eq!(
+            Tokenizer::new(b"2\x01\x02,").read_arbitrary_data(b'1'),
             Ok(Token::ArbitraryBlockData(&[1, 2]))
         );
 
