@@ -12,6 +12,7 @@ use scpi::{
 use std::convert::TryInto;
 
 mod test_util;
+use scpi::tokenizer::{Arbitrary, Character};
 use test_util::*;
 
 extern crate std;
@@ -30,7 +31,6 @@ macro_rules! numeric_command {
                 response: &mut dyn Formatter,
             ) -> Result<()> {
                 let x: $typ = args.next_data(false)?.unwrap().try_into()?;
-                println!(": {}", x);
                 response.$format(x)
             }
         }
@@ -62,14 +62,18 @@ const IEEE488_TREE: &Node = scpi_tree![
     ieee488_wai!(),
     scpi_status!(),
     scpi_system!(),
+    add_numeric_command!(b"*STR": StrCommand),
+    add_numeric_command!(b"*ARB": ArbCommand),
+    add_numeric_command!(b"*CHR": ChrCommand),
+    add_numeric_command!(b"*UTF8": Utf8Command),
     add_numeric_command!(b"*F32": F32Command),
     add_numeric_command!(b"*F32ISINF": F32IsInfCommand),
-    add_numeric_command!(b"*F32ISNAN": F32IsNanCommand) // add_numeric_command!(b"*I32": I32Command),
-                                                        // add_numeric_command!(b"*U32": U32Command),
-                                                        // add_numeric_command!(b"*I16": I16Command),
-                                                        // add_numeric_command!(b"*U16": U16Command),
-                                                        // add_numeric_command!(b"*I8": I8Command),
-                                                        // add_numeric_command!(b"*U8": U8Command)
+    add_numeric_command!(b"*F32ISNAN": F32IsNanCommand),
+    add_numeric_command!(b"*U32": U32Command) // add_numeric_command!(b"*U32": U32Command),
+                                              // add_numeric_command!(b"*I16": I16Command),
+                                              // add_numeric_command!(b"*U16": U16Command),
+                                              // add_numeric_command!(b"*I8": I8Command),
+                                              // add_numeric_command!(b"*U8": U8Command)
 ];
 
 struct TestDevice {}
@@ -143,16 +147,151 @@ fn test_f32() {
             assert_eq!(response.is_empty(), true);
         });
     }
-
     execute_str!(ctx, b"*F32ISNAN NAN" => result, response {
         assert_eq!(result, Ok(()));
         assert_eq!(response.is_empty(), true);
     });
 }
 
-// numeric_command!(U32Command: u32, u32_data);
+#[test]
+fn test_f32_datatype_error() {
+    context!(ctx, dev);
+    execute_str!(ctx, b"*F32? 'STRING'" => result, response {
+        assert_eq!(result, Err(Error::from(ErrorCode::DataTypeError)));
+        assert_eq!(response.is_empty(), true);
+    });
+    execute_str!(ctx, b"*F32? INVALID" => result, response {
+        assert_eq!(result, Err(Error::from(ErrorCode::DataTypeError)));
+        assert_eq!(response.is_empty(), true);
+    });
+}
+
+numeric_command!(U32Command: u32, u32_data);
+#[test]
+fn test_u32() {
+    context!(ctx, dev);
+    execute_str!(ctx, b"*U32? 42" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"42\n");
+    });
+}
+#[test]
+fn test_u32_hex() {
+    context!(ctx, dev);
+    execute_str!(ctx, b"*U32? #H002A" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"42\n");
+    });
+}
+#[test]
+fn test_u32_octal() {
+    context!(ctx, dev);
+    execute_str!(ctx, b"*U32? #Q52" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"42\n");
+    });
+}
+#[test]
+fn test_u32_binary() {
+    context!(ctx, dev);
+    execute_str!(ctx, b"*U32? #B101010" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"42\n");
+    });
+}
+#[test]
+fn test_u32_datatype_error() {
+    context!(ctx, dev);
+    execute_str!(ctx, b"*U32? 'STRING'" => result, response {
+        assert_eq!(result, Err(Error::from(ErrorCode::DataTypeError)));
+        assert_eq!(response.is_empty(), true);
+    });
+}
 // numeric_command!(I32Command: i32, i32_data);
 // numeric_command!(U16Command: u16, u16_data);
 // numeric_command!(I16Command: i16, i16_data);
 // numeric_command!(U8Command: u8, u8_data);
 // numeric_command!(I8Command: i8, i8_data);
+
+numeric_command!(StrCommand: &[u8], str_data);
+#[test]
+fn test_str() {
+    context!(ctx, dev);
+    execute_str!(ctx, b"*STR? 'STRING'" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"\"STRING\"\n");
+    });
+    execute_str!(ctx, b"*STR? CHRDATA" => result, _response {
+        assert_eq!(result, Err(Error::from(ErrorCode::DataTypeError)));
+    });
+    execute_str!(ctx, b"*STR? 1.0" => result, _response {
+        assert_eq!(result, Err(Error::from(ErrorCode::DataTypeError)));
+    });
+}
+
+numeric_command!(ArbCommand: Arbitrary, arb_data);
+#[test]
+fn test_arb() {
+    context!(ctx, dev);
+    execute_str!(ctx, b"*ARB? #203ABC" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"#13ABC\n");
+    });
+    execute_str!(ctx, b"*ARB? CHRDATA" => result, _response {
+        assert_eq!(result, Err(Error::from(ErrorCode::DataTypeError)));
+    });
+    execute_str!(ctx, b"*ARB? 1.0" => result, _response {
+        assert_eq!(result, Err(Error::from(ErrorCode::DataTypeError)));
+    });
+}
+
+numeric_command!(ChrCommand: Character, character_data);
+#[test]
+fn test_chr() {
+    context!(ctx, dev);
+    execute_str!(ctx, b"*CHR? CHRDATA" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"CHRDATA\n");
+    });
+    execute_str!(ctx, b"*CHR? 'CHRDATA'" => result, _response {
+        assert_eq!(result, Err(Error::from(ErrorCode::DataTypeError)));
+    });
+    execute_str!(ctx, b"*CHR? 1.0" => result, _response {
+        assert_eq!(result, Err(Error::from(ErrorCode::DataTypeError)));
+    });
+}
+
+struct Utf8Command {}
+impl Command for Utf8Command {
+    qonly!();
+
+    fn query(
+        &self,
+        _context: &mut Context,
+        args: &mut Tokenizer,
+        response: &mut dyn Formatter,
+    ) -> Result<()> {
+        let x: &str = args.next_data(false)?.unwrap().try_into()?;
+        response.arb_data(Arbitrary(x.as_bytes()))
+    }
+}
+#[test]
+fn test_utf8() {
+    context!(ctx, dev);
+    execute_str!(ctx, b"*UTF8? 'STRING'" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"#16STRING\n");
+    });
+    execute_str!(ctx, b"*UTF8? #206STRING" => result, _response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"#16STRING\n");
+    });
+    #[cfg(feature = "arbitrary-utf8-string")]
+    execute_str!(ctx, b"*UTF8? #s'STRING'" => result, _response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"#16STRING\n");
+    });
+    execute_str!(ctx, b"*UTF8? 1.0" => result, _response {
+        assert_eq!(result, Err(Error::from(ErrorCode::DataTypeError)));
+    });
+}

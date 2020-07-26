@@ -322,7 +322,9 @@ impl<'a> TryFrom<Token<'a>> for &'a str {
     }
 }
 
+/// Arbitrary data
 pub struct Arbitrary<'a>(pub &'a [u8]);
+
 impl<'a> TryFrom<Token<'a>> for Arbitrary<'a> {
     type Error = error::Error;
 
@@ -335,6 +337,26 @@ impl<'a> TryFrom<Token<'a>> for Arbitrary<'a> {
             | Token::Utf8BlockData(_)
             | Token::CharacterProgramData(_) => Err(ErrorCode::DataTypeError.into()),
             Token::ArbitraryBlockData(s) => Ok(Arbitrary(s)),
+            _ => Err(ErrorCode::SyntaxError.into()),
+        }
+    }
+}
+
+/// Character data
+pub struct Character<'a>(pub &'a [u8]);
+
+impl<'a> TryFrom<Token<'a>> for Character<'a> {
+    type Error = error::Error;
+
+    fn try_from(value: Token<'a>) -> Result<Character<'a>, Self::Error> {
+        match value {
+            Token::StringProgramData(_)
+            | Token::SuffixProgramData(_)
+            | Token::NonDecimalNumericProgramData(_)
+            | Token::DecimalNumericProgramData(_)
+            | Token::Utf8BlockData(_)
+            | Token::ArbitraryBlockData(_) => Err(ErrorCode::DataTypeError.into()),
+            Token::CharacterProgramData(s) => Ok(Character(s)),
             _ => Err(ErrorCode::SyntaxError.into()),
         }
     }
@@ -434,7 +456,8 @@ impl<'a> Tokenizer<'a> {
                 | Token::NonDecimalNumericProgramData(_)
                 | Token::StringProgramData(_)
                 | Token::ArbitraryBlockData(_)
-                | Token::ExpressionProgramData(_) => {
+                | Token::ExpressionProgramData(_)
+                | Token::Utf8BlockData(_) => {
                     //Valid data object, consume and return
                     self.next();
                     Ok(Some(token))
