@@ -2,7 +2,7 @@ use scpi::error::Result;
 use scpi::expression::numeric_list;
 use scpi::prelude::*;
 use scpi::suffix::SuffixUnitElement;
-use scpi::tokenizer::{Arbitrary, NumericValues};
+use scpi::tokenizer::Arbitrary;
 
 //Default commands
 use scpi::ieee488::commands::*;
@@ -228,8 +228,6 @@ impl Command for ExamTypNumRadCommand {
         args: &mut Tokenizer,
         response: &mut dyn Formatter,
     ) -> Result<()> {
-        const MAX: f32 = PI;
-        const MIN: f32 = -PI;
         const DEFAULT: f32 = 0.0;
         //Optional parameter (default value of 1.0f32), accepts volt suffix, accepts MIN/MAX/DEFault
         let x: f32 = args
