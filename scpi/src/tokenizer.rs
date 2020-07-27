@@ -114,6 +114,35 @@ impl<'a> Token<'a> {
         }
     }
 
+    pub fn mnemonic_match_suffix<F>(&self, mnemonic: &'a [u8], filter: F) -> Result<bool, Error>
+    where
+        F: FnOnce(usize) -> Result<(), Error>,
+    {
+        if let Token::ProgramMnemonic(program_mnemonic) = self {
+            if mnemonic.last().map_or(false, |c| *c == b'#') {
+                let mnemonic2 = &mnemonic.get(..mnemonic.len() - 2).unwrap();
+                match Self::mnemonic_split_index(program_mnemonic) {
+                    // Header contains no suffix, default = 1
+                    None => Ok(Self::mnemonic_compare(mnemonic2, program_mnemonic)
+                        && filter(1).map(|_| true)?),
+                    // Header contains suffix, parse.
+                    Some((s, i)) => {
+                        if let Ok(suffix) = lexical_core::parse::<usize>(i) {
+                            Ok(Self::mnemonic_compare(mnemonic2, s)
+                                && filter(suffix).map(|_| true)?)
+                        } else {
+                            Err(ErrorCode::CommandHeaderError.into())
+                        }
+                    }
+                }
+            } else {
+                Ok(self.match_program_header(mnemonic))
+            }
+        } else {
+            Ok(false)
+        }
+    }
+
     /// If token is an `ExpressionProgramData`, return a numeric list tokenizer to use.
     /// Otherwise a
     ///

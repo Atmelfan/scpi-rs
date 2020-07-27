@@ -52,6 +52,14 @@ pub trait Command {
         CommandTypeMeta::Unknown
     }
 
+    /// Called with the header suffix if a node mnemonic ends with '#'.
+    ///
+    /// Example: A node with the mnemonic `HEADer#` will be called with suffix = 2 by the
+    /// header `[..]:HEADer2[:..]`.
+    fn suffix(&self, _suffix: usize) -> Result<()> {
+        Err(ErrorCode::HeaderSuffixOutOfRange.into())
+    }
+
     /// Called when the event form is used
     fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<()>;
 
