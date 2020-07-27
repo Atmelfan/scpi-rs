@@ -25,8 +25,15 @@ arrayvec = { version = "0.5.1", default-features=false }
 
 [features]
 default = []
+
+# Support extender errors (example -100,"Command error;extended")
 extended-error = []
+
+# Support UTF8 arbitrarydata block #s'utf8-data'
 arbitrary-utf8-string = []
+
+# Support reading f64 data and use it when converting decimal to integer
+f64-support = []
 
 
 

@@ -1,7 +1,6 @@
 use scpi::error::Result;
 use scpi::expression::numeric_list;
 use scpi::prelude::*;
-use scpi::suffix::SuffixUnitElement;
 use scpi::tokenizer::Arbitrary;
 
 //Default commands
@@ -177,7 +176,7 @@ impl Command for ExamTypNumDecCommand {
         //Optional value which also accepts MINimum/MAXimum/DEFault
         let x: f32 = args
             .next_data(true)?
-            .unwrap_or(Token::DecimalNumericProgramData(DEFAULT))
+            .unwrap_or(Token::DecimalNumericProgramData(b"100"))
             .numeric_range(DEFAULT, MIN, MAX)?;
         response.f32_data(x)
     }
@@ -202,12 +201,8 @@ impl Command for ExamTypNumVoltCommand {
         const DEFAULT: f32 = 0.0;
         //Optional parameter (default value of 1.0f32), accepts volt suffix, accepts MIN/MAX/DEFault
         let x: f32 = args
-            .next_decimal(true, |val, suffix| {
-                let (s, v): (SuffixUnitElement, f32) =
-                    SuffixUnitElement::from_str(suffix, val).map_err(Error::from)?;
-                s.convert(SuffixUnitElement::Volt, v).map_err(Error::from)
-            })?
-            .unwrap_or(Token::DecimalNumericProgramData(1.0))
+            .next_data(true)?
+            .unwrap_or(Token::DecimalNumericProgramData(b"1"))
             .numeric_range(DEFAULT, MIN, MAX)?;
         response.header_data(b"VOLT")?;
         response.f32_data(x)
@@ -231,12 +226,8 @@ impl Command for ExamTypNumRadCommand {
         const DEFAULT: f32 = 0.0;
         //Optional parameter (default value of 1.0f32), accepts volt suffix, accepts MIN/MAX/DEFault
         let x: f32 = args
-            .next_decimal(true, |val, suffix| {
-                let (s, v): (SuffixUnitElement, f32) =
-                    SuffixUnitElement::from_str(suffix, val).map_err(Error::from)?;
-                s.convert(SuffixUnitElement::Radian, v).map_err(Error::from)
-            })?
-            .unwrap_or(Token::DecimalNumericProgramData(DEFAULT))
+            .next_data(true)?
+            .unwrap_or(Token::DecimalNumericProgramData(b"1"))
             .numeric_range(DEFAULT, -PI, PI)?;
         response.header_data(b"RADian")?;
         response.f32_data(x)

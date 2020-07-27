@@ -412,3 +412,13 @@ fn test_utf8() {
         assert_eq!(result, Err(Error::from(ErrorCode::DataTypeError)));
     });
 }
+
+//
+#[test]
+fn test_issue2() {
+    context!(ctx, dev);
+    execute_str!(ctx, b"*U32? 4294967295" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"4294967295\n");
+    });
+}

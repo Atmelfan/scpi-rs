@@ -24,7 +24,7 @@ pub enum Token<'a> {
     ProgramDataSeparator,        //,
     ProgramMnemonic(&'a [u8]),   // <program mnemonic>
     CharacterProgramData(&'a [u8]),
-    DecimalNumericProgramData(f32),
+    DecimalNumericProgramData(&'a [u8]),
     SuffixProgramData(&'a [u8]),
     NonDecimalNumericProgramData(u32),
     StringProgramData(&'a [u8]),
@@ -148,32 +148,6 @@ impl<'a> Token<'a> {
     /// # Arguments
     /// * `special` - Function which maps a slice (likely a mnemonic) to a new Token (or emit an error)
     ///
-    /// # Example
-    ///
-    /// ```
-    /// use core::convert::TryFrom;
-    /// use scpi::tokenizer::*;
-    /// use scpi::error::{ErrorCode, Error};
-    ///
-    /// let s = Token::CharacterProgramData(b"potato");
-    ///
-    /// if let Ok(value) = s.map_character_data(|s| match s {
-    ///     x if Token::mnemonic_compare(b"POTato", x) => Ok(Token::DecimalNumericProgramData(5.0)),
-    ///     x if Token::mnemonic_compare(b"PINEapple", x) => Ok(Token::DecimalNumericProgramData(1.0)),
-    ///     _ => Err(ErrorCode::IllegalParameterValue.into())
-    /// }){
-    ///     if let Ok(x) = <u8>::try_from(value){
-    ///         assert_eq!(x, 5);
-    ///     }else{
-    ///         assert_eq!(false, true);
-    ///     }
-    /// }
-    ///
-    ///
-    ///
-    /// //assert_eq!(value, Ok(Token::DecimalNumericProgramData(5.0)));
-    ///
-    /// ```
     pub fn map_character_data<F>(self, special: F) -> Result<Token<'a>, Error>
     where
         F: FnOnce(&[u8]) -> Result<Token<'a>, Error>,
@@ -250,37 +224,6 @@ impl<'a> Token<'a> {
             Err(ErrorCode::DataOutOfRange.into())
         } else {
             Ok(value)
-        }
-    }
-}
-
-/// Convert string data data into a f32.
-///
-/// # Returns
-/// * `Ok(f32)` - If data is a numeric or a any special value below:
-///     - `INFinity` - Returns f32::INFINITY
-///     - `NINFinity` - Returns f32::NEG_INIFINTY
-///     - `NAN` - Returns f32::NAN
-/// * `Err(DataTypeError)` - If data is not a numeric or invalid special value.
-/// * `Err(SyntaxError)` - If token is not data
-impl<'a> TryFrom<Token<'a>> for f32 {
-    type Error = error::Error;
-
-    fn try_from(value: Token) -> Result<Self, Self::Error> {
-        match value {
-            Token::DecimalNumericProgramData(value) => Ok(value),
-            Token::CharacterProgramData(s) => match s {
-                //Check for special float values
-                ref x if Token::mnemonic_compare(b"INFinity", x) => Ok(f32::INFINITY),
-                ref x if Token::mnemonic_compare(b"NINFinity", x) => Ok(f32::NEG_INFINITY),
-                ref x if Token::mnemonic_compare(b"NAN", x) => Ok(f32::NAN),
-                _ => Err(ErrorCode::DataTypeError.into()),
-            },
-            Token::SuffixProgramData(_)
-            | Token::NonDecimalNumericProgramData(_)
-            | Token::StringProgramData(_)
-            | Token::ArbitraryBlockData(_) => Err(ErrorCode::DataTypeError.into()),
-            _ => Err(ErrorCode::SyntaxError.into()),
         }
     }
 }
@@ -371,6 +314,54 @@ impl<'a> TryFrom<Token<'a>> for Character<'a> {
     }
 }
 
+macro_rules! impl_tryfrom_float {
+    ($from:ty) => {
+        impl<'a> TryFrom<Token<'a>> for $from {
+            type Error = error::Error;
+
+            fn try_from(value: Token) -> Result<Self, Self::Error> {
+                match value {
+                    Token::DecimalNumericProgramData(value) => lexical_core::parse::<$from>(value)
+                        .map_err(|e| match e.code {
+                            lexical_core::ErrorCode::InvalidDigit => {
+                                ErrorCode::InvalidCharacterInNumber.into()
+                            }
+                            lexical_core::ErrorCode::Overflow
+                            | lexical_core::ErrorCode::Underflow => {
+                                ErrorCode::DataOutOfRange.into()
+                            }
+                            _ => ErrorCode::NumericDataError.into(),
+                        }),
+                    Token::CharacterProgramData(s) => match s {
+                        //Check for special float values
+                        ref x if Token::mnemonic_compare(b"INFinity", x) => Ok(<$from>::INFINITY),
+                        ref x if Token::mnemonic_compare(b"NINFinity", x) => {
+                            Ok(<$from>::NEG_INFINITY)
+                        }
+                        ref x if Token::mnemonic_compare(b"NAN", x) => Ok(<$from>::NAN),
+                        _ => Err(ErrorCode::DataTypeError.into()),
+                    },
+                    Token::SuffixProgramData(_)
+                    | Token::NonDecimalNumericProgramData(_)
+                    | Token::StringProgramData(_)
+                    | Token::ArbitraryBlockData(_) => Err(ErrorCode::DataTypeError.into()),
+                    _ => Err(ErrorCode::SyntaxError.into()),
+                }
+            }
+        }
+    };
+}
+
+impl_tryfrom_float!(f32);
+#[cfg(feature = "f64-support")]
+impl_tryfrom_float!(f64);
+
+#[cfg(feature = "f64-support")]
+type Intermediate = f64;
+#[cfg(not(feature = "f64-support"))]
+type Intermediate = f32;
+
+// TODO: Shitty way of rounding integers
 macro_rules! impl_tryfrom_integer {
     ($from:ty) => {
         impl<'a> TryFrom<Token<'a>> for $from {
@@ -380,15 +371,25 @@ macro_rules! impl_tryfrom_integer {
                 #[allow(unused_imports)]
                 use crate::lexical_core::Float;
                 match value {
-                    Token::DecimalNumericProgramData(value) => {
-                        if value.is_finite() {
-                            <$from>::try_from(value.round() as i64)
-                                .map_err(|_| ErrorCode::DataOutOfRange.into())
-                        } else {
-                            // Nan/Inf -> Integer is undefined, return DataOutOfRange
-                            Err(ErrorCode::DataOutOfRange.into())
-                        }
-                    }
+                    Token::DecimalNumericProgramData(value) => lexical_core::parse::<$from>(value)
+                        .or_else(|e| {
+                            if matches!(e.code, lexical_core::ErrorCode::InvalidDigit) {
+                                lexical_core::parse::<Intermediate>(value)
+                                    .map(|f| f.round() as $from)
+                            } else {
+                                Err(e)
+                            }
+                        })
+                        .map_err(|e| match e.code {
+                            lexical_core::ErrorCode::InvalidDigit => {
+                                ErrorCode::InvalidCharacterInNumber.into()
+                            }
+                            lexical_core::ErrorCode::Overflow
+                            | lexical_core::ErrorCode::Underflow => {
+                                ErrorCode::ExponentTooLarge.into()
+                            }
+                            _ => ErrorCode::NumericDataError.into(),
+                        }),
                     Token::NonDecimalNumericProgramData(value) => {
                         <$from>::try_from(value).map_err(|_| ErrorCode::DataOutOfRange.into())
                     }
@@ -403,6 +404,8 @@ macro_rules! impl_tryfrom_integer {
     };
 }
 
+impl_tryfrom_integer!(i64);
+impl_tryfrom_integer!(u64);
 impl_tryfrom_integer!(i32);
 impl_tryfrom_integer!(u32);
 impl_tryfrom_integer!(i16);
@@ -465,48 +468,6 @@ impl<'a> Tokenizer<'a> {
             } else {
                 Err(ErrorCode::MissingParameter)
             }
-        }
-    }
-
-    /// Attempt to read a decimal data object (either a DecimalProgramData or a CharacterProgramData).
-    /// This function is usually OK'ed and unwrapped before calling a `to_<type>` or `.special()`
-    ///
-    /// # Arguments
-    /// * `optional` - Object is optional, will return None if data is missing and optional, Err otherwise.
-    /// * `suffix` - Function to use to parse suffix (if any). Takes the value and suffix slice.
-    ///
-    /// # Returns
-    /// * Ok(NumericalProgramData) - If a NumericalProgramData is found. If a suffix follows, the value is modified with according to suffix.
-    /// * Ok(CharacterProgramData) - If a CharacterProgramData is found. Typically a special value.
-    ///
-    ///
-    pub fn next_decimal<F>(&mut self, optional: bool, suffix: F) -> Result<Option<Token<'a>>, Error>
-    where
-        F: FnOnce(f32, &[u8]) -> Result<f32, Error>,
-    {
-        let val = self.next_data(optional)?;
-        if let Some(t) = val {
-            match t {
-                Token::DecimalNumericProgramData(mut val) => {
-                    //Check if next token is a suffix and reinterpret the value if so
-                    let mut clone = self.clone();
-                    if let Some(x) = clone.next() {
-                        if let Token::SuffixProgramData(s) = x? {
-                            //Found a suffix!
-                            self.clone_from(&clone);
-
-                            val = suffix(val, s)?;
-                            return Ok(Some(Token::DecimalNumericProgramData(val)));
-                        }
-                    }
-                    //No suffix, return as is
-                    Ok(Some(t))
-                }
-                Token::CharacterProgramData(_) => Ok(Some(t)),
-                _ => Err(ErrorCode::MissingParameter.into()),
-            }
-        } else {
-            Ok(None)
         }
     }
 }
@@ -598,25 +559,65 @@ impl<'a> Tokenizer<'a> {
         ret
     }
 
+    fn skip_digits(&mut self) -> bool {
+        let mut any = false;
+        while let Some(digit) = self.chars.clone().next() {
+            if !digit.is_ascii_digit() {
+                break;
+            }
+            any = true;
+            self.chars.next().unwrap();
+        }
+        any
+    }
+
+    fn skip_sign(&mut self) {
+        if let Some(sign) = self.chars.clone().next() {
+            if *sign == b'+' || *sign == b'-' {
+                self.chars.next().unwrap();
+            }
+        }
+    }
+
     /// <DECIMAL NUMERIC PROGRAM DATA>
     /// See IEEE 488.2-1992 7.7.2
     ///
     /// TODO: lexical-core does not accept whitespace between exponent separator and exponent <mantissa>E <exponent>.
     pub(crate) fn read_numeric_data(&mut self) -> Result<Token<'a>, ErrorCode> {
+        let s = self.chars.as_slice();
+        /* Read leading +/- */
+        self.skip_sign();
         /* Read mantissa */
-        let (f, len) = lexical_core::parse_partial::<f32>(self.chars.as_slice()).map_err(|e| {
-            match e.code {
-                lexical_core::ErrorCode::InvalidDigit => ErrorCode::InvalidCharacterInNumber,
-                lexical_core::ErrorCode::Overflow | lexical_core::ErrorCode::Underflow => {
-                    ErrorCode::ExponentTooLarge
-                }
-                _ => ErrorCode::NumericDataError,
+        let leading_digits = self.skip_digits();
+        /* Read fraction (required if no leading digits were read) */
+        if let Some(b'.') = self.chars.clone().next() {
+            self.chars.next().unwrap();
+            if !self.skip_digits() && !leading_digits {
+                return Err(ErrorCode::NumericDataError);
             }
-        })?;
-        self.chars.nth(len - 1).unwrap();
+        } else if !leading_digits {
+            return Err(ErrorCode::NumericDataError);
+        }
+        //TODO: Lexical-core doesn't like ws around Exponent
+        //self.skip_ws();
+        /* Read exponent */
+        if let Some(exponent) = self.chars.clone().next() {
+            if *exponent == b'E' || *exponent == b'e' {
+                self.chars.next().unwrap();
+                //TODO: Lexical-core doesn't like ws around Exponent
+                //self.skip_ws();
+                self.skip_sign();
+                if !self.skip_digits() {
+                    return Err(ErrorCode::NumericDataError);
+                }
+            }
+        }
+        // Return string
+        let ret = Ok(Token::DecimalNumericProgramData(
+            &s[0..s.len() - self.chars.as_slice().len()],
+        ));
         self.skip_ws();
-
-        Ok(Token::DecimalNumericProgramData(f))
+        ret
     }
 
     /// <SUFFIX PROGRAM DATA>
@@ -917,42 +918,32 @@ mod test_parse {
 
         assert_eq!(
             Tokenizer::new(b"25").read_numeric_data().unwrap(),
-            Token::DecimalNumericProgramData(25f32)
-        );
-
-        assert_eq!(
-            Tokenizer::new(b"-10.").read_numeric_data().unwrap(),
-            Token::DecimalNumericProgramData(-10f32)
+            Token::DecimalNumericProgramData(b"25")
         );
 
         assert_eq!(
             Tokenizer::new(b".2").read_numeric_data().unwrap(),
-            Token::DecimalNumericProgramData(0.2f32)
+            Token::DecimalNumericProgramData(b".2")
         );
 
         assert_eq!(
-            Tokenizer::new(b"1.E5").read_numeric_data().unwrap(),
-            Token::DecimalNumericProgramData(1e5f32)
+            Tokenizer::new(b"1.0E5").read_numeric_data().unwrap(),
+            Token::DecimalNumericProgramData(b"1.0E5")
         );
 
         assert_eq!(
             Tokenizer::new(b"-25e5").read_numeric_data().unwrap(),
-            Token::DecimalNumericProgramData(-25e5f32)
+            Token::DecimalNumericProgramData(b"-25e5")
         );
 
         assert_eq!(
             Tokenizer::new(b"25E-2").read_numeric_data().unwrap(),
-            Token::DecimalNumericProgramData(0.25f32)
+            Token::DecimalNumericProgramData(b"25E-2")
         );
 
         assert_eq!(
             Tokenizer::new(b".1E2").read_numeric_data().unwrap(),
-            Token::DecimalNumericProgramData(10f32)
-        );
-
-        assert_eq!(
-            Tokenizer::new(b".1E2").read_numeric_data().unwrap(),
-            Token::DecimalNumericProgramData(10f32)
+            Token::DecimalNumericProgramData(b".1E2")
         );
     }
 
