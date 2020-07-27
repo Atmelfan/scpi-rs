@@ -253,18 +253,20 @@ impl<'a> Context<'a> {
                     for sub in subcommands {
                         if is_common {
                             //Common nodes must match mnemonic and start with '*'
-                            if sub.name.starts_with(b"*") && tok.eq_mnemonic(&sub.name[1..]) {
+                            if sub.name.starts_with(b"*")
+                                && tok.match_program_header(&sub.name[1..])
+                            {
                                 node = Some(sub);
                                 continue 'outer;
                             }
-                        } else if tok.eq_mnemonic(sub.name) {
+                        } else if tok.match_program_header(sub.name) {
                             //Normal node must match mnemonic
                             node = Some(sub);
                             continue 'outer;
                         } else if sub.optional && sub.sub.is_some() {
                             //A optional node may have matching children
                             for subsub in sub.sub.unwrap() {
-                                if tok.eq_mnemonic(subsub.name) {
+                                if tok.match_program_header(subsub.name) {
                                     //Normal node must match mnemonic
                                     node = Some(subsub);
                                     continue 'outer;

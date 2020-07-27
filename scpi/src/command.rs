@@ -2,7 +2,7 @@
 //!
 //!
 
-use crate::error::Result;
+use crate::error::{ErrorCode, Result};
 use crate::response::Formatter;
 use crate::tokenizer::Tokenizer;
 use crate::Context;

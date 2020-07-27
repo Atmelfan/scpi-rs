@@ -1,5 +1,4 @@
-// Util macros to make testing  on complete parser simpler
-
+// Util macros to setup context and tree
 #[macro_export]
 macro_rules! context {
     ($context:ident, $dev:ident) => {
@@ -15,10 +14,8 @@ macro_rules! execute_str {
     ($context:expr, $s:expr => $res:ident, $dat:ident $x:tt) => {
         //Response bytebuffer
         let mut buf = ArrayVecFormatter::<[u8; 256]>::new();
-        //SCPI tokenizer
-        let mut tokenizer = Tokenizer::new($s);
         //Result
-        let $res = $context.exec(&mut tokenizer, &mut buf);
+        let $res = $context.run($s, &mut buf);
         let $dat = buf.as_slice();
         $x;
     };

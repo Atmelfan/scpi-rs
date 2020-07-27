@@ -1,3 +1,4 @@
+use scpi::error::{Error, ErrorCode};
 use scpi::tokenizer::{Token, Tokenizer};
 
 extern crate std;
@@ -21,6 +22,21 @@ fn test_parse_common() {
         Ok(Token::HeaderCommonPrefix),
         Ok(Token::ProgramMnemonic(b"IDN")),
         Ok(Token::HeaderQuerySuffix)
+    ];
+}
+
+#[test]
+fn test_parse_suffix() {
+    // Test that suffix are read correctly after decimal numeric and fault otherwise
+    match_tokens![b"TST 1 V;TST 'STRING' V" =>
+        Ok(Token::ProgramMnemonic(b"TST")),
+        Ok(Token::ProgramHeaderSeparator),
+        Ok(Token::DecimalNumericProgramData(1.0)),
+        Ok(Token::SuffixProgramData(b"V")),
+        Ok(Token::ProgramMessageUnitSeparator),
+        Ok(Token::ProgramMnemonic(b"TST")),
+        Ok(Token::ProgramHeaderSeparator),
+        Err(ErrorCode::SuffixNotAllowed)
     ];
 }
 

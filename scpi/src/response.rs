@@ -317,7 +317,7 @@ impl<T: Array<Item = u8>> Formatter for ArrayVecFormatter<T> {
 }
 
 #[test]
-pub fn test_vecarray() {
+fn test_vecarray() {
     let mut array = ArrayVecFormatter::<[u8; 16]>::new();
     array.unit_start().unwrap();
     array.str_data(b"potato").unwrap();
@@ -325,4 +325,30 @@ pub fn test_vecarray() {
     array.u8_data(0).unwrap();
     array.unit_end().unwrap();
     assert_eq!(array.as_slice(), b"\"potato\",0");
+}
+
+#[test]
+fn test_outamemory() {
+    let mut array = ArrayVecFormatter::<[u8; 1]>::new();
+    array.push_byte(b'x').unwrap();
+    assert_eq!(
+        array.push_byte(b'x'),
+        Err(Error::from(ErrorCode::OutOfMemory))
+    );
+    assert_eq!(
+        array.push_str(b"x"),
+        Err(Error::from(ErrorCode::OutOfMemory))
+    );
+}
+
+#[test]
+fn test_f32() {
+    let mut array = ArrayVecFormatter::<[u8; 32]>::new();
+    array.f32_data(f32::INFINITY).unwrap();
+    array.separator().unwrap();
+    array.f32_data(f32::NEG_INFINITY).unwrap();
+    array.separator().unwrap();
+    array.f32_data(f32::NAN).unwrap();
+    // See SCPI-99 7.2.1.4 and 7.2.1.5
+    assert_eq!(array.as_slice(), b"9.9E+37,-9.9E+37,9.91E+37");
 }

@@ -43,16 +43,6 @@ pub enum NumericValues<'a> {
 }
 
 impl<'a> Token<'a> {
-    pub fn is_data_object(&self) -> bool {
-        matches!(self, Token::CharacterProgramData(_)
-            | Token::DecimalNumericProgramData(_)
-            | Token::SuffixProgramData(_)
-            | Token::NonDecimalNumericProgramData(_)
-            | Token::StringProgramData(_)
-            | Token::ArbitraryBlockData(_)
-        )
-    }
-
     pub(crate) fn mnemonic_split_index(mnemonic: &'a [u8]) -> Option<(&'a [u8], &'a [u8])> {
         let last = mnemonic.iter().rposition(|p| !p.is_ascii_digit());
 
@@ -69,7 +59,7 @@ impl<'a> Token<'a> {
 
     /// Compare a string to a mnemonic
     /// # Arguments
-    /// * `mnemonic` - A mnemonic to compare with (Example `TRIGger2`)
+    /// * `mnemonic` - Reference mnemonic to compare with (Example `TRIGger2`)
     /// * `s` - String to compare to mnemonic
     ///
     pub fn mnemonic_compare(mnemonic: &[u8], s: &[u8]) -> bool {
@@ -91,8 +81,18 @@ impl<'a> Token<'a> {
         }
     }
 
-    //TOKen<digits> = [TOK|TOKEN](digits>1)
-    pub fn eq_mnemonic(&self, mnemonic: &'a [u8]) -> bool {
+    /// Returns true if token is a ProgramMnemonic that matches provided mnemonic.
+    /// Header suffix is optional if equal to 1 or not present in mnemonic.
+    /// Header suffixes other than 1 must match exactly.
+    ///
+    /// Eg:
+    /// - `head[er]` == `HEADer`
+    /// - `head[er]1` == `HEADer`
+    /// - `head[er]` == `HEADer1`
+    /// - `head[er]<N>` == `HEADer<N>`
+    /// Where `[]` marks optional, `<>` required.
+    ///
+    pub fn match_program_header(&self, mnemonic: &'a [u8]) -> bool {
         match self {
             Token::ProgramMnemonic(s) | Token::CharacterProgramData(s) => {
                 Self::mnemonic_compare(mnemonic, s)
@@ -669,7 +669,7 @@ impl<'a> Tokenizer<'a> {
         }
         let ret = Ok(Token::NonDecimalNumericProgramData(acc));
         // Skip to next separator
-        self.skip_ws_to_separator(ErrorCode::InvalidSeparator)?;
+        self.skip_ws_to_separator(ErrorCode::SuffixNotAllowed)?;
         ret
     }
 
@@ -709,7 +709,7 @@ impl<'a> Tokenizer<'a> {
             &s[0..s.len() - self.chars.as_slice().len() - 1],
         ));
         // Skip to next separator
-        self.skip_ws_to_separator(ErrorCode::InvalidSeparator)?;
+        self.skip_ws_to_separator(ErrorCode::SuffixNotAllowed)?;
         ret
     }
 
@@ -748,7 +748,7 @@ impl<'a> Tokenizer<'a> {
 
             let ret = Ok(Token::ArbitraryBlockData(u8str));
             // Skip to next separator
-            self.skip_ws_to_separator(ErrorCode::InvalidSeparator)?;
+            self.skip_ws_to_separator(ErrorCode::SuffixNotAllowed)?;
             ret
         } else {
             Err(ErrorCode::InvalidBlockData)
@@ -803,7 +803,7 @@ impl<'a> Tokenizer<'a> {
             return Err(ErrorCode::InvalidExpression);
         }
         // Skip to next separator
-        self.skip_ws_to_separator(ErrorCode::InvalidSuffix)?;
+        self.skip_ws_to_separator(ErrorCode::SuffixNotAllowed)?;
         ret
     }
 
@@ -869,21 +869,21 @@ mod test_parse {
     #[test]
     fn test_eq_mnemonic() {
         //
-        assert!(Token::ProgramMnemonic(b"trigger").eq_mnemonic(b"TRIGger1"));
-        assert!(Token::ProgramMnemonic(b"trig").eq_mnemonic(b"TRIGger1"));
-        assert!(Token::ProgramMnemonic(b"trigger1").eq_mnemonic(b"TRIGger1"));
-        assert!(Token::ProgramMnemonic(b"trigger1").eq_mnemonic(b"TRIGger"));
-        assert!(Token::ProgramMnemonic(b"trig1").eq_mnemonic(b"TRIGger1"));
-        assert!(!Token::ProgramMnemonic(b"trigger2").eq_mnemonic(b"TRIGger1"));
-        assert!(!Token::ProgramMnemonic(b"trig2").eq_mnemonic(b"TRIGger1"));
-        assert!(!Token::ProgramMnemonic(b"trig2").eq_mnemonic(b"TRIGger1"));
+        assert!(Token::ProgramMnemonic(b"trigger").match_program_header(b"TRIGger1"));
+        assert!(Token::ProgramMnemonic(b"trig").match_program_header(b"TRIGger1"));
+        assert!(Token::ProgramMnemonic(b"trigger1").match_program_header(b"TRIGger1"));
+        assert!(Token::ProgramMnemonic(b"trigger1").match_program_header(b"TRIGger"));
+        assert!(Token::ProgramMnemonic(b"trig1").match_program_header(b"TRIGger1"));
+        assert!(!Token::ProgramMnemonic(b"trigger2").match_program_header(b"TRIGger1"));
+        assert!(!Token::ProgramMnemonic(b"trig2").match_program_header(b"TRIGger1"));
+        assert!(!Token::ProgramMnemonic(b"trig2").match_program_header(b"TRIGger1"));
 
-        assert!(Token::ProgramMnemonic(b"trigger2").eq_mnemonic(b"TRIGger2"));
-        assert!(Token::ProgramMnemonic(b"trig2").eq_mnemonic(b"TRIGger2"));
-        assert!(!Token::ProgramMnemonic(b"trigger").eq_mnemonic(b"TRIGger2"));
-        assert!(!Token::ProgramMnemonic(b"trig").eq_mnemonic(b"TRIGger2"));
-        assert!(!Token::ProgramMnemonic(b"trigger1").eq_mnemonic(b"TRIGger2"));
-        assert!(!Token::ProgramMnemonic(b"trig1").eq_mnemonic(b"TRIGger2"));
+        assert!(Token::ProgramMnemonic(b"trigger2").match_program_header(b"TRIGger2"));
+        assert!(Token::ProgramMnemonic(b"trig2").match_program_header(b"TRIGger2"));
+        assert!(!Token::ProgramMnemonic(b"trigger").match_program_header(b"TRIGger2"));
+        assert!(!Token::ProgramMnemonic(b"trig").match_program_header(b"TRIGger2"));
+        assert!(!Token::ProgramMnemonic(b"trigger1").match_program_header(b"TRIGger2"));
+        assert!(!Token::ProgramMnemonic(b"trig1").match_program_header(b"TRIGger2"));
     }
 
     #[test]
