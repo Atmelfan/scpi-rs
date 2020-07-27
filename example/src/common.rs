@@ -174,16 +174,11 @@ impl Command for ExamTypNumDecCommand {
         const MAX: f32 = 100.0;
         const MIN: f32 = 0.0;
         const DEFAULT: f32 = 0.0;
-        //Optional value which also accepts MIN/MAX/DEFault
+        //Optional value which also accepts MINimum/MAXimum/DEFault
         let x: f32 = args
             .next_data(true)?
             .unwrap_or(Token::DecimalNumericProgramData(DEFAULT))
-            .numeric_range(MIN, MAX, |n| match n {
-                NumericValues::Maximum => Ok(MAX),
-                NumericValues::Minimum => Ok(MIN),
-                NumericValues::Default => Ok(DEFAULT),
-                _ => Err(ErrorCode::IllegalParameterValue.into()),
-            })?;
+            .numeric_range(DEFAULT, MIN, MAX)?;
         response.f32_data(x)
     }
 }
@@ -213,12 +208,7 @@ impl Command for ExamTypNumVoltCommand {
                 s.convert(SuffixUnitElement::Volt, v).map_err(Error::from)
             })?
             .unwrap_or(Token::DecimalNumericProgramData(1.0))
-            .numeric_range(MIN, MAX, |n| match n {
-                NumericValues::Maximum => Ok(MAX),
-                NumericValues::Minimum => Ok(MIN),
-                NumericValues::Default => Ok(DEFAULT),
-                _ => Err(ErrorCode::IllegalParameterValue.into()),
-            })?;
+            .numeric_range(DEFAULT, MIN, MAX)?;
         response.header_data(b"VOLT")?;
         response.f32_data(x)
     }
@@ -249,12 +239,7 @@ impl Command for ExamTypNumRadCommand {
                 s.convert(SuffixUnitElement::Radian, v).map_err(Error::from)
             })?
             .unwrap_or(Token::DecimalNumericProgramData(DEFAULT))
-            .numeric_range(-PI, PI, |n| match n {
-                NumericValues::Maximum => Ok(MAX),
-                NumericValues::Minimum => Ok(MIN),
-                NumericValues::Default => Ok(DEFAULT),
-                _ => Err(ErrorCode::IllegalParameterValue.into()),
-            })?;
+            .numeric_range(DEFAULT, -PI, PI)?;
         response.header_data(b"RADian")?;
         response.f32_data(x)
     }

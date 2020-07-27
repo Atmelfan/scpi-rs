@@ -34,11 +34,17 @@ pub enum Token<'a> {
 }
 
 pub enum NumericValues<'a> {
+    /// `MAXimum`
     Maximum,
+    /// `MINimum`
     Minimum,
+    /// `DEFault`
     Default,
+    /// `UP`
     Up,
+    /// `DOWN`
     Down,
+    /// Number
     Numeric(Token<'a>),
 }
 
@@ -224,19 +230,22 @@ impl<'a> Token<'a> {
         }
     }
 
-    /// Identical to `numeric()` but enforces min/max values.
     ///
-    pub fn numeric_range<F, R: TryFrom<Token<'a>, Error = error::Error>>(
+    pub fn numeric_range<R: TryFrom<Token<'a>, Error = error::Error>>(
         self,
+        default: R,
         min: R,
         max: R,
-        num: F,
     ) -> Result<R, Error>
     where
-        F: FnOnce(NumericValues) -> Result<R, Error>,
-        R: PartialOrd,
+        R: PartialOrd + Copy,
     {
-        let value = self.numeric(num)?;
+        let value = self.numeric(|choice| match choice {
+            NumericValues::Maximum => Ok(max),
+            NumericValues::Minimum => Ok(min),
+            NumericValues::Default => Ok(default),
+            _ => Err(ErrorCode::IllegalParameterValue.into()),
+        })?;
         if value > max || value < min {
             Err(ErrorCode::DataOutOfRange.into())
         } else {

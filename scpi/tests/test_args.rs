@@ -66,7 +66,8 @@ const IEEE488_TREE: &Node = scpi_tree![
     add_numeric_command!(b"*ARB": ArbCommand),
     add_numeric_command!(b"*CHR": ChrCommand),
     add_numeric_command!(b"*UTF8": Utf8Command),
-    add_numeric_command!(b"*NUMRANGE": NumCommand),
+    add_numeric_command!(b"*NUM": NumCommand),
+    add_numeric_command!(b"*NUMRANGE": NumRangeCommand),
     add_numeric_command!(b"*F32": F32Command),
     add_numeric_command!(b"*F32ISINF": F32IsInfCommand),
     add_numeric_command!(b"*F32ISNAN": F32IsNanCommand),
@@ -113,71 +114,103 @@ impl Command for NumCommand {
         const MIN: f32 = -100.0;
         const DEFAULT: f32 = 0.0;
         let mut option = 0;
-        let x: f32 = args
-            .next_data(false)?
-            .unwrap()
-            .numeric_range(MIN, MAX, |n| match n {
-                NumericValues::Maximum => {
-                    option = 1;
-                    Ok(MAX)
-                }
-                NumericValues::Minimum => {
-                    option = 2;
-                    Ok(MIN)
-                }
-                NumericValues::Default => {
-                    option = 3;
-                    Ok(DEFAULT)
-                }
-                NumericValues::Up => {
-                    option = 4;
-                    Ok(1.0f32)
-                }
-                NumericValues::Down => {
-                    option = 5;
-                    Ok(-1.0f32)
-                }
-                _ => Err(ErrorCode::IllegalParameterValue.into()),
-            })?;
+        let x: f32 = args.next_data(false)?.unwrap().numeric(|n| match n {
+            NumericValues::Maximum => {
+                option = 1;
+                Ok(MAX)
+            }
+            NumericValues::Minimum => {
+                option = 2;
+                Ok(MIN)
+            }
+            NumericValues::Default => {
+                option = 3;
+                Ok(DEFAULT)
+            }
+            NumericValues::Up => {
+                option = 4;
+                Ok(1.0f32)
+            }
+            NumericValues::Down => {
+                option = 5;
+                Ok(-1.0f32)
+            }
+            _ => Err(ErrorCode::IllegalParameterValue.into()),
+        })?;
         response.f32_data(x)?;
         response.separator()?;
         response.i32_data(option)
     }
 }
 #[test]
-fn test_numeric_range() {
+fn test_numeric() {
     context!(ctx, dev);
-    execute_str!(ctx, b"*NUMRANGE? 42" => result, response {
+    execute_str!(ctx, b"*NUM? 42" => result, response {
         assert_eq!(result, Ok(()));
         assert_eq!(response, b"42.0,0\n");
     });
-    execute_str!(ctx, b"*NUMRANGE? MAX" => result, response {
+    execute_str!(ctx, b"*NUM? MAX" => result, response {
         assert_eq!(result, Ok(()));
         assert_eq!(response, b"100.0,1\n");
     });
-    execute_str!(ctx, b"*NUMRANGE? MIN" => result, response {
+    execute_str!(ctx, b"*NUM? MIN" => result, response {
         assert_eq!(result, Ok(()));
         assert_eq!(response, b"-100.0,2\n");
     });
-    execute_str!(ctx, b"*NUMRANGE? DEF" => result, response {
+    execute_str!(ctx, b"*NUM? DEF" => result, response {
         assert_eq!(result, Ok(()));
         assert_eq!(response, b"0.0,3\n");
     });
-    execute_str!(ctx, b"*NUMRANGE? UP" => result, response {
+    execute_str!(ctx, b"*NUM? UP" => result, response {
         assert_eq!(result, Ok(()));
         assert_eq!(response, b"1.0,4\n");
     });
-    execute_str!(ctx, b"*NUMRANGE? DOWN" => result, response {
+    execute_str!(ctx, b"*NUM? DOWN" => result, response {
         assert_eq!(result, Ok(()));
         assert_eq!(response, b"-1.0,5\n");
     });
-    execute_str!(ctx, b"*NUMRANGE? 101" => result, _response {
+}
+
+struct NumRangeCommand {}
+impl Command for NumRangeCommand {
+    qonly!();
+
+    fn query(
+        &self,
+        _context: &mut Context,
+        args: &mut Tokenizer,
+        response: &mut dyn Formatter,
+    ) -> Result<()> {
+        let x: f32 = args
+            .next_data(false)?
+            .unwrap()
+            .numeric_range(0f32, -1f32, 1f32)?;
+        response.f32_data(x)
+    }
+}
+#[test]
+fn test_numeric_range() {
+    context!(ctx, dev);
+    execute_str!(ctx, b"*NUMRANGE? 0.5" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"0.5\n");
+    });
+    execute_str!(ctx, b"*NUMRANGE? MAX" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"1.0\n");
+    });
+    execute_str!(ctx, b"*NUMRANGE? MIN" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"-1.0\n");
+    });
+    execute_str!(ctx, b"*NUMRANGE? DEF" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"0.0\n");
+    });
+    execute_str!(ctx, b"*NUMRANGE? 5" => result, _response {
         assert_eq!(result, Err(Error::from(ErrorCode::DataOutOfRange)));
     });
-    execute_str!(ctx, b"*NUMRANGE? -101" => result, _response {
-        assert_eq!(result, Err(Error::from(ErrorCode::DataOutOfRange)));
-    });
-    execute_str!(ctx, b"*NUMRANGE? INF" => result, _response {
+    execute_str!(ctx, b"*NUMRANGE? -5" => result, _response {
         assert_eq!(result, Err(Error::from(ErrorCode::DataOutOfRange)));
     });
 }
