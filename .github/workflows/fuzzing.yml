@@ -32,7 +32,7 @@ jobs:
           cd scpi && cargo +nightly fuzz run fuzz_target_1 -max_total_time=5min
 
       - name: Upload failing inputs for Tokenizer
-          uses: actions/upload-artifact@v2
-          with:
-            name: fuzz_target_1
-            path: scpi/fuzz/artifacts/fuzz_target_1/*
+        uses: actions/upload-artifact@v2
+        with:
+          name: fuzz_target_1
+          path: scpi/fuzz/artifacts/fuzz_target_1/*
