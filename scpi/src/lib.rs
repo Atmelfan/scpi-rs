@@ -125,9 +125,15 @@ pub trait Device {
     fn rst(&mut self) -> Result<()>;
 
     /// Called by *TST?
-    /// Return zero if self-test is successful or a positive user-error code or a
+    /// Return Ok(()) if self-test is successful or a positive user-error code or a
     /// standard negative error code (as a Error enum variant).
     fn tst(&mut self) -> Result<()> {
+        Ok(())
+    }
+
+    /// Called by STATus:PRESet
+    /// Preset any device-specific status.
+    fn preset(&mut self) -> Result<()> {
         Ok(())
     }
 

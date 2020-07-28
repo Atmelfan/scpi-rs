@@ -539,14 +539,14 @@ pub mod commands {
         fn event(&self, context: &mut Context, _args: &mut Tokenizer) -> Result<()> {
             context.questionable.preset();
             context.operation.preset();
-            Ok(())
+            context.device.preset()
         }
     }
 
     /// Create a `STATus:` tree branch
     #[macro_export]
     macro_rules! scpi_status {
-        () => {
+        ($($node:expr),*) => {
             Node {
                 name: b"STATus",
                 optional: false,
@@ -632,6 +632,9 @@ pub mod commands {
                         handler: Some(&StatPresCommand {}),
                         sub: None,
                     },
+                    $(
+                        $node
+                    ),*
                 ]),
             }
         };
@@ -640,7 +643,7 @@ pub mod commands {
     /// Create a `SYSTem:` tree branch
     #[macro_export]
     macro_rules! scpi_system {
-        () => {
+        ($($node:expr),*) => {
             Node {
                 name: b"SYSTem",
                 optional: false,
@@ -677,6 +680,9 @@ pub mod commands {
                         handler: Some(&SystVersCommand { year: 1999, rev: 0 }),
                         sub: None,
                     },
+                    $(
+                        $node
+                    ),*
                 ]),
             }
         };
