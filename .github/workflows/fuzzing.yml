@@ -1,0 +1,38 @@
+# Based on https://github.com/actions-rs/meta/blob/master/recipes/quickstart.md
+#
+# While our "example" application has the platform-specific code,
+# for simplicity we are compiling and testing everything on the Ubuntu environment only.
+# For multi-OS testing see the `cross.yml` workflow.
+
+on: [push, pull_request]
+
+name: Coverage
+
+jobs:
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install nightly toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+
+      - name: Install fuzz
+        run: |
+          cargo install cargo-fuzz
+
+      - name: Fuzz SCPI tokenizer
+        run: |
+          cd scpi && cargo +nightly fuzz run fuzz_target_1 -max_total_time=5min
+
+      - name: Upload failing inputs for Tokenizer
+          uses: actions/upload-artifact@v2
+          with:
+            name: fuzz_target_1
+            path: scpi/fuzz/artifacts/fuzz_target_1/*

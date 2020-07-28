@@ -516,7 +516,7 @@ fn ascii_to_digit(digit: u8, radix: u8) -> Option<u32> {
 
     if digit.is_ascii_digit() && digit - b'0' < radix {
         Some((digit - b'0') as u32)
-    } else if lowercase.is_ascii_alphabetic() && lowercase - b'a' < radix - 10 {
+    } else if radix > 10 && lowercase.is_ascii_alphabetic() && lowercase - b'a' < radix - 10 {
         Some((lowercase - b'a' + 10) as u32)
     } else {
         None
@@ -654,32 +654,29 @@ impl<'a> Tokenizer<'a> {
     /// Returned errors:
     fn read_nondecimal_data(&mut self, radix: u8) -> Result<Token<'a>, ErrorCode> {
         let radixi = match radix {
-            b'H' | b'h' => 16u32,
-            b'Q' | b'q' => 8u32,
-            b'B' | b'b' => 2u32,
+            b'H' | b'h' => 16u8,
+            b'Q' | b'q' => 8u8,
+            b'B' | b'b' => 2u8,
             _ => return Err(ErrorCode::NumericDataError),
         };
-
-        let mut acc = 0u32;
-        let mut any = false;
-        while self
-            .chars
-            .clone()
-            .next()
-            .map_or(false, |ch| ch.is_ascii_alphanumeric())
-        {
-            let c = self.chars.next().unwrap();
-            acc = ascii_to_digit(*c, radixi as u8).ok_or(ErrorCode::InvalidCharacterInNumber)?
-                + (acc * radixi);
-            any = true;
+        let (n, len) = lexical_core::parse_partial_radix(self.chars.as_slice(), radixi).map_err(
+            |e| match e.code {
+                lexical_core::ErrorCode::InvalidDigit => ErrorCode::InvalidCharacterInNumber,
+                lexical_core::ErrorCode::Overflow | lexical_core::ErrorCode::Underflow => {
+                    ErrorCode::DataOutOfRange
+                }
+                _ => ErrorCode::NumericDataError,
+            },
+        )?;
+        if len > 0 {
+            self.chars.nth(len - 1).unwrap();
+            let ret = Token::NonDecimalNumericProgramData(n);
+            // Skip to next separator
+            self.skip_ws_to_separator(ErrorCode::SuffixNotAllowed)?;
+            Ok(ret)
+        } else {
+            Err(ErrorCode::NumericDataError)
         }
-        if !any {
-            return Err(ErrorCode::NumericDataError);
-        }
-        let ret = Ok(Token::NonDecimalNumericProgramData(acc));
-        // Skip to next separator
-        self.skip_ws_to_separator(ErrorCode::SuffixNotAllowed)?;
-        ret
     }
 
     /// <STRING PROGRAM DATA>
@@ -730,6 +727,9 @@ impl<'a> Tokenizer<'a> {
             if len == 0 {
                 //Take rest of string
                 let rest = self.chars.as_slice();
+                if rest.is_empty() {
+                    return Err(ErrorCode::InvalidBlockData);
+                }
                 let u8str = rest
                     .get(0..rest.len() - 1)
                     .ok_or(ErrorCode::InvalidBlockData)?;
@@ -743,8 +743,14 @@ impl<'a> Tokenizer<'a> {
                 return Ok(Token::ArbitraryBlockData(u8str));
             }
 
-            let payload_len = lexical_core::parse::<usize>(&self.chars.as_slice()[..len as usize])
-                .map_err(|_| ErrorCode::InvalidBlockData)?;
+            let payload_len = lexical_core::parse::<usize>(
+                &self
+                    .chars
+                    .as_slice()
+                    .get(..len as usize)
+                    .ok_or(ErrorCode::InvalidBlockData)?,
+            )
+            .map_err(|_| ErrorCode::InvalidBlockData)?;
             self.chars.nth(len as usize - 1).unwrap();
             let u8str = self
                 .chars
