@@ -29,6 +29,7 @@
       <excludeFolder url="file://$MODULE_DIR$/example-cortexm/target" />
       <excludeFolder url="file://$MODULE_DIR$/example/target" />
       <excludeFolder url="file://$MODULE_DIR$/example_nostd/target" />
+      <excludeFolder url="file://$MODULE_DIR$/scpi/fuzz/target" />
       <excludeFolder url="file://$MODULE_DIR$/scpi/target" />
       <excludeFolder url="file://$MODULE_DIR$/scpi_derive/target" />
       <excludeFolder url="file://$MODULE_DIR$/scpi_instrument/target" />
