@@ -25,7 +25,7 @@ pub enum Token<'a> {
     ProgramMnemonic(&'a [u8]),   // <program mnemonic>
     CharacterProgramData(&'a [u8]),
     DecimalNumericProgramData(&'a [u8]),
-    SuffixProgramData(&'a [u8]),
+    DecimalNumericSuffixProgramData(&'a [u8], &'a [u8]),
     NonDecimalNumericProgramData(u32),
     StringProgramData(&'a [u8]),
     ArbitraryBlockData(&'a [u8]),
@@ -240,8 +240,7 @@ impl<'a> TryFrom<Token<'a>> for &'a [u8] {
     fn try_from(value: Token<'a>) -> Result<&'a [u8], Self::Error> {
         match value {
             Token::StringProgramData(s) => Ok(s),
-            Token::SuffixProgramData(_)
-            | Token::NonDecimalNumericProgramData(_)
+            Token::NonDecimalNumericProgramData(_)
             | Token::DecimalNumericProgramData(_)
             | Token::ArbitraryBlockData(_)
             | Token::CharacterProgramData(_) => Err(ErrorCode::DataTypeError.into()),
@@ -265,9 +264,9 @@ impl<'a> TryFrom<Token<'a>> for &'a str {
                 str::from_utf8(s).map_err(|_| ErrorCode::StringDataError.into())
             }
             Token::Utf8BlockData(s) => Ok(s),
-            Token::SuffixProgramData(_)
-            | Token::NonDecimalNumericProgramData(_)
+            Token::NonDecimalNumericProgramData(_)
             | Token::DecimalNumericProgramData(_)
+            | Token::DecimalNumericSuffixProgramData(_, _)
             | Token::CharacterProgramData(_) => Err(ErrorCode::DataTypeError.into()),
             _ => Err(ErrorCode::SyntaxError.into()),
         }
@@ -283,9 +282,9 @@ impl<'a> TryFrom<Token<'a>> for Arbitrary<'a> {
     fn try_from(value: Token<'a>) -> Result<Arbitrary<'a>, Self::Error> {
         match value {
             Token::StringProgramData(_)
-            | Token::SuffixProgramData(_)
             | Token::NonDecimalNumericProgramData(_)
             | Token::DecimalNumericProgramData(_)
+            | Token::DecimalNumericSuffixProgramData(_, _)
             | Token::Utf8BlockData(_)
             | Token::CharacterProgramData(_) => Err(ErrorCode::DataTypeError.into()),
             Token::ArbitraryBlockData(s) => Ok(Arbitrary(s)),
@@ -303,9 +302,9 @@ impl<'a> TryFrom<Token<'a>> for Character<'a> {
     fn try_from(value: Token<'a>) -> Result<Character<'a>, Self::Error> {
         match value {
             Token::StringProgramData(_)
-            | Token::SuffixProgramData(_)
             | Token::NonDecimalNumericProgramData(_)
             | Token::DecimalNumericProgramData(_)
+            | Token::DecimalNumericSuffixProgramData(_, _)
             | Token::Utf8BlockData(_)
             | Token::ArbitraryBlockData(_) => Err(ErrorCode::DataTypeError.into()),
             Token::CharacterProgramData(s) => Ok(Character(s)),
@@ -341,10 +340,12 @@ macro_rules! impl_tryfrom_float {
                         ref x if Token::mnemonic_compare(b"NAN", x) => Ok(<$from>::NAN),
                         _ => Err(ErrorCode::DataTypeError.into()),
                     },
-                    Token::SuffixProgramData(_)
-                    | Token::NonDecimalNumericProgramData(_)
+                    Token::NonDecimalNumericProgramData(_)
                     | Token::StringProgramData(_)
                     | Token::ArbitraryBlockData(_) => Err(ErrorCode::DataTypeError.into()),
+                    Token::DecimalNumericSuffixProgramData(_, _) => {
+                        Err(ErrorCode::SuffixNotAllowed.into())
+                    }
                     _ => Err(ErrorCode::SyntaxError.into()),
                 }
             }
@@ -393,10 +394,12 @@ macro_rules! impl_tryfrom_integer {
                     Token::NonDecimalNumericProgramData(value) => {
                         <$from>::try_from(value).map_err(|_| ErrorCode::DataOutOfRange.into())
                     }
-                    Token::SuffixProgramData(_)
-                    | Token::CharacterProgramData(_)
+                    Token::CharacterProgramData(_)
                     | Token::StringProgramData(_)
                     | Token::ArbitraryBlockData(_) => Err(ErrorCode::DataTypeError.into()),
+                    Token::DecimalNumericSuffixProgramData(_, _) => {
+                        Err(ErrorCode::SuffixNotAllowed.into())
+                    }
                     _ => Err(ErrorCode::SyntaxError.into()),
                 }
             }
@@ -420,7 +423,6 @@ pub struct Tokenizer<'a> {
     chars: Iter<'a, u8>,
     in_header: bool,
     in_common: bool,
-    in_numeric: bool,
 }
 
 impl<'a> Tokenizer<'a> {
@@ -428,7 +430,7 @@ impl<'a> Tokenizer<'a> {
     /// If no data is found, none if returned if optional=true else Error:MissingParam.
     ///
     /// Note! Does not skip
-    pub fn next_data(&mut self, optional: bool) -> Result<Option<Token<'a>>, ErrorCode> {
+    pub fn next_data(&mut self, optional: bool) -> Result<Option<Token<'a>>, Error> {
         //Try to read a data object
         if let Some(item) = self.clone().next() {
             //Check if next item is a data object
@@ -437,7 +439,7 @@ impl<'a> Tokenizer<'a> {
                 //Data object
                 Token::CharacterProgramData(_)
                 | Token::DecimalNumericProgramData(_)
-                | Token::SuffixProgramData(_)
+                | Token::DecimalNumericSuffixProgramData(_, _)
                 | Token::NonDecimalNumericProgramData(_)
                 | Token::StringProgramData(_)
                 | Token::ArbitraryBlockData(_)
@@ -457,7 +459,7 @@ impl<'a> Tokenizer<'a> {
                     if optional {
                         Ok(None)
                     } else {
-                        Err(ErrorCode::MissingParameter)
+                        Err(ErrorCode::MissingParameter.into())
                     }
                 }
             }
@@ -466,7 +468,7 @@ impl<'a> Tokenizer<'a> {
             if optional {
                 Ok(None)
             } else {
-                Err(ErrorCode::MissingParameter)
+                Err(ErrorCode::MissingParameter.into())
             }
         }
     }
@@ -490,7 +492,6 @@ impl<'a> Tokenizer<'a> {
             chars: buf.iter(),
             in_header: true,
             in_common: false,
-            in_numeric: false,
         }
     }
 
@@ -499,7 +500,6 @@ impl<'a> Tokenizer<'a> {
             chars: b"".iter(),
             in_header: true,
             in_common: false,
-            in_numeric: false,
         }
     }
 
@@ -613,11 +613,14 @@ impl<'a> Tokenizer<'a> {
             }
         }
         // Return string
-        let ret = Ok(Token::DecimalNumericProgramData(
-            &s[0..s.len() - self.chars.as_slice().len()],
-        ));
+        let ret = &s[0..s.len() - self.chars.as_slice().len()];
         self.skip_ws();
-        ret
+        if let Some(x) = self.chars.clone().next() {
+            if x.is_ascii_alphabetic() || *x == b'/' {
+                return self.read_suffix_data(ret);
+            }
+        }
+        Ok(Token::DecimalNumericProgramData(ret))
     }
 
     /// <SUFFIX PROGRAM DATA>
@@ -627,7 +630,7 @@ impl<'a> Tokenizer<'a> {
     ///
     /// Returned errors:
     /// * SuffixTooLong if suffix is longer than 12 characters
-    fn read_suffix_data(&mut self) -> Result<Token<'a>, ErrorCode> {
+    fn read_suffix_data(&mut self, val: &'a [u8]) -> Result<Token<'a>, ErrorCode> {
         let s = self.chars.as_slice();
         let mut len = 0u8;
         while self.chars.clone().next().map_or(false, |ch| {
@@ -640,7 +643,8 @@ impl<'a> Tokenizer<'a> {
             }
         }
 
-        let ret = Ok(Token::SuffixProgramData(
+        let ret = Ok(Token::DecimalNumericSuffixProgramData(
+            val,
             &s[0..s.len() - self.chars.as_slice().len()],
         ));
         // Skip to next separator
@@ -795,7 +799,7 @@ impl<'a> Tokenizer<'a> {
     pub(crate) fn read_expression_data(&mut self) -> Result<Token<'a>, ErrorCode> {
         self.chars.next();
         let s = self.chars.as_slice();
-        static ILLEGAL_CHARS: [u8; 6] = [b')', b'"', b'\'', b';', b'(', b')'];
+        static ILLEGAL_CHARS: &[u8] = &[b'"', b'\'', b';', b'(', b')'];
         //Read until closing ')'
         while self.chars.clone().next().map_or(false, |ch| *ch != b')') {
             let c = self.chars.next().unwrap();
@@ -948,18 +952,7 @@ mod test_parse {
     }
 
     #[test]
-    fn test_read_suffix_data() {
-        assert_eq!(
-            Tokenizer::new(b"MOHM").read_suffix_data().unwrap(),
-            Token::SuffixProgramData(b"MOHM")
-        );
-
-        // Error, too long suffix
-        assert_eq!(
-            Tokenizer::new(b"SUFFIXTOODAMNLONG").read_suffix_data(),
-            Err(ErrorCode::SuffixTooLong)
-        );
-    }
+    fn test_read_suffix_data() {}
 
     #[test]
     fn test_read_numeric_suffix_data() {
@@ -1152,7 +1145,6 @@ impl<'a> Iterator for Tokenizer<'a> {
                 if self.in_header {
                     Some(Err(ErrorCode::HeaderSeparatorError))
                 } else {
-                    self.in_numeric = false;
                     self.skip_ws();
                     if let Some(c) = self.chars.clone().next() {
                         if *c == b',' || *c == b';' || *c == b'\n' {
@@ -1175,18 +1167,8 @@ impl<'a> Iterator for Tokenizer<'a> {
                 /* If still parsing header, it's an mnemonic, else character data */
                 if self.in_header {
                     Some(self.read_mnemonic())
-                } else if self.in_numeric {
-                    Some(self.read_suffix_data())
                 } else {
                     Some(self.read_character_data())
-                }
-            }
-            /* Suffix starting with '/' */
-            b'/' => {
-                if self.in_header {
-                    Some(Err(ErrorCode::InvalidSeparator))
-                } else {
-                    Some(self.read_suffix_data())
                 }
             }
             /* Number */
@@ -1194,7 +1176,6 @@ impl<'a> Iterator for Tokenizer<'a> {
                 if self.in_header {
                     Some(Err(ErrorCode::CommandHeaderError))
                 } else {
-                    self.in_numeric = true;
                     Some(self.read_numeric_data())
                 }
             }

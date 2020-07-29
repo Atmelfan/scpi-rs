@@ -307,15 +307,8 @@ impl<'a> Context<'a> {
                             // Should have a terminator, unit terminator or END after arguments
                             // If, not, the handler has not consumed all arguments (error) or an unexpected token appeared.'
                             // TODO: This should abort above command!
-                            if let Some(t) = tokenstream.next_data(true)? {
-                                return match t {
-                                    /* Leftover suffix */
-                                    Token::SuffixProgramData(_) => {
-                                        Err(ErrorCode::SuffixNotAllowed.into())
-                                    }
-                                    /* Leftover data objects */
-                                    _ => Err(ErrorCode::ParameterNotAllowed.into()),
-                                };
+                            if tokenstream.next_data(true)?.is_some() {
+                                return Err(ErrorCode::ParameterNotAllowed.into());
                             }
                         } else {
                             //No header separator was found = no arguments, pass an empty tokenizer
