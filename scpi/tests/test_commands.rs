@@ -7,12 +7,11 @@ use scpi::ieee488::commands::*;
 use scpi::scpi::commands::*;
 use scpi::{
     ieee488_cls, ieee488_ese, ieee488_esr, ieee488_idn, ieee488_opc, ieee488_rst, ieee488_sre,
-    ieee488_stb, ieee488_tst, ieee488_wai, nquery, scpi_status, scpi_system, scpi_tree,
+    ieee488_stb, ieee488_tst, ieee488_wai, nquery, qonly, scpi_status, scpi_system, scpi_tree,
 };
 use std::convert::TryInto;
 
 mod test_util;
-use test_util::*;
 
 extern crate std;
 
@@ -46,6 +45,18 @@ const IEEE488_TREE: &Node = scpi_tree![
         name: b"*QUES",
         optional: false,
         handler: Some(&QuesCommand {}),
+        sub: None,
+    },
+    Node {
+        name: b"*QUERY",
+        optional: false,
+        handler: Some(&QueryCommand {}),
+        sub: None,
+    },
+    Node {
+        name: b"*EVENT",
+        optional: false,
+        handler: Some(&EventCommand {}),
         sub: None,
     }
 ];
@@ -90,6 +101,31 @@ impl Command for QuesCommand {
     }
 }
 
+struct QueryCommand {}
+
+impl Command for QueryCommand {
+    qonly!();
+
+    fn query(
+        &self,
+        _context: &mut Context,
+        _args: &mut Tokenizer,
+        response: &mut dyn Formatter,
+    ) -> Result<()> {
+        response.i32_data(0i32)
+    }
+}
+
+struct EventCommand {}
+
+impl Command for EventCommand {
+    nquery!();
+
+    fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<()> {
+        Ok(())
+    }
+}
+
 struct TestDevice {
     pub cls: bool,
     pub rst: bool,
@@ -121,6 +157,22 @@ impl Device for TestDevice {
         self.tst = true;
         Ok(())
     }
+}
+
+#[test]
+fn test_qonly() {
+    context!(ctx, dev);
+    execute_str!(ctx, b"*query?;*query" => result, _response {
+        assert_eq!(result, Err(Error::from(ErrorCode::UndefinedHeader)));
+    });
+}
+
+#[test]
+fn test_nquery() {
+    context!(ctx, dev);
+    execute_str!(ctx, b"*event;*event?" => result, _response {
+        assert_eq!(result, Err(Error::from(ErrorCode::UndefinedHeader)));
+    });
 }
 
 #[test]

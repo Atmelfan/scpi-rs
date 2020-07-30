@@ -1,11 +1,9 @@
 use scpi::prelude::*;
-use std::io;
-use std::io::BufRead;
 
 mod common;
 use common::*;
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 
 fn criterion_benchmark(c: &mut Criterion) {
     let mut my_device = MyDevice {};

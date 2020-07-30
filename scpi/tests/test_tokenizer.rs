@@ -1,4 +1,4 @@
-use scpi::error::{Error, ErrorCode};
+use scpi::error::ErrorCode;
 use scpi::tokenizer::{Token, Tokenizer};
 
 extern crate std;

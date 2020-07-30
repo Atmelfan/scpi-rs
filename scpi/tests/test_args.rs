@@ -12,8 +12,8 @@ use scpi::{
 use std::convert::TryInto;
 
 mod test_util;
+use scpi::expression::numeric_list;
 use scpi::tokenizer::{Arbitrary, Character, NumericValues};
-use test_util::*;
 
 extern crate std;
 
@@ -68,6 +68,7 @@ const IEEE488_TREE: &Node = scpi_tree![
     add_numeric_command!(b"*UTF8": Utf8Command),
     add_numeric_command!(b"*NUM": NumCommand),
     add_numeric_command!(b"*NUMRANGE": NumRangeCommand),
+    add_numeric_command!(b"*NUMLIST": NumericListCommand),
     add_numeric_command!(b"*F32": F32Command),
     add_numeric_command!(b"*F32ISINF": F32IsInfCommand),
     add_numeric_command!(b"*F32ISNAN": F32IsNanCommand),
@@ -420,5 +421,45 @@ fn test_issue2() {
     execute_str!(ctx, b"*U32? 4294967295" => result, response {
         assert_eq!(result, Ok(()));
         assert_eq!(response, b"4294967295\n");
+    });
+}
+
+struct NumericListCommand {}
+impl Command for NumericListCommand {
+    qonly!();
+
+    fn query(
+        &self,
+        _context: &mut Context,
+        args: &mut Tokenizer,
+        response: &mut dyn Formatter,
+    ) -> Result<()> {
+        let numbers = args.next_data(false)?.unwrap();
+        let mut first = true;
+        for num in numbers.numeric_list()? {
+            if !first {
+                response.separator()?;
+            }
+            first = false;
+            match num? {
+                numeric_list::Token::Numeric(a) => {
+                    response.f32_data(a.try_into()?)?;
+                }
+                numeric_list::Token::NumericRange(a, b) => {
+                    response.f32_data(a.try_into()?)?;
+                    response.separator()?;
+                    response.f32_data(b.try_into()?)?;
+                }
+            }
+        }
+        Ok(())
+    }
+}
+#[test]
+fn test_numeric_list() {
+    context!(ctx, dev);
+    execute_str!(ctx, b"*NUMLIST? (1,2,3:5)" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"1.0,2.0,3.0,5.0\n");
     });
 }

@@ -28,12 +28,10 @@ use scpi::{
 use std::convert::TryInto;
 
 use git_version::git_version;
-#[cfg(feature = "units")]
 use uom::si::angle::radian;
-#[cfg(feature = "units")]
 use uom::si::electric_potential::volt;
-#[cfg(feature = "units")]
-use uom::si::f32::*;
+use uom::si::f32;
+use uom::si::ratio::ratio;
 
 const GIT_VERSION: &[u8] = git_version!().as_bytes();
 
@@ -70,7 +68,7 @@ impl Command for ErrorCustomCommand {
             .next_data(true)?
             .unwrap_or(Token::NonDecimalNumericProgramData(0u32))
             .try_into()?;
-        scpi_error!(ErrorCode::Custom(code, b"Custom error"))
+        Err(scpi_error!(ErrorCode::Custom(code, b"Custom error")))
     }
 }
 
@@ -89,7 +87,7 @@ impl Command for ErrorExtendedCommand {
             .next_data(true)?
             .unwrap_or(Token::NonDecimalNumericProgramData(0u32))
             .try_into()?;
-        scpi_error!(ErrorCode::Custom(code, b"Error"); b"Additional information")
+        Err(scpi_error!(ErrorCode::Custom(code, b"Error"); b"Additional information"))
     }
 }
 
@@ -191,10 +189,8 @@ impl Command for ExamTypNumDecCommand {
 /// Identical to `[:EXAMple]:TYPe:NUMeric[:DECimal]?` but accepts a voltage suffix.
 ///
 /// Will return the given value as decimal response data.
-#[cfg(feature = "units")]
 pub struct ExamTypNumVoltCommand {}
 
-#[cfg(feature = "units")]
 impl Command for ExamTypNumVoltCommand {
     qonly!();
 
@@ -204,9 +200,10 @@ impl Command for ExamTypNumVoltCommand {
         args: &mut Tokenizer,
         response: &mut dyn Formatter,
     ) -> Result<()> {
-        let x: ElectricPotential = args.next_data(false)?.unwrap().try_into()?;
-        response.header_data(b"VOLT")?;
-        response.f32_data(x.get::<volt>())
+        let x: f32::ElectricPotential = args.next_data(false)?.unwrap().try_into()?;
+        let dac = (x / f32::ElectricPotential::new::<volt>(2.5)) * f32::Ratio::new::<ratio>(4095.0);
+        response.header_data(b"DAC")?;
+        response.u16_data(dac.get::<ratio>().round() as u16)
     }
 }
 
@@ -214,10 +211,8 @@ impl Command for ExamTypNumVoltCommand {
 /// Identical to `[:EXAMple]:TYPe:NUMeric[:DECimal]?` but accepts a angle suffix.
 ///
 /// Will return the given value as decimal response data.
-#[cfg(feature = "units")]
 pub struct ExamTypNumAngleCommand {}
 
-#[cfg(feature = "units")]
 impl Command for ExamTypNumAngleCommand {
     qonly!();
 
@@ -228,10 +223,10 @@ impl Command for ExamTypNumAngleCommand {
         response: &mut dyn Formatter,
     ) -> Result<()> {
         //Optional parameter (default value of 1.0f32), accepts volt suffix, accepts MIN/MAX/DEFault
-        let x: Angle = if let Some(t) = args.next_data(true)? {
+        let x: f32::Angle = if let Some(t) = args.next_data(true)? {
             t.try_into()?
         } else {
-            Angle::new::<radian>(1.0f32)
+            f32::Angle::new::<radian>(1.0f32)
         };
         response.header_data(b"RADian")?;
         response.f32_data(x.get::<radian>())
@@ -317,21 +312,21 @@ impl Command for ExamTypListNumCommand {
     ) -> Result<()> {
         let list = args.next_data(false)?.unwrap();
         let numbers = list.numeric_list()?;
+        let mut first = true;
         for item in numbers {
             let item: numeric_list::Token = item?;
+            if !first {
+                response.separator()?;
+            }
+            first = false;
             match item {
                 numeric_list::Token::Numeric(a) => {
-                    response.isize_data(a)?;
+                    response.f32_data(a.try_into()?)?;
                 }
                 numeric_list::Token::NumericRange(a, b) => {
-                    for x in a..b {
-                        response.isize_data(x)?;
-                        response.separator()?;
-                    }
-                    response.isize_data(b)?;
-                }
-                numeric_list::Token::Separator => {
+                    response.f32_data(a.try_into()?)?;
                     response.separator()?;
+                    response.f32_data(b.try_into()?)?;
                 }
             }
         }
@@ -460,14 +455,12 @@ pub const TREE: &Node = scpi_tree![
                                 handler: Some(&ExamTypNumDecCommand {}),
                                 sub: None,
                             },
-                            #[cfg(feature = "units")]
                             Node {
                                 name: b"VOLT",
                                 optional: false,
                                 handler: Some(&ExamTypNumVoltCommand {}),
                                 sub: None,
                             },
-                            #[cfg(feature = "units")]
                             Node {
                                 name: b"ANGLE",
                                 optional: false,

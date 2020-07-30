@@ -7,13 +7,10 @@ use scpi::ieee488::commands::*;
 use scpi::scpi::commands::*;
 use scpi::{
     ieee488_cls, ieee488_ese, ieee488_esr, ieee488_idn, ieee488_opc, ieee488_rst, ieee488_sre,
-    ieee488_stb, ieee488_tst, ieee488_wai, nquery, qonly, scpi_status, scpi_system, scpi_tree,
+    ieee488_stb, ieee488_tst, ieee488_wai, scpi_status, scpi_system, scpi_tree,
 };
-use std::convert::TryInto;
 
 mod test_util;
-use scpi::tokenizer::{Arbitrary, Character, NumericValues};
-use test_util::*;
 
 extern crate std;
 

@@ -7,6 +7,7 @@ use crate::error;
 use core::convert::TryFrom;
 
 use crate::expression::{channel_list, numeric_list};
+use crate::util;
 
 /// SCPI tokens
 ///
@@ -125,10 +126,7 @@ impl<'a> Token<'a> {
     ///
     pub fn numeric_list(&self) -> Result<numeric_list::Tokenizer, ErrorCode> {
         if let Token::ExpressionProgramData(str) = self {
-            Ok(numeric_list::Tokenizer {
-                chars: str.iter(),
-                expect_num: true,
-            })
+            Ok(numeric_list::Tokenizer::new(str))
         } else {
             Err(ErrorCode::DataTypeError)
         }
@@ -353,18 +351,14 @@ macro_rules! impl_tryfrom_float {
     };
 }
 
+#[cfg(feature = "f32")]
 impl_tryfrom_float!(f32);
-#[cfg(feature = "f64-support")]
+#[cfg(feature = "f64")]
 impl_tryfrom_float!(f64);
-
-#[cfg(feature = "f64-support")]
-type Intermediate = f64;
-#[cfg(not(feature = "f64-support"))]
-type Intermediate = f32;
 
 // TODO: Shitty way of rounding integers
 macro_rules! impl_tryfrom_integer {
-    ($from:ty) => {
+    ($from:ty, $intermediate:ty) => {
         impl<'a> TryFrom<Token<'a>> for $from {
             type Error = error::Error;
 
@@ -375,8 +369,14 @@ macro_rules! impl_tryfrom_integer {
                     Token::DecimalNumericProgramData(value) => lexical_core::parse::<$from>(value)
                         .or_else(|e| {
                             if matches!(e.code, lexical_core::ErrorCode::InvalidDigit) {
-                                lexical_core::parse::<Intermediate>(value)
-                                    .map(|f| f.round() as $from)
+                                let f = lexical_core::parse::<$intermediate>(value)?.round();
+                                if f > (<$from>::MAX as $intermediate) {
+                                    Err(lexical_core::ErrorCode::Overflow.into())
+                                } else if f < (<$from>::MIN as $intermediate) {
+                                    Err(lexical_core::ErrorCode::Underflow.into())
+                                } else {
+                                    Ok(f as $from)
+                                }
                             } else {
                                 Err(e)
                             }
@@ -387,7 +387,7 @@ macro_rules! impl_tryfrom_integer {
                             }
                             lexical_core::ErrorCode::Overflow
                             | lexical_core::ErrorCode::Underflow => {
-                                ErrorCode::ExponentTooLarge.into()
+                                ErrorCode::DataOutOfRange.into()
                             }
                             _ => ErrorCode::NumericDataError.into(),
                         }),
@@ -407,20 +407,20 @@ macro_rules! impl_tryfrom_integer {
     };
 }
 
-impl_tryfrom_integer!(i64);
-impl_tryfrom_integer!(u64);
-impl_tryfrom_integer!(i32);
-impl_tryfrom_integer!(u32);
-impl_tryfrom_integer!(i16);
-impl_tryfrom_integer!(u16);
-impl_tryfrom_integer!(i8);
-impl_tryfrom_integer!(u8);
-impl_tryfrom_integer!(usize);
-impl_tryfrom_integer!(isize);
+impl_tryfrom_integer!(i64, f64);
+impl_tryfrom_integer!(u64, f64);
+impl_tryfrom_integer!(i32, f64);
+impl_tryfrom_integer!(u32, f64);
+impl_tryfrom_integer!(i16, f32);
+impl_tryfrom_integer!(u16, f32);
+impl_tryfrom_integer!(i8, f32);
+impl_tryfrom_integer!(u8, f32);
+impl_tryfrom_integer!(usize, f64);
+impl_tryfrom_integer!(isize, f64);
 
 #[derive(Clone)]
 pub struct Tokenizer<'a> {
-    chars: Iter<'a, u8>,
+    pub(crate) chars: Iter<'a, u8>,
     in_header: bool,
     in_common: bool,
 }
@@ -488,16 +488,16 @@ fn ascii_to_digit(digit: u8, radix: u8) -> Option<u32> {
 
 impl<'a> Tokenizer<'a> {
     pub fn new(buf: &'a [u8]) -> Self {
-        Tokenizer {
-            chars: buf.iter(),
-            in_header: true,
-            in_common: false,
-        }
+        Tokenizer::from_byte_iter(buf.iter())
     }
 
-    pub fn empty() -> Self {
+    pub(crate) fn empty() -> Self {
+        Tokenizer::from_byte_iter(b"".iter())
+    }
+
+    pub(crate) fn from_byte_iter(iter: Iter<'a, u8>) -> Self {
         Tokenizer {
-            chars: b"".iter(),
+            chars: iter,
             in_header: true,
             in_common: false,
         }
@@ -559,24 +559,38 @@ impl<'a> Tokenizer<'a> {
         ret
     }
 
-    fn skip_digits(&mut self) -> bool {
-        let mut any = false;
-        while let Some(digit) = self.chars.clone().next() {
-            if !digit.is_ascii_digit() {
-                break;
-            }
-            any = true;
+    pub(crate) fn read_nrf(&mut self) -> Result<Token<'a>, ErrorCode> {
+        let s = self.chars.as_slice();
+        /* Read leading +/- */
+        util::skip_sign(&mut self.chars);
+        /* Read mantissa */
+        let leading_digits = util::skip_digits(&mut self.chars);
+        /* Read fraction (required if no leading digits were read) */
+        if let Some(b'.') = self.chars.clone().next() {
             self.chars.next().unwrap();
+            if !util::skip_digits(&mut self.chars) && !leading_digits {
+                return Err(ErrorCode::NumericDataError);
+            }
+        } else if !leading_digits {
+            return Err(ErrorCode::NumericDataError);
         }
-        any
-    }
-
-    fn skip_sign(&mut self) {
-        if let Some(sign) = self.chars.clone().next() {
-            if *sign == b'+' || *sign == b'-' {
+        //TODO: Lexical-core doesn't like ws around Exponent
+        //util::skip_ws(self.chars);
+        /* Read exponent */
+        if let Some(exponent) = self.chars.clone().next() {
+            if *exponent == b'E' || *exponent == b'e' {
                 self.chars.next().unwrap();
+                //TODO: Lexical-core doesn't like ws around Exponent
+                //util::skip_ws(self.chars);
+                util::skip_sign(&mut self.chars);
+                if !util::skip_digits(&mut self.chars) {
+                    return Err(ErrorCode::NumericDataError);
+                }
             }
         }
+        Ok(Token::DecimalNumericProgramData(
+            &s[0..s.len() - self.chars.as_slice().len()],
+        ))
     }
 
     /// <DECIMAL NUMERIC PROGRAM DATA>
@@ -584,43 +598,18 @@ impl<'a> Tokenizer<'a> {
     ///
     /// TODO: lexical-core does not accept whitespace between exponent separator and exponent <mantissa>E <exponent>.
     pub(crate) fn read_numeric_data(&mut self) -> Result<Token<'a>, ErrorCode> {
-        let s = self.chars.as_slice();
-        /* Read leading +/- */
-        self.skip_sign();
-        /* Read mantissa */
-        let leading_digits = self.skip_digits();
-        /* Read fraction (required if no leading digits were read) */
-        if let Some(b'.') = self.chars.clone().next() {
-            self.chars.next().unwrap();
-            if !self.skip_digits() && !leading_digits {
-                return Err(ErrorCode::NumericDataError);
-            }
-        } else if !leading_digits {
-            return Err(ErrorCode::NumericDataError);
-        }
-        //TODO: Lexical-core doesn't like ws around Exponent
-        //self.skip_ws();
-        /* Read exponent */
-        if let Some(exponent) = self.chars.clone().next() {
-            if *exponent == b'E' || *exponent == b'e' {
-                self.chars.next().unwrap();
-                //TODO: Lexical-core doesn't like ws around Exponent
-                //self.skip_ws();
-                self.skip_sign();
-                if !self.skip_digits() {
-                    return Err(ErrorCode::NumericDataError);
+        let tok = self.read_nrf()?;
+        if let Token::DecimalNumericProgramData(s) = tok {
+            util::skip_ws(&mut self.chars);
+            if let Some(x) = self.chars.clone().next() {
+                if x.is_ascii_alphabetic() || *x == b'/' {
+                    return self.read_suffix_data(s);
+                } else {
+                    self.skip_ws_to_separator(ErrorCode::InvalidSuffix)?;
                 }
             }
         }
-        // Return string
-        let ret = &s[0..s.len() - self.chars.as_slice().len()];
-        self.skip_ws();
-        if let Some(x) = self.chars.clone().next() {
-            if x.is_ascii_alphabetic() || *x == b'/' {
-                return self.read_suffix_data(ret);
-            }
-        }
-        Ok(Token::DecimalNumericProgramData(ret))
+        Ok(tok)
     }
 
     /// <SUFFIX PROGRAM DATA>
@@ -821,19 +810,8 @@ impl<'a> Tokenizer<'a> {
         ret
     }
 
-    fn skip_ws(&mut self) {
-        while self
-            .chars
-            .clone()
-            .next()
-            .map_or(false, |ch| ch.is_ascii_whitespace())
-        {
-            self.chars.next();
-        }
-    }
-
     fn skip_ws_to_separator(&mut self, error: ErrorCode) -> Result<(), ErrorCode> {
-        self.skip_ws();
+        util::skip_ws(&mut self.chars);
         if let Some(c) = self.chars.clone().next() {
             if *c != b',' && *c != b';' && *c != b'\n' {
                 return Err(error);
@@ -949,6 +927,23 @@ mod test_parse {
             Tokenizer::new(b".1E2").read_numeric_data().unwrap(),
             Token::DecimalNumericProgramData(b".1E2")
         );
+
+        assert_eq!(
+            Tokenizer::new(b".1E2  SUFFIX").read_numeric_data().unwrap(),
+            Token::DecimalNumericSuffixProgramData(b".1E2", b"SUFFIX")
+        );
+
+        assert_eq!(
+            Tokenizer::new(b".1E2  /S").read_numeric_data().unwrap(),
+            Token::DecimalNumericSuffixProgramData(b".1E2", b"/S")
+        );
+
+        assert_eq!(
+            Tokenizer::new(b".1E2  'SUFFIX'")
+                .read_numeric_data()
+                .unwrap_err(),
+            ErrorCode::InvalidSuffix
+        );
     }
 
     #[test]
@@ -956,14 +951,25 @@ mod test_parse {
 
     #[test]
     fn test_read_numeric_suffix_data() {
-        //let mut tokenizer = Tokenizer::from_str(b"header 25 KHZ , 12.7E6 KOHM.M/S-2");
-        //        assert_eq!(tokenizer.next(), Some(Ok(Token::ProgramMnemonic(b"header"))));
-        //        assert_eq!(tokenizer.next(), Some(Ok(Token::ProgramHeaderSeparator)));
-        //        assert_eq!(tokenizer.next_u8(), Ok(25u8));
-        //        assert_eq!(tokenizer.next(), Some(Ok(Token::SuffixProgramData(b"KHZ"))));
-        //        assert_eq!(tokenizer.next(), Some(Ok(Token::ProgramDataSeparator)));
-        //        assert_eq!(tokenizer.next_f32(), Ok(12.7e6f32));
-        //        assert_eq!(tokenizer.next(), Some(Ok(Token::SuffixProgramData(b"KOHM.M/S-2"))));
+        let mut tokenizer = Tokenizer::new(b"header 25 KHZ , 12.7E6 KOHM.M/S-2");
+        assert_eq!(
+            tokenizer.next(),
+            Some(Ok(Token::ProgramMnemonic(b"header")))
+        );
+        assert_eq!(tokenizer.next(), Some(Ok(Token::ProgramHeaderSeparator)));
+        assert_eq!(
+            tokenizer.next(),
+            Some(Ok(Token::DecimalNumericSuffixProgramData(b"25", b"KHZ")))
+        );
+        assert_eq!(tokenizer.next(), Some(Ok(Token::ProgramDataSeparator)));
+        assert_eq!(
+            tokenizer.next(),
+            Some(Ok(Token::DecimalNumericSuffixProgramData(
+                b"12.7E6",
+                b"KOHM.M/S-2"
+            )))
+        );
+        assert_eq!(tokenizer.next(), None);
     }
 
     #[test]
@@ -1127,7 +1133,7 @@ impl<'a> Iterator for Tokenizer<'a> {
             /* Program unit separator */
             b';' => {
                 self.chars.next();
-                self.skip_ws();
+                util::skip_ws(&mut self.chars);
                 self.in_header = true;
                 self.in_common = false;
                 Some(Ok(Token::ProgramMessageUnitSeparator))
@@ -1145,7 +1151,7 @@ impl<'a> Iterator for Tokenizer<'a> {
                 if self.in_header {
                     Some(Err(ErrorCode::HeaderSeparatorError))
                 } else {
-                    self.skip_ws();
+                    util::skip_ws(&mut self.chars);
                     if let Some(c) = self.chars.clone().next() {
                         if *c == b',' || *c == b';' || *c == b'\n' {
                             return Some(Err(ErrorCode::SyntaxError));
@@ -1157,7 +1163,7 @@ impl<'a> Iterator for Tokenizer<'a> {
             /* Whitespace */
             // Separates the header from arguments
             x if x.is_ascii_whitespace() => {
-                self.skip_ws();
+                util::skip_ws(&mut self.chars);
                 /* Header ends */
                 self.in_header = false;
                 Some(Ok(Token::ProgramHeaderSeparator))

@@ -97,6 +97,8 @@ pub mod suffix;
 pub mod tokenizer;
 pub mod tree;
 
+mod util;
+
 /// Prelude containing the most useful stuff
 ///
 pub mod prelude {

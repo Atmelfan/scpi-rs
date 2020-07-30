@@ -1,42 +1,40 @@
 /// Contains numeric-list tokenizer
 ///
 pub mod numeric_list {
-    use crate::error::ErrorCode;
-    use core::slice::Iter;
+    use crate::error::{Error, ErrorCode};
+    use crate::tokenizer;
 
-    #[derive(Clone, PartialEq)]
-    pub enum Token {
-        Numeric(isize),
-        NumericRange(isize, isize),
-        Separator,
+    type Number<'a> = tokenizer::Token<'a>;
+
+    #[derive(Clone, PartialEq, Debug)]
+    pub enum Token<'a> {
+        Numeric(Number<'a>),
+        NumericRange(Number<'a>, Number<'a>),
     }
 
     /// Numeric list expression tokenizer
     #[derive(Clone)]
     pub struct Tokenizer<'a> {
-        pub chars: Iter<'a, u8>,
-        pub expect_num: bool,
+        pub tokenizer: tokenizer::Tokenizer<'a>,
+        pub first: bool,
     }
 
     impl<'a> Tokenizer<'a> {
-        fn read_numeric_data(&mut self) -> Result<Token, ErrorCode> {
-            /* Read mantissa */
-            let (begin, len) = lexical_core::parse_partial::<isize>(self.chars.as_slice())
-                .map_err(|_| ErrorCode::NumericDataError)?;
-            self.chars.nth(len - 1);
+        pub fn new(s: &'a [u8]) -> Tokenizer<'a> {
+            Tokenizer {
+                tokenizer: tokenizer::Tokenizer::new(s),
+                first: true,
+            }
+        }
 
-            if let Some(c) = self.chars.clone().next() {
+        fn read_numeric_data(&mut self) -> Result<Token<'a>, ErrorCode> {
+            let begin: Number = self.tokenizer.read_nrf()?;
+            if let Some(c) = self.tokenizer.chars.clone().next() {
                 //&& *c == b':' {
                 if *c == b':' {
-                    self.chars.next();
-                    let (end, len) = lexical_core::parse_partial::<isize>(self.chars.as_slice())
-                        .map_err(|_| ErrorCode::NumericDataError)?;
-                    return if len == 0 {
-                        Err(ErrorCode::InvalidExpression)
-                    } else {
-                        self.chars.nth(len - 1);
-                        Ok(Token::NumericRange(begin, end))
-                    };
+                    self.tokenizer.chars.next();
+                    let end = self.tokenizer.read_nrf()?;
+                    return Ok(Token::NumericRange(begin, end));
                 }
             }
 
@@ -45,99 +43,102 @@ pub mod numeric_list {
     }
 
     impl<'a> Iterator for Tokenizer<'a> {
-        type Item = Result<Token, ErrorCode>;
+        type Item = Result<Token<'a>, Error>;
 
         fn next(&mut self) -> Option<Self::Item> {
-            let x = self.chars.clone().next()?;
-            Some(match x {
-                b',' => {
-                    if self.expect_num {
-                        Err(ErrorCode::InvalidExpression)
-                    } else {
-                        self.chars.next().unwrap();
-                        self.expect_num = true;
-                        Ok(Token::Separator)
-                    }
+            //TODO: This has to be tokenizer abuse or something...
+            let char = self.tokenizer.chars.clone().next()?;
+
+            Some(match char {
+                b',' if !self.first => {
+                    self.tokenizer.chars.next().unwrap();
+                    self.read_numeric_data().map_err(|err| {
+                        Error::extended(ErrorCode::InvalidExpression, err.get_message())
+                    })
                 }
-                x if x.is_ascii_digit() || *x == b'-' || *x == b'+' => {
-                    self.expect_num = false;
-                    self.read_numeric_data()
+                x if x.is_ascii_digit() || *x == b'-' || *x == b'+' && self.first => {
+                    self.first = false;
+                    self.read_numeric_data().map_err(|err| {
+                        Error::extended(ErrorCode::InvalidExpression, err.get_message())
+                    })
                 }
-                _ => Err(ErrorCode::InvalidExpression),
+                _ => Err(Error::extended(
+                    ErrorCode::InvalidExpression,
+                    b"Invalid character",
+                )),
             })
         }
     }
 
     #[cfg(test)]
     mod tests {
-        use crate::error::ErrorCode;
-        use crate::expression::numeric_list::{Token, Tokenizer};
-        use core::fmt;
+        use crate::error::{Error, ErrorCode};
+        use crate::expression::numeric_list::{Number, Token, Tokenizer};
 
         extern crate std;
 
-        impl fmt::Debug for Token {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                match self {
-                    Token::Separator => write!(f, ","),
-                    Token::Numeric(x) => write!(f, "{}", x),
-                    Token::NumericRange(x, y) => write!(f, "{}:{}", x, y),
-                }
-            }
-        }
-
         #[test]
         fn test_numeric_data() {
-            let spec = Tokenizer {
-                chars: b"2".iter(),
-                expect_num: true,
-            }
-            .read_numeric_data();
-            assert_eq!(spec, Ok(Token::Numeric(2)));
-            let range = Tokenizer {
-                chars: b"2:5".iter(),
-                expect_num: true,
-            }
-            .read_numeric_data();
-            assert_eq!(range, Ok(Token::NumericRange(2, 5)));
-            let specfail = Tokenizer {
-                chars: b"2::5".iter(),
-                expect_num: true,
-            }
-            .read_numeric_data();
-            assert_eq!(specfail, Err(ErrorCode::InvalidExpression));
+            let spec = Tokenizer::new(b"2").read_numeric_data();
+            assert_eq!(
+                spec,
+                Ok(Token::Numeric(Number::DecimalNumericProgramData(b"2")))
+            );
+            let range = Tokenizer::new(b"2:5").read_numeric_data();
+            assert_eq!(
+                range,
+                Ok(Token::NumericRange(
+                    Number::DecimalNumericProgramData(b"2"),
+                    Number::DecimalNumericProgramData(b"5")
+                ))
+            );
+            let specfail = Tokenizer::new(b"2::5").read_numeric_data();
+            assert_eq!(specfail, Err(ErrorCode::NumericDataError.into()));
         }
 
         #[test]
         fn test_numeric_list() {
-            let mut expr = Tokenizer {
-                chars: b"1,2:5".iter(),
-                expect_num: true,
-            };
-            assert_eq!(expr.next(), Some(Ok(Token::Numeric(1))));
-            assert_eq!(expr.next(), Some(Ok(Token::Separator)));
-            assert_eq!(expr.next(), Some(Ok(Token::NumericRange(2, 5))));
+            let mut expr = Tokenizer::new(b"3.1415,1.1:3.9e6");
+            assert_eq!(
+                expr.next().unwrap(),
+                Ok(Token::Numeric(Number::DecimalNumericProgramData(b"3.1415")))
+            );
+            assert_eq!(
+                expr.next().unwrap(),
+                Ok(Token::NumericRange(
+                    Number::DecimalNumericProgramData(b"1.1"),
+                    Number::DecimalNumericProgramData(b"3.9e6")
+                ))
+            );
             assert_eq!(expr.next(), None);
         }
 
         #[test]
         fn test_numeric_leading() {
-            let mut expr = Tokenizer {
-                chars: b",1,2:5".iter(),
-                expect_num: true,
-            };
-            assert_eq!(expr.next(), Some(Err(ErrorCode::InvalidExpression)));
+            let mut expr = Tokenizer::new(b",1,2:5");
+            assert_eq!(
+                expr.next().unwrap(),
+                Err(Error::extended(
+                    ErrorCode::InvalidExpression,
+                    b"Invalid character"
+                ))
+            );
         }
 
         #[test]
         fn test_numeric_repeated() {
-            let mut expr = Tokenizer {
-                chars: b"1,,2:5".iter(),
-                expect_num: true,
-            };
-            assert_eq!(expr.next(), Some(Ok(Token::Numeric(1))));
-            assert_eq!(expr.next(), Some(Ok(Token::Separator)));
-            assert_eq!(expr.next(), Some(Err(ErrorCode::InvalidExpression)));
+            let mut expr = Tokenizer::new(b"1,,2:5");
+            assert_eq!(
+                expr.next().unwrap(),
+                Ok(Token::Numeric(Number::DecimalNumericProgramData(b"1")))
+            );
+            assert_eq!(
+                expr.next().unwrap(),
+                Err(Error::extended(
+                    ErrorCode::InvalidExpression,
+                    ErrorCode::NumericDataError.get_message()
+                ))
+            );
         }
     }
 }
@@ -147,10 +148,9 @@ pub mod numeric_list {
 ///
 pub mod channel_list {
     use crate::error::ErrorCode;
-    use crate::expression::channel_list::Token::ChannelRange;
     use core::slice::Iter;
 
-    #[derive(Clone, Copy, PartialEq)]
+    #[derive(Clone, Copy, PartialEq, Debug)]
     pub struct ChannelSpec<'a>(&'a [u8], usize);
 
     impl<'a> IntoIterator for ChannelSpec<'a> {
@@ -181,7 +181,7 @@ pub mod channel_list {
     }
 
     /// Channel list token
-    #[derive(Clone, PartialEq)]
+    #[derive(Clone, PartialEq, Debug)]
     pub enum Token<'a> {
         /// A channel spec consisting of at least one numeric.
         /// Example: `1!2!3` is a three-dimensional spec
@@ -224,12 +224,11 @@ pub mod channel_list {
         }
     }
 
-    impl<'a> Token<'a> {}
-
     /// Channel list expression tokenizer
     #[derive(Clone)]
     pub struct Tokenizer<'a> {
         pub chars: Iter<'a, u8>,
+        pub first: bool,
     }
 
     impl<'a> Tokenizer<'a> {
@@ -244,6 +243,7 @@ pub mod channel_list {
                 if *x == b'@' {
                     Some(Tokenizer {
                         chars: iter.clone(),
+                        first: true,
                     })
                 } else {
                     None
@@ -291,7 +291,7 @@ pub mod channel_list {
                     }
 
                     // Return range
-                    return Ok(ChannelRange(
+                    return Ok(Token::ChannelRange(
                         ChannelSpec(begin, dim1),
                         ChannelSpec(end, dim2),
                     ));
@@ -326,12 +326,18 @@ pub mod channel_list {
         type Item = Result<Token<'a>, ErrorCode>;
 
         fn next(&mut self) -> Option<Self::Item> {
-            let x = self.chars.clone().next()?;
-            Some(match x {
-                b',' => {
-                    self.chars.next().unwrap();
-                    Ok(Token::Separator)
+            let mut x = self.chars.clone().next()?;
+            //Ignore non-leading separator
+            if *x == b',' {
+                if self.first {
+                    return Some(Err(ErrorCode::InvalidExpression));
                 }
+                self.chars.next().unwrap();
+                x = self.chars.clone().next()?;
+            }
+            self.first = false;
+            //Read token
+            Some(match x {
                 x if x.is_ascii_digit() || *x == b'+' || *x == b'-' => self.read_channel_range(),
                 x if *x == b'"' || *x == b'\'' => self.read_channel_path(*x),
                 _ => Err(ErrorCode::InvalidExpression),
@@ -342,21 +348,8 @@ pub mod channel_list {
     #[cfg(test)]
     mod tests {
         use crate::expression::channel_list::{ChannelSpec, Token, Tokenizer};
-        use core::fmt;
 
         extern crate std;
-
-        impl fmt::Debug for Token<'_> {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                match self {
-                    Token::Separator => write!(f, ","),
-                    Token::ChannelSpec(x) => write!(f, "{:?}", x.0),
-                    Token::ChannelRange(x, y) => write!(f, "{:?}:{:?}", x.0, y.0),
-                    Token::PathName(x) => write!(f, "{:?}", x),
-                    _ => write!(f, "(UNKNOWN)"),
-                }
-            }
-        }
 
         #[test]
         fn test_channel_list() {
@@ -373,8 +366,6 @@ pub mod channel_list {
             } else {
                 panic!("Not a channel spec")
             }
-
-            assert_eq!(expr.next(), Some(Ok(Token::Separator)));
 
             // Destructure a range
             let range = expr.next().unwrap().unwrap();
@@ -394,8 +385,6 @@ pub mod channel_list {
             } else {
                 panic!("Not a channel range")
             }
-
-            assert_eq!(expr.next(), Some(Ok(Token::Separator)));
             assert_eq!(expr.next(), Some(Ok(Token::PathName(b"POTATO"))));
             assert_eq!(expr.next(), None);
         }

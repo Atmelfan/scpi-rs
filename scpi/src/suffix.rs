@@ -26,6 +26,7 @@ use {
     crate::{error::ErrorCode, tokenizer::Token},
     core::convert::{TryFrom, TryInto},
     uom::{
+        num_traits::Num,
         si::{f32::*, Units},
         Conversion,
     },
@@ -102,22 +103,22 @@ use uom::si::volume::{cubic_meter, cubic_millimeter, liter, milliliter, Volume};
 
 #[allow(unused_macros)]
 macro_rules! try_from_unit {
-    ($unit:ident, $base:ty, $storage:ty; $($($suffix:literal)|+ => $subunit:ty),+) => {
-        impl<'a, U> TryFrom<Token<'a>> for $unit<U, $storage>
+    ($unit:ident, $base:ty; $($($suffix:literal)|+ => $subunit:ty),+) => {
+        impl<'a, U> TryFrom<Token<'a>> for $unit<U, V>
         where
-            U: Units<$storage> + ?Sized,
+            U: Units<V> + ?Sized,
         {
             type Error = crate::error::Error;
 
             fn try_from(value: Token) -> Result<Self, Self::Error> {
                 if let Token::DecimalNumericProgramData(_) = value {
-                    Ok($unit::new::<$base>(<$storage>::try_from(value)?))
+                    Ok($unit::new::<$base>(<V>::try_from(value)?))
                 } else if let Token::DecimalNumericSuffixProgramData(num, suffix) = value
                 {
                     match suffix {
                         $(
                         s if $(s.eq_ignore_ascii_case($suffix))||+ => Ok($unit::new::<$subunit>(
-                            <$storage>::try_from(Token::DecimalNumericProgramData(num))?,
+                            <V>::try_from(Token::DecimalNumericProgramData(num))?,
                         ))
                         ),+,
                         _ => Err(ErrorCode::IllegalParameterValue.into()),
@@ -131,7 +132,7 @@ macro_rules! try_from_unit {
 }
 
 #[cfg(feature = "unit-length")]
-try_from_unit![Length, meter, f32;
+try_from_unit![Length, meter;
     b"KM" => kilometer,
     b"M" => meter,
     b"MM" => millimeter,
@@ -148,7 +149,7 @@ try_from_unit![Length, meter, f32;
 ];
 
 #[cfg(feature = "unit-velocity")]
-try_from_unit![Velocity, meter_per_second, f32;
+try_from_unit![Velocity, meter_per_second;
     b"KM/S"|b"KM.S-1" => kilometer_per_second,
     b"KMH"|b"KM/HR"|b"KM.HR-1" => kilometer_per_hour,
     b"M/S"|b"M.S-1" => meter_per_second,
@@ -162,7 +163,7 @@ try_from_unit![Velocity, meter_per_second, f32;
 ];
 
 #[cfg(feature = "unit-acceleration")]
-try_from_unit![Acceleration, meter_per_second_squared, f32;
+try_from_unit![Acceleration, meter_per_second_squared;
     b"KM/S2"|b"KM.S-2" => kilometer_per_second_squared,
     b"M/S2"|b"M.S-2" => meter_per_second_squared,
     b"MM/S2"|b"MM.S-2" => millimeter_per_second_squared,
@@ -170,7 +171,7 @@ try_from_unit![Acceleration, meter_per_second_squared, f32;
 ];
 
 #[cfg(feature = "unit-electric-potential")]
-try_from_unit![ElectricPotential, volt, f32;
+try_from_unit![ElectricPotential, volt;
     b"KV" => kilovolt,
     b"V" => volt,
     b"MV" => millivolt,
@@ -178,7 +179,7 @@ try_from_unit![ElectricPotential, volt, f32;
 ];
 
 #[cfg(feature = "unit-electric-current")]
-try_from_unit![ElectricCurrent, ampere, f32;
+try_from_unit![ElectricCurrent, ampere;
     b"KA" => kiloampere,
     b"A" => ampere,
     b"MA" => milliampere,
@@ -187,7 +188,7 @@ try_from_unit![ElectricCurrent, ampere, f32;
 ];
 
 #[cfg(feature = "unit-electric-conductance")]
-try_from_unit![ElectricalConductance, siemens, f32;
+try_from_unit![ElectricalConductance, siemens;
     b"KSIE" => kilosiemens,
     b"SIE" => siemens,
     b"MSIE" => millisiemens,
@@ -195,7 +196,7 @@ try_from_unit![ElectricalConductance, siemens, f32;
 ];
 
 #[cfg(feature = "unit-electric-resistance")]
-try_from_unit![ElectricalResistance, ohm, f32;
+try_from_unit![ElectricalResistance, ohm;
     b"GOHM" => gigaohm,
     b"MOHM" => megaohm,
     b"KOHM" => kiloohm,
@@ -204,7 +205,7 @@ try_from_unit![ElectricalResistance, ohm, f32;
 ];
 
 #[cfg(feature = "unit-electric-charge")]
-try_from_unit![ElectricCharge, coulomb, f32;
+try_from_unit![ElectricCharge, coulomb;
     //Coloumb
     b"MAC" => megacoulomb,
     b"KC" => kilocoulomb,
@@ -217,7 +218,7 @@ try_from_unit![ElectricCharge, coulomb, f32;
 ];
 
 #[cfg(feature = "unit-electric-capacitance")]
-try_from_unit![Capacitance, farad, f32;
+try_from_unit![Capacitance, farad;
     b"F" => farad,
     b"MF" => millifarad,
     b"UF" => microfarad,
@@ -226,7 +227,7 @@ try_from_unit![Capacitance, farad, f32;
 ];
 
 #[cfg(feature = "unit-electric-inductance")]
-try_from_unit![Inductance, henry, f32;
+try_from_unit![Inductance, henry;
     b"H" => henry,
     b"MH" => millihenry,
     b"UH" => microhenry,
@@ -235,7 +236,7 @@ try_from_unit![Inductance, henry, f32;
 ];
 
 #[cfg(feature = "unit-energy")]
-try_from_unit![Energy, joule, f32;
+try_from_unit![Energy, joule;
     b"MAJ" => megajoule,
     b"KJ" => kilojoule,
     b"J" => joule,
@@ -250,7 +251,7 @@ try_from_unit![Energy, joule, f32;
 ];
 
 #[cfg(feature = "unit-power")]
-try_from_unit![Power, watt, f32;
+try_from_unit![Power, watt;
     b"MAW" => megawatt,
     b"KW" => kilowatt,
     b"W" => watt,
@@ -259,7 +260,7 @@ try_from_unit![Power, watt, f32;
 ];
 
 #[cfg(feature = "unit-angle")]
-try_from_unit![Angle, radian, f32;
+try_from_unit![Angle, radian;
     b"RAD" => radian,
     b"DEG" => degree,
     b"MNT" => aminute,
@@ -268,37 +269,37 @@ try_from_unit![Angle, radian, f32;
 ];
 
 #[cfg(feature = "unit-amount-of-substance")]
-try_from_unit![AmountOfSubstance, mole, f32;
+try_from_unit![AmountOfSubstance, mole;
     b"MOL" => mole,
     b"MMOL" => millimole,
     b"UMOL" => micromole
 ];
 
 #[cfg(feature = "unit-magnetic-flux")]
-try_from_unit![MagneticFlux, weber, f32;
+try_from_unit![MagneticFlux, weber;
     b"WB" => weber
 ];
 
 #[cfg(feature = "unit-magnetic-flux-density")]
-try_from_unit![MagneticFluxDensity, tesla, f32;
+try_from_unit![MagneticFluxDensity, tesla;
     b"T" => tesla
 ];
 
 #[cfg(feature = "unit-ratio")]
-try_from_unit![Ratio, ratio, f32;
+try_from_unit![Ratio, ratio;
     b"PCT" => percent,
     b"PPM" => part_per_million
 ];
 
 #[cfg(feature = "unit-thermodynamic-temperature")]
-try_from_unit![ThermodynamicTemperature, degree_celsius, f32;
+try_from_unit![ThermodynamicTemperature, degree_celsius;
     b"CEL" => degree_celsius,
     b"FAR" => degree_fahrenheit,
     b"K" => kelvin
 ];
 
 #[cfg(feature = "unit-time")]
-try_from_unit![Time, second, f32;
+try_from_unit![Time, second;
     b"S" => second,
     b"MS" => millisecond,
     b"US" => microsecond,
@@ -310,7 +311,7 @@ try_from_unit![Time, second, f32;
 ];
 
 #[cfg(feature = "unit-pressure")]
-try_from_unit![Pressure, atmosphere, f32;
+try_from_unit![Pressure, atmosphere;
     b"ATM" => atmosphere,
     b"MMHG" => millimeter_of_mercury,
     b"INHG" => inch_of_mercury,
@@ -322,7 +323,7 @@ try_from_unit![Pressure, atmosphere, f32;
 ];
 
 #[cfg(feature = "unit-volume")]
-try_from_unit![Volume, liter, f32;
+try_from_unit![Volume, liter;
     b"L" => liter,
     b"ML" => milliliter,
     b"M3" => cubic_meter,

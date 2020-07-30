@@ -22,4 +22,3 @@ path = "src/bench.rs"
 [features]
 default = []
 extended-error = ["scpi/extended-error"]
-units = ["scpi/unit-all"]

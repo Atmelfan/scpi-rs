@@ -5,43 +5,15 @@
 
 use arraydeque::{Array, ArrayDeque, Saturating};
 
-/// The Error type contains error definitions detected by the parser or commands
+/// Create a error
 ///
-///> # 21.8.2 Error/Event numbers
-///> The system-defined error/event numbers are chosen on an enumerated (“1 of N”) basis. The
-///> SCPI-defined error/event numbers and the <error/event_description> portions of the full
-///> queue item are listed here. The first error/event described in each class (for example, -100,
-///> -200, -300, -400) is a “generic” error. In selecting the proper Error/event number to report,
-///> more specific error/event codes are preferred, and the generic error/event is used only if the
-///> others are inappropriate.
-///
-///> Note the organization of the following tables. A “simple-minded” parser might implement
-///> only the XX0 errors, and a smarter one might implement all of them. A “smart and friendly”
-///> parser might use the instrument-dependent part of the error/event message string to point out
-///> the offending part of the command.
-///
-///
-///
-///
-
-#[cfg(feature = "extended-error")]
 #[macro_export]
 macro_rules! scpi_error {
     ($error:expr) => {
-        Err(Error::new($error))
+        Error::new($error)
     };
     ($error:expr;$ext_msg:literal) => {
-        Err(Error::extended($error, $ext_msg))
-    };
-}
-#[cfg(not(feature = "extended-error"))]
-#[macro_export]
-macro_rules! scpi_error {
-    ($error:expr) => {
-        Err(Error::new($error))
-    };
-    ($error:expr;$ext_msg:literal) => {
-        Err(Error::new($error))
+        Error::extended($error, $ext_msg)
     };
 }
 
@@ -73,10 +45,16 @@ impl Error {
         Self(code)
     }
 
-    /// Create new error with specified error code without extended message
+    /// Create new error with specified error code
     #[cfg(feature = "extended-error")]
     pub fn new(code: ErrorCode) -> Self {
         Self(code, None)
+    }
+
+    /// Create new error with specified error code with an extended message
+    #[cfg(not(feature = "extended-error"))]
+    pub fn extended(code: ErrorCode, _msg: &'static [u8]) -> Self {
+        Self(code)
     }
 
     /// Create new error with specified error code with an extended message
@@ -144,7 +122,23 @@ impl From<ErrorCode> for Error {
     }
 }
 
-/// Contains all standard SCPI error codes and their corresponding message
+/// The Error type contains error definitions detected by the parser or commands
+///
+///> # 21.8.2 Error/Event numbers
+///> The system-defined error/event numbers are chosen on an enumerated (“1 of N”) basis. The
+///> SCPI-defined error/event numbers and the <error/event_description> portions of the full
+///> queue item are listed here. The first error/event described in each class (for example, -100,
+///> -200, -300, -400) is a “generic” error. In selecting the proper Error/event number to report,
+///> more specific error/event codes are preferred, and the generic error/event is used only if the
+///> others are inappropriate.
+///
+///> Note the organization of the following tables. A “simple-minded” parser might implement
+///> only the XX0 errors, and a smarter one might implement all of them. A “smart and friendly”
+///> parser might use the instrument-dependent part of the error/event message string to point out
+///> the offending part of the command.
+///
+///
+///
 #[derive(Debug, PartialEq, Copy, Clone, ScpiError)]
 pub enum ErrorCode {
     ///# Custom error
@@ -1090,6 +1084,23 @@ impl<T: Array<Item = Error>> ErrorQueue for ArrayErrorQueue<T> {
 #[cfg(test)]
 mod test_error_queue {
     use super::{ArrayErrorQueue, Error, ErrorCode, ErrorQueue};
+
+    #[test]
+    fn test_extended() {
+        // Check that errorqueue returns NoError when there are no errors
+        let mut errors = ArrayErrorQueue::<[Error; 10]>::new();
+        errors.push_back_error(Error::extended(ErrorCode::Custom(1, b"Error"), b"Extended"));
+        #[cfg(feature = "extended-error")]
+        assert_eq!(
+            errors.pop_front_error(),
+            Error(ErrorCode::Custom(1, b"Error"), Some(b"Extended"))
+        );
+        #[cfg(not(feature = "extended-error"))]
+        assert_eq!(
+            errors.pop_front_error(),
+            Error(ErrorCode::Custom(1, b"Error"))
+        );
+    }
 
     #[test]
     fn test_queue_noerror() {
