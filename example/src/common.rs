@@ -28,7 +28,12 @@ use scpi::{
 use std::convert::TryInto;
 
 use git_version::git_version;
-use std::f32::consts::PI;
+#[cfg(feature = "units")]
+use uom::si::angle::radian;
+#[cfg(feature = "units")]
+use uom::si::electric_potential::volt;
+#[cfg(feature = "units")]
+use uom::si::f32::*;
 
 const GIT_VERSION: &[u8] = git_version!().as_bytes();
 
@@ -182,11 +187,14 @@ impl Command for ExamTypNumDecCommand {
     }
 }
 
-/// # `[:EXAMple]:TYPe:NUMeric:VOLT? [<NRf> [<suffix>] | <MAXimum|MINimum|DEFault>]`
+/// # `[:EXAMple]:TYPe:NUMeric:VOLT? <NRf> [<suffix>]`
 /// Identical to `[:EXAMple]:TYPe:NUMeric[:DECimal]?` but accepts a voltage suffix.
 ///
 /// Will return the given value as decimal response data.
+#[cfg(feature = "units")]
 pub struct ExamTypNumVoltCommand {}
+
+#[cfg(feature = "units")]
 impl Command for ExamTypNumVoltCommand {
     qonly!();
 
@@ -196,25 +204,21 @@ impl Command for ExamTypNumVoltCommand {
         args: &mut Tokenizer,
         response: &mut dyn Formatter,
     ) -> Result<()> {
-        const MAX: f32 = 100.0;
-        const MIN: f32 = 0.0;
-        const DEFAULT: f32 = 0.0;
-        //Optional parameter (default value of 1.0f32), accepts volt suffix, accepts MIN/MAX/DEFault
-        let x: f32 = args
-            .next_data(true)?
-            .unwrap_or(Token::DecimalNumericProgramData(b"1"))
-            .numeric_range(DEFAULT, MIN, MAX)?;
+        let x: ElectricPotential = args.next_data(false)?.unwrap().try_into()?;
         response.header_data(b"VOLT")?;
-        response.f32_data(x)
+        response.f32_data(x.get::<volt>())
     }
 }
 
-/// # `[:EXAMple]:TYPe:NUMeric:RADian? [<NRf> [<suffix>] | <MAXimum|MINimum|DEFault>]`
+/// # `[:EXAMple]:TYPe:NUMeric:ANGLE? [<NRf> [<suffix>]]`
 /// Identical to `[:EXAMple]:TYPe:NUMeric[:DECimal]?` but accepts a angle suffix.
 ///
 /// Will return the given value as decimal response data.
-pub struct ExamTypNumRadCommand {}
-impl Command for ExamTypNumRadCommand {
+#[cfg(feature = "units")]
+pub struct ExamTypNumAngleCommand {}
+
+#[cfg(feature = "units")]
+impl Command for ExamTypNumAngleCommand {
     qonly!();
 
     fn query(
@@ -223,14 +227,14 @@ impl Command for ExamTypNumRadCommand {
         args: &mut Tokenizer,
         response: &mut dyn Formatter,
     ) -> Result<()> {
-        const DEFAULT: f32 = 0.0;
         //Optional parameter (default value of 1.0f32), accepts volt suffix, accepts MIN/MAX/DEFault
-        let x: f32 = args
-            .next_data(true)?
-            .unwrap_or(Token::DecimalNumericProgramData(b"1"))
-            .numeric_range(DEFAULT, -PI, PI)?;
+        let x: Angle = if let Some(t) = args.next_data(true)? {
+            t.try_into()?
+        } else {
+            Angle::new::<radian>(1.0f32)
+        };
         response.header_data(b"RADian")?;
-        response.f32_data(x)
+        response.f32_data(x.get::<radian>())
     }
 }
 
@@ -456,16 +460,18 @@ pub const TREE: &Node = scpi_tree![
                                 handler: Some(&ExamTypNumDecCommand {}),
                                 sub: None,
                             },
+                            #[cfg(feature = "units")]
                             Node {
                                 name: b"VOLT",
                                 optional: false,
                                 handler: Some(&ExamTypNumVoltCommand {}),
                                 sub: None,
                             },
+                            #[cfg(feature = "units")]
                             Node {
-                                name: b"RADian",
+                                name: b"ANGLE",
                                 optional: false,
-                                handler: Some(&ExamTypNumRadCommand {}),
+                                handler: Some(&ExamTypNumAngleCommand {}),
                                 sub: None,
                             },
                         ]),

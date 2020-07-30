@@ -84,6 +84,8 @@ extern crate scpi_derive;
 extern crate arraydeque;
 extern crate arrayvec;
 extern crate lexical_core;
+#[cfg(any(feature = "unit-any"))]
+pub extern crate uom;
 
 pub mod command;
 pub mod error;
@@ -104,6 +106,30 @@ pub mod prelude {
     pub use crate::tokenizer::{Token, Tokenizer};
     pub use crate::tree::Node;
     pub use crate::{Context, Device};
+    #[cfg(any(
+        feature = "unit-length",
+        feature = "unit-velocity",
+        feature = "unit-acceleration",
+        feature = "unit-electric-potential",
+        feature = "unit-electric-current",
+        feature = "unit-electric-conductance",
+        feature = "unit-electric-resistance",
+        feature = "unit-electric-charge",
+        feature = "unit-electric-capacitance",
+        feature = "unit-electric-inductance",
+        feature = "unit-energy",
+        feature = "unit-power",
+        feature = "unit-angle",
+        feature = "unit-amount-of-substance",
+        feature = "unit-magnetic-flux",
+        feature = "unit-magnetic-flux-density",
+        feature = "unit-ratio",
+        feature = "unit-temperature",
+        feature = "unit-time",
+        feature = "unit-pressure",
+        feature = "unit-volume"
+    ))]
+    pub use uom;
 }
 
 use crate::error::{Error, ErrorCode, ErrorQueue, Result};

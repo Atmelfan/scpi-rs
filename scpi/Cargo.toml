@@ -23,6 +23,19 @@ lexical-core = { version="0.7", features=["radix"], default-features=false }
 arraydeque = { version = "0.4", default-features = false }
 arrayvec = { version = "0.5.1", default-features=false }
 
+[dependencies.uom]
+version = "0.28.0"
+default-features = false
+optional = true
+features = [
+    "autoconvert",
+    "usize", "u8", "u16", "u32", "u64", "u128",
+    "isize", "i8", "i16", "i32", "i64", "i128",
+    "f32",
+    "si",
+    "try-from"
+]
+
 [features]
 default = []
 
@@ -33,7 +46,56 @@ extended-error = []
 arbitrary-utf8-string = []
 
 # Support reading f64 data and use it when converting decimal to integer
-f64-support = []
+f64-support = ["uom/f64"]
+
+# Units
+unit-all = [
+    "unit-length",
+    "unit-velocity",
+    "unit-acceleration",
+    "unit-electric-potential",
+    "unit-electric-current",
+    "unit-electric-conductance",
+    "unit-electric-resistance",
+    "unit-electric-charge",
+    "unit-electric-capacitance",
+    "unit-electric-inductance",
+    "unit-energy",
+    "unit-power",
+    "unit-angle",
+    "unit-amount-of-substance",
+    "unit-magnetic-flux",
+    "unit-magnetic-flux-density",
+    "unit-ratio",
+    "unit-temperature",
+    "unit-time",
+    "unit-pressure",
+    "unit-volume"
+]
+
+# Individual units
+unit-length = ["uom"]
+unit-velocity = ["uom"]
+unit-acceleration = ["uom"]
+unit-electric-potential = ["uom"]
+unit-electric-current = ["uom"]
+unit-electric-conductance = ["uom"]
+unit-electric-resistance = ["uom"]
+unit-electric-charge = ["uom"]
+unit-electric-capacitance = ["uom"]
+unit-electric-inductance = ["uom"]
+unit-energy = ["uom"]
+unit-power = ["uom"]
+unit-angle = ["uom"]
+unit-amount-of-substance = ["uom"]
+unit-magnetic-flux = ["uom"]
+unit-magnetic-flux-density = ["uom"]
+unit-ratio = ["uom"]
+unit-temperature = ["uom"]
+unit-time = ["uom"]
+unit-pressure = ["uom"]
+unit-volume = ["uom"]
+
 
 
 
