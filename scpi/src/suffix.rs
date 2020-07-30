@@ -329,7 +329,41 @@ try_from_unit![Volume, liter, f32;
     b"MM3" => cubic_millimeter
 ];
 
-#[cfg(test)]
+#[cfg(all(feature = "unit-length", test))]
 mod test_suffix {
+
     extern crate std;
+
+    use crate::error::{Error, ErrorCode};
+    use crate::tokenizer::Token;
+    use core::convert::TryInto;
+    use uom::si::f32::*;
+    use uom::si::length::meter;
+
+    #[test]
+    fn test_suffix_correct() {
+        let l: Length = Token::DecimalNumericSuffixProgramData(b"1.0", b"M")
+            .try_into()
+            .unwrap();
+        assert_eq!(l.get::<meter>(), 1.0f32)
+    }
+
+    #[test]
+    fn test_suffix_missmatch() {
+        let l: Result<Length, Error> =
+            Token::DecimalNumericSuffixProgramData(b"1.0", b"S").try_into();
+        assert_eq!(l, Err(Error::from(ErrorCode::IllegalParameterValue)))
+    }
+
+    #[test]
+    fn test_suffix_datatype() {
+        let l: Result<Length, Error> = Token::StringProgramData(b"STRING").try_into();
+        assert_eq!(l, Err(Error::from(ErrorCode::DataTypeError)))
+    }
+
+    #[test]
+    fn test_suffix_default() {
+        let l: Length = Token::DecimalNumericProgramData(b"1.0").try_into().unwrap();
+        assert_eq!(l.get::<meter>(), 1.0f32)
+    }
 }

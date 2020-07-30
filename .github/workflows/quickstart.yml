@@ -56,11 +56,10 @@ jobs:
         with:
           command: test
 
-      - name: Run cargo test feature 'extended-error' in scpi crate
+      - name: Run cargo test with all features
         uses: actions-rs/cargo@v1
         with:
-          command: test
-          args: --manifest-path=scpi/Cargo.toml --features extended-error
+          command: test --all-features
 
   lints:
     name: Lints
