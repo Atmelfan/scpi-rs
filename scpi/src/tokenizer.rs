@@ -1,9 +1,9 @@
 use crate::error::{Error, ErrorCode};
+use crate::{Arbitrary, Character, NumericValues};
 
 use core::slice::Iter;
 use core::str;
 
-use crate::error;
 use core::convert::TryFrom;
 
 use crate::expression::{channel_list, numeric_list};
@@ -32,21 +32,6 @@ pub enum Token<'a> {
     ArbitraryBlockData(&'a [u8]),
     ExpressionProgramData(&'a [u8]),
     Utf8BlockData(&'a str),
-}
-
-pub enum NumericValues<'a> {
-    /// `MAXimum`
-    Maximum,
-    /// `MINimum`
-    Minimum,
-    /// `DEFault`
-    Default,
-    /// `UP`
-    Up,
-    /// `DOWN`
-    Down,
-    /// Number
-    Numeric(Token<'a>),
 }
 
 impl<'a> Token<'a> {
@@ -165,7 +150,7 @@ impl<'a> Token<'a> {
     /// # Example
     /// ```
     /// use scpi::tokenizer::Token;
-    /// use scpi::tokenizer::NumericValues;
+    /// use scpi::NumericValues;
     /// use scpi::error::ErrorCode;
     /// let  s = Token::CharacterProgramData(b"MAXimum");
     ///
@@ -185,7 +170,7 @@ impl<'a> Token<'a> {
     /// ```
     ///
     ///
-    pub fn numeric<F, R: TryFrom<Token<'a>, Error = error::Error>>(self, num: F) -> Result<R, Error>
+    pub fn numeric<F, R: TryFrom<Token<'a>, Error = Error>>(self, num: F) -> Result<R, Error>
     where
         F: FnOnce(NumericValues) -> Result<R, Error>,
     {
@@ -196,6 +181,7 @@ impl<'a> Token<'a> {
                 x if Token::mnemonic_compare(b"DEFault", x) => num(NumericValues::Default),
                 x if Token::mnemonic_compare(b"UP", x) => num(NumericValues::Up),
                 x if Token::mnemonic_compare(b"DOWN", x) => num(NumericValues::Down),
+                x if Token::mnemonic_compare(b"AUTO", x) => num(NumericValues::Auto),
                 _ => <R>::try_from(self),
             },
             _ => <R>::try_from(self),
@@ -203,7 +189,7 @@ impl<'a> Token<'a> {
     }
 
     ///
-    pub fn numeric_range<R: TryFrom<Token<'a>, Error = error::Error>>(
+    pub fn numeric_range<R: TryFrom<Token<'a>, Error = Error>>(
         self,
         default: R,
         min: R,
@@ -233,7 +219,7 @@ impl<'a> Token<'a> {
 /// * `Err(DataTypeError)` - If data is not a string.
 /// * `Err(SyntaxError)` - If token is not data
 impl<'a> TryFrom<Token<'a>> for &'a [u8] {
-    type Error = error::Error;
+    type Error = Error;
 
     fn try_from(value: Token<'a>) -> Result<&'a [u8], Self::Error> {
         match value {
@@ -241,7 +227,48 @@ impl<'a> TryFrom<Token<'a>> for &'a [u8] {
             Token::NonDecimalNumericProgramData(_)
             | Token::DecimalNumericProgramData(_)
             | Token::ArbitraryBlockData(_)
+            | Token::DecimalNumericSuffixProgramData(_, _)
             | Token::CharacterProgramData(_) => Err(ErrorCode::DataTypeError.into()),
+            _ => Err(ErrorCode::SyntaxError.into()),
+        }
+    }
+}
+
+/// Convert string data data into a boolean.
+///
+/// # Returns
+/// * `Ok(bool)` - If data is character data matching `ON|OFF` or numeric `1|0`.
+/// * `Err(IllegalParameterValue)` - If data is character data or numeric but is not a boolean
+/// * `Err(DataTypeError)` - If data is not a character data or numeric.
+/// * `Err(SyntaxError)` - If token is not data.
+impl<'a> TryFrom<Token<'a>> for bool {
+    type Error = Error;
+
+    fn try_from(value: Token<'a>) -> Result<bool, Self::Error> {
+        match value {
+            Token::DecimalNumericProgramData(s) => {
+                if s.eq_ignore_ascii_case(b"1") {
+                    Ok(true)
+                } else if s.eq_ignore_ascii_case(b"0") {
+                    Ok(false)
+                } else {
+                    Err(ErrorCode::IllegalParameterValue.into())
+                }
+            }
+            Token::CharacterProgramData(s) => {
+                if s.eq_ignore_ascii_case(b"ON") {
+                    Ok(true)
+                } else if s.eq_ignore_ascii_case(b"OFF") {
+                    Ok(false)
+                } else {
+                    Err(ErrorCode::IllegalParameterValue.into())
+                }
+            }
+            Token::StringProgramData(_)
+            | Token::Utf8BlockData(_)
+            | Token::NonDecimalNumericProgramData(_)
+            | Token::DecimalNumericSuffixProgramData(_, _)
+            | Token::ArbitraryBlockData(_) => Err(ErrorCode::DataTypeError.into()),
             _ => Err(ErrorCode::SyntaxError.into()),
         }
     }
@@ -254,7 +281,7 @@ impl<'a> TryFrom<Token<'a>> for &'a [u8] {
 /// * `Err(DataTypeError)` - If data is not a string.
 /// * `Err(SyntaxError)` - If token is not data
 impl<'a> TryFrom<Token<'a>> for &'a str {
-    type Error = error::Error;
+    type Error = Error;
 
     fn try_from(value: Token<'a>) -> Result<&'a str, Self::Error> {
         match value {
@@ -271,11 +298,8 @@ impl<'a> TryFrom<Token<'a>> for &'a str {
     }
 }
 
-/// Arbitrary data
-pub struct Arbitrary<'a>(pub &'a [u8]);
-
 impl<'a> TryFrom<Token<'a>> for Arbitrary<'a> {
-    type Error = error::Error;
+    type Error = Error;
 
     fn try_from(value: Token<'a>) -> Result<Arbitrary<'a>, Self::Error> {
         match value {
@@ -291,11 +315,8 @@ impl<'a> TryFrom<Token<'a>> for Arbitrary<'a> {
     }
 }
 
-/// Character data
-pub struct Character<'a>(pub &'a [u8]);
-
 impl<'a> TryFrom<Token<'a>> for Character<'a> {
-    type Error = error::Error;
+    type Error = Error;
 
     fn try_from(value: Token<'a>) -> Result<Character<'a>, Self::Error> {
         match value {
@@ -314,7 +335,7 @@ impl<'a> TryFrom<Token<'a>> for Character<'a> {
 macro_rules! impl_tryfrom_float {
     ($from:ty) => {
         impl<'a> TryFrom<Token<'a>> for $from {
-            type Error = error::Error;
+            type Error = Error;
 
             fn try_from(value: Token) -> Result<Self, Self::Error> {
                 match value {
@@ -351,16 +372,14 @@ macro_rules! impl_tryfrom_float {
     };
 }
 
-#[cfg(feature = "f32")]
 impl_tryfrom_float!(f32);
-#[cfg(feature = "f64")]
 impl_tryfrom_float!(f64);
 
 // TODO: Shitty way of rounding integers
 macro_rules! impl_tryfrom_integer {
     ($from:ty, $intermediate:ty) => {
         impl<'a> TryFrom<Token<'a>> for $from {
-            type Error = error::Error;
+            type Error = Error;
 
             fn try_from(value: Token) -> Result<Self, Self::Error> {
                 #[allow(unused_imports)]

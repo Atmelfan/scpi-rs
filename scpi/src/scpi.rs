@@ -181,12 +181,10 @@ impl EventRegister {
 ///
 ///
 pub mod commands {
-    use crate::command::{Command, CommandTypeMeta};
-    use crate::error::{ErrorCode, Result};
-    use crate::response::Formatter;
-    use crate::tokenizer::Tokenizer;
-    use crate::Context;
+    use crate::error::Result;
+    use crate::prelude::*;
     use crate::{nquery, qonly};
+
     use core::convert::TryInto;
 
     ///## 21.8.8 \[NEXT\]?
@@ -202,10 +200,10 @@ pub mod commands {
             &self,
             context: &mut Context,
             _args: &mut Tokenizer,
-            response: &mut dyn Formatter,
+            response: &mut ResponseUnit,
         ) -> Result<()> {
             //Always return first error (NoError if empty)
-            response.error(context.errors.pop_front_error())
+            response.data(context.errors.pop_front_error()).finish()
         }
     }
 
@@ -224,10 +222,10 @@ pub mod commands {
             &self,
             context: &mut Context,
             _args: &mut Tokenizer,
-            response: &mut dyn Formatter,
+            response: &mut ResponseUnit,
         ) -> Result<()> {
             //Always return first error (NoError if empty)
-            response.usize_data(context.errors.len())
+            response.data(context.errors.len()).finish()
         }
     }
 
@@ -244,20 +242,16 @@ pub mod commands {
             &self,
             context: &mut Context,
             _args: &mut Tokenizer,
-            response: &mut dyn Formatter,
+            response: &mut ResponseUnit,
         ) -> Result<()> {
             //Always return first error (NoError if empty)
-            let first = context.errors.pop_front_error();
-            response.error(first)?;
             loop {
-                let err = context.errors.pop_front_error();
-                if err == ErrorCode::NoError {
-                    break;
+                let error = context.errors.pop_front_error();
+                if error == ErrorCode::NoError {
+                    break response.finish();
                 }
-                response.separator()?;
-                response.error(err)?;
+                response.data(error);
             }
-            Ok(())
         }
     }
 
@@ -271,6 +265,14 @@ pub mod commands {
         pub rev: u8,
     }
 
+    impl Data for &SystVersCommand {
+        fn format_response_data(&self, formatter: &mut dyn Formatter) -> Result<()> {
+            self.year.format_response_data(formatter)?;
+            formatter.push_byte(b'.')?;
+            self.rev.format_response_data(formatter)
+        }
+    }
+
     impl Command for SystVersCommand {
         qonly!();
 
@@ -278,12 +280,9 @@ pub mod commands {
             &self,
             _context: &mut Context,
             _args: &mut Tokenizer,
-            response: &mut dyn Formatter,
+            response: &mut ResponseUnit,
         ) -> Result<()> {
-            //Return {year}.{rev}
-            response.u16_data(self.year)?;
-            response.ascii_data(b".")?;
-            response.u8_data(self.rev)
+            response.data(self).finish()
         }
     }
 
@@ -304,12 +303,11 @@ pub mod commands {
             &self,
             context: &mut Context,
             _args: &mut Tokenizer,
-            response: &mut dyn Formatter,
+            response: &mut ResponseUnit,
         ) -> Result<()> {
-            //Always return first error (NoError if empty)
-            response.u16_data(context.operation.event & 0x7FFFu16)?;
-            context.operation.event = 0;
-            Ok(())
+            response
+                .data(core::mem::replace(&mut context.operation.event, 0) & 0x7FFFu16)
+                .finish()
         }
     }
 
@@ -326,10 +324,11 @@ pub mod commands {
             &self,
             context: &mut Context,
             _args: &mut Tokenizer,
-            response: &mut dyn Formatter,
+            response: &mut ResponseUnit,
         ) -> Result<()> {
-            //Always return first error (NoError if empty)
-            response.u16_data(context.operation.condition & 0x7FFFu16)
+            response
+                .data(context.operation.condition & 0x7FFFu16)
+                .finish()
         }
     }
 
@@ -356,9 +355,9 @@ pub mod commands {
             &self,
             context: &mut Context,
             _args: &mut Tokenizer,
-            response: &mut dyn Formatter,
+            response: &mut ResponseUnit,
         ) -> Result<()> {
-            response.u16_data(context.operation.enable & 0x7FFFu16)
+            response.data(context.operation.enable & 0x7FFFu16).finish()
         }
     }
 
@@ -385,9 +384,11 @@ pub mod commands {
             &self,
             context: &mut Context,
             _args: &mut Tokenizer,
-            response: &mut dyn Formatter,
+            response: &mut ResponseUnit,
         ) -> Result<()> {
-            response.u16_data(context.operation.ntr_filter & 0x7FFFu16)
+            response
+                .data(context.operation.ntr_filter & 0x7FFFu16)
+                .finish()
         }
     }
 
@@ -414,9 +415,11 @@ pub mod commands {
             &self,
             context: &mut Context,
             _args: &mut Tokenizer,
-            response: &mut dyn Formatter,
+            response: &mut ResponseUnit,
         ) -> Result<()> {
-            response.u16_data(context.operation.ptr_filter & 0x7FFFu16)
+            response
+                .data(context.operation.ptr_filter & 0x7FFFu16)
+                .finish()
         }
     }
 
@@ -432,12 +435,11 @@ pub mod commands {
             &self,
             context: &mut Context,
             _args: &mut Tokenizer,
-            response: &mut dyn Formatter,
+            response: &mut ResponseUnit,
         ) -> Result<()> {
-            //Always return first error (NoError if empty)
-            response.u16_data(context.questionable.event & 0x7FFFu16)?;
-            context.questionable.event = 0;
-            Ok(())
+            response
+                .data(core::mem::replace(&mut context.questionable.event, 0) & 0x7FFFu16)
+                .finish()
         }
     }
 
@@ -453,10 +455,12 @@ pub mod commands {
             &self,
             context: &mut Context,
             _args: &mut Tokenizer,
-            response: &mut dyn Formatter,
+            response: &mut ResponseUnit,
         ) -> Result<()> {
             //Always return first error (NoError if empty)
-            response.u16_data(context.questionable.condition & 0x7FFFu16)
+            response
+                .data(context.questionable.condition & 0x7FFFu16)
+                .finish()
         }
     }
 
@@ -475,9 +479,11 @@ pub mod commands {
             &self,
             context: &mut Context,
             _args: &mut Tokenizer,
-            response: &mut dyn Formatter,
+            response: &mut ResponseUnit,
         ) -> Result<()> {
-            response.u16_data(context.questionable.enable & 0x7FFFu16)
+            response
+                .data(context.questionable.enable & 0x7FFFu16)
+                .finish()
         }
     }
 
@@ -496,9 +502,11 @@ pub mod commands {
             &self,
             context: &mut Context,
             _args: &mut Tokenizer,
-            response: &mut dyn Formatter,
+            response: &mut ResponseUnit,
         ) -> Result<()> {
-            response.u16_data(context.questionable.ntr_filter & 0x7FFFu16)
+            response
+                .data(context.questionable.ntr_filter & 0x7FFFu16)
+                .finish()
         }
     }
 
@@ -517,9 +525,11 @@ pub mod commands {
             &self,
             context: &mut Context,
             _args: &mut Tokenizer,
-            response: &mut dyn Formatter,
+            response: &mut ResponseUnit,
         ) -> Result<()> {
-            response.u16_data(context.questionable.ptr_filter & 0x7FFFu16)
+            response
+                .data(context.questionable.ptr_filter & 0x7FFFu16)
+                .finish()
         }
     }
 

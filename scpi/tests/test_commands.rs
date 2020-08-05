@@ -110,9 +110,9 @@ impl Command for QueryCommand {
         &self,
         _context: &mut Context,
         _args: &mut Tokenizer,
-        response: &mut dyn Formatter,
+        response: &mut ResponseUnit,
     ) -> Result<()> {
-        response.i32_data(0i32)
+        response.data(0i32).finish()
     }
 }
 
@@ -374,6 +374,7 @@ fn test_syst_err() {
     });
     execute_str!(ctx, b"*err -100;*err -200;syst:err:count?;all?" => result, response {
         assert_eq!(result, Ok(()));
+        println!("{:?}\n{:?}",b"2;-100,\"Command error\",-200,\"Execution error\"\n", response);
         assert_eq!(response.eq_ignore_ascii_case(b"2;-100,\"Command error\",-200,\"Execution error\"\n"), true);
     });
 }

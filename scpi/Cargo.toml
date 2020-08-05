@@ -111,6 +111,7 @@ unit-temperature = ["uom"]
 unit-time = ["uom"]
 unit-pressure = ["uom"]
 unit-volume = ["uom"]
+unit-frequency = ["uom"]
 
 
 

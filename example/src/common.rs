@@ -1,9 +1,10 @@
 use scpi::error::Result;
 use scpi::expression::numeric_list;
 use scpi::prelude::*;
-use scpi::tokenizer::Arbitrary;
+use scpi::{Arbitrary, NumericValues};
 
 //Default commands
+use core::convert::{TryFrom, TryInto};
 use scpi::ieee488::commands::*;
 use scpi::scpi::commands::*;
 use scpi::{
@@ -24,14 +25,16 @@ use scpi::{
     scpi_status,
     scpi_system,
     scpi_tree,
+    Character,
 };
-use std::convert::TryInto;
 
 use git_version::git_version;
-use uom::si::angle::radian;
+use scpi::suffix::{Amplitude, Db};
+use uom::si::angle::{degree, radian};
 use uom::si::electric_potential::volt;
-use uom::si::f32;
+use uom::si::power::watt;
 use uom::si::ratio::ratio;
+use uom::si::{f32, f64};
 
 const GIT_VERSION: &[u8] = git_version!().as_bytes();
 
@@ -49,9 +52,9 @@ impl Command for HelloWorldCommand {
         &self,
         _context: &mut Context,
         _args: &mut Tokenizer,
-        response: &mut dyn Formatter,
+        response: &mut ResponseUnit,
     ) -> Result<()> {
-        response.str_data(b"Hello world")
+        response.data(b"Hello world" as &[u8]).finish()
     }
 }
 
@@ -120,16 +123,16 @@ impl Command for ExamNodeDefCommand {
         &self,
         _context: &mut Context,
         _args: &mut Tokenizer,
-        response: &mut dyn Formatter,
+        response: &mut ResponseUnit,
     ) -> Result<()> {
-        response.ascii_data(b"DEFault")
+        response.data(Character(b"DEFault")).finish()
     }
 }
 
 /// # `[:EXAMple]:NODE:ARGuments`
 /// Accepts no arguments
 ///
-/// # `[:EXAMple]:NODE:ARGuments? <NRf> | <non-decimal numeric> [, <string>]`
+/// # `[:EXAMple]:NODE:ARGuments? <NRf> | <non-decimal numeric> [, <string> [, <string> | <arbitrary data>]]`
 /// Has one required and one optional argument.
 ///
 pub struct ExamNodeArgCommand {}
@@ -142,19 +145,17 @@ impl Command for ExamNodeArgCommand {
         &self,
         _context: &mut Context,
         args: &mut Tokenizer,
-        response: &mut dyn Formatter,
+        response: &mut ResponseUnit,
     ) -> Result<()> {
         let x: u8 = args.next_data(false)?.unwrap().try_into()?;
 
         let s: &[u8] = args
             .next_data(true)?
-            .unwrap_or(Token::StringProgramData(b"DEFault"))
-            .try_into()?;
+            .map_or(Ok(b"default" as &[u8]), |t| t.try_into())?;
 
-        response.u8_data(x)?;
-        response.separator()?;
-        response.str_data(s)?;
-        Ok(())
+        let utf8: &str = args.next_data(true)?.map_or(Ok("💩"), |t| t.try_into())?;
+
+        response.data(x).data(s).data(utf8).finish()
     }
 }
 
@@ -171,17 +172,53 @@ impl Command for ExamTypNumDecCommand {
         &self,
         _context: &mut Context,
         args: &mut Tokenizer,
-        response: &mut dyn Formatter,
+        response: &mut ResponseUnit,
     ) -> Result<()> {
-        const MAX: f32 = 100.0;
-        const MIN: f32 = 0.0;
-        const DEFAULT: f32 = 0.0;
-        //Optional value which also accepts MINimum/MAXimum/DEFault
-        let x: f32 = args
+        let x: Db<f32, f32::Power> = args
             .next_data(true)?
-            .unwrap_or(Token::DecimalNumericProgramData(b"100"))
-            .numeric_range(DEFAULT, MIN, MAX)?;
-        response.f32_data(x)
+            .map_or(Ok(Db::None(0.0)), |t| t.try_into())?;
+        let l: f32::Power = match x {
+            // No suffix was given
+            Db::None(f) => f32::Power::new::<watt>(f),
+            // A linear prefix was given
+            Db::Linear(v) => v,
+            // A logarithmic 'DB' suffix was given
+            Db::Logarithmic(d, v) => f32::Ratio::new::<ratio>(10.0f32.powf(d / 10.0)) * v,
+        };
+        response.header(b"WATT").data(l.get::<watt>()).finish()
+    }
+}
+
+/// # `[:EXAMple]:TYPe:NUMeric:WATT? [<NRf> | <MAXimum|MINimum|DEFault>]`
+/// Example of a numeric data object, accepts a decimal value or a character data object.
+///
+/// Will return the given value as decimal response data.
+pub struct ExamTypNumWattCommand {}
+impl Command for ExamTypNumWattCommand {
+    qonly!();
+
+    fn query(
+        &self,
+        _context: &mut Context,
+        args: &mut Tokenizer,
+        response: &mut ResponseUnit,
+    ) -> Result<()> {
+        let x: Db<f32, f32::Power> = args.next_data(true)?.map_or(Ok(Db::None(0.0)), |t| {
+            t.numeric(|s| match s {
+                NumericValues::Maximum => Ok(Db::Linear(f32::Power::new::<watt>(f32::MAX))),
+                NumericValues::Minimum => Ok(Db::Linear(f32::Power::new::<watt>(f32::MIN))),
+                _ => Err(ErrorCode::IllegalParameterValue.into()),
+            })
+        })?;
+        let l: f32::Power = match x {
+            // No suffix was given, assume linear
+            Db::None(f) => f32::Power::new::<watt>(f),
+            // A linear prefix was given
+            Db::Linear(v) => v,
+            // A logarithmic 'DB' suffix was given
+            Db::Logarithmic(d, v) => f32::Ratio::new::<ratio>(10.0f32.powf(d / 10.0)) * v,
+        };
+        response.header(b"WATT").data(l.get::<watt>()).finish()
     }
 }
 
@@ -198,12 +235,56 @@ impl Command for ExamTypNumVoltCommand {
         &self,
         _context: &mut Context,
         args: &mut Tokenizer,
-        response: &mut dyn Formatter,
+        response: &mut ResponseUnit,
     ) -> Result<()> {
-        let x: f32::ElectricPotential = args.next_data(false)?.unwrap().try_into()?;
-        let dac = (x / f32::ElectricPotential::new::<volt>(2.5)) * f32::Ratio::new::<ratio>(4095.0);
-        response.header_data(b"DAC")?;
-        response.u16_data(dac.get::<ratio>().round() as u16)
+        fn db_to_volt(db: Db<f32, f32::ElectricPotential>) -> f32::ElectricPotential {
+            match db {
+                // No suffix was given, don't know if it's log or linear
+                Db::None(f) => f32::ElectricPotential::new::<volt>(f),
+                // A linear prefix was given
+                Db::Linear(v) => v,
+                // A logarithmic 'DB' suffix was given
+                Db::Logarithmic(d, lp) => f32::Ratio::new::<ratio>(10.0f32.powf(d / 10.0)) * lp,
+            }
+        }
+
+        let max_value = f32::ElectricPotential::new::<volt>(10.0);
+        let min_value = f32::ElectricPotential::new::<volt>(0.0);
+
+        let x: Amplitude<Db<f32, f32::ElectricPotential>> =
+            args.next_data(true)?
+                .map_or(Ok(Amplitude::None(Db::None(0.0))), |t| {
+                    t.numeric(|s| match s {
+                        //MAX = 10Vpk
+                        NumericValues::Maximum => Ok(Amplitude::Peak(Db::Linear(max_value))),
+                        //MIN = 0Vpk
+                        NumericValues::Minimum => Ok(Amplitude::Peak(Db::Linear(min_value))),
+                        //DEFault = 1Vrms
+                        NumericValues::Default => {
+                            Ok(Amplitude::Rms(Db::Linear(f32::ElectricPotential::new::<
+                                volt,
+                            >(
+                                1.0
+                            ))))
+                        }
+                        //other special values invalid
+                        _ => Err(ErrorCode::IllegalParameterValue.into()),
+                    })
+                })?;
+        let vpk: f32::ElectricPotential = match x {
+            Amplitude::None(x) | Amplitude::Peak(x) => db_to_volt(x),
+            Amplitude::PeakToPeak(x) => db_to_volt(x) * f32::Ratio::new::<ratio>(2.0),
+            Amplitude::Rms(x) => db_to_volt(x) * f32::Ratio::new::<ratio>(2.0f32.sqrt()),
+        };
+        if vpk > max_value || vpk < min_value {
+            return Err(ErrorCode::DataOutOfRange.into());
+        }
+
+        response
+            .header(b"VOLT")
+            .header(b"PEAK")
+            .data(vpk.get::<volt>())
+            .finish()
     }
 }
 
@@ -220,16 +301,20 @@ impl Command for ExamTypNumAngleCommand {
         &self,
         _context: &mut Context,
         args: &mut Tokenizer,
-        response: &mut dyn Formatter,
+        response: &mut ResponseUnit,
     ) -> Result<()> {
         //Optional parameter (default value of 1.0f32), accepts volt suffix, accepts MIN/MAX/DEFault
-        let x: f32::Angle = if let Some(t) = args.next_data(true)? {
-            t.try_into()?
-        } else {
-            f32::Angle::new::<radian>(1.0f32)
-        };
-        response.header_data(b"RADian")?;
-        response.f32_data(x.get::<radian>())
+        // Unfortunately doesn't work with Amplitude<> or Db<>
+        let x: f64::Angle =
+            args.next_data(true)?
+                .map_or(Ok(f64::Angle::new::<radian>(1.0)), |t| {
+                    t.numeric_range(
+                        f64::Angle::new::<degree>(1.0),
+                        f64::Angle::new::<degree>(0.0),
+                        f64::Angle::new::<degree>(380.0),
+                    )
+                })?;
+        response.header(b"RADian").data(x.get::<radian>()).finish()
     }
 }
 
@@ -245,14 +330,13 @@ impl Command for ExamTypStrCommand {
         &self,
         _context: &mut Context,
         args: &mut Tokenizer,
-        response: &mut dyn Formatter,
+        response: &mut ResponseUnit,
     ) -> Result<()> {
         let s: &[u8] = args
             .next_data(true)?
             .unwrap_or(Token::StringProgramData(b"DEFault"))
             .try_into()?;
-        response.str_data(s)?;
-        Ok(())
+        response.data(s).finish()
     }
 }
 
@@ -268,13 +352,13 @@ impl Command for ExamTypArbCommand {
         &self,
         _context: &mut Context,
         args: &mut Tokenizer,
-        response: &mut dyn Formatter,
+        response: &mut ResponseUnit,
     ) -> Result<()> {
         let arb: Arbitrary = args
             .next_data(true)?
             .unwrap_or(Token::ArbitraryBlockData(&[0u8, 1u8, 2u8]))
             .try_into()?;
-        response.arb_data(arb)
+        response.data(arb).finish()
     }
 }
 
@@ -289,7 +373,7 @@ impl Command for ExamTypListChanCommand {
         &self,
         _context: &mut Context,
         _args: &mut Tokenizer,
-        _response: &mut dyn Formatter,
+        _response: &mut ResponseUnit,
     ) -> Result<()> {
         //TODO: Implement this
         todo!()
@@ -308,29 +392,22 @@ impl Command for ExamTypListNumCommand {
         &self,
         _context: &mut Context,
         args: &mut Tokenizer,
-        response: &mut dyn Formatter,
+        response: &mut ResponseUnit,
     ) -> Result<()> {
         let list = args.next_data(false)?.unwrap();
         let numbers = list.numeric_list()?;
-        let mut first = true;
         for item in numbers {
-            let item: numeric_list::Token = item?;
-            if !first {
-                response.separator()?;
-            }
-            first = false;
-            match item {
+            match item? {
                 numeric_list::Token::Numeric(a) => {
-                    response.f32_data(a.try_into()?)?;
+                    response.data(f32::try_from(a)?);
                 }
                 numeric_list::Token::NumericRange(a, b) => {
-                    response.f32_data(a.try_into()?)?;
-                    response.separator()?;
-                    response.f32_data(b.try_into()?)?;
+                    response.data(f32::try_from(a)?);
+                    response.data(f32::try_from(b)?);
                 }
             }
         }
-        Ok(())
+        response.finish()
     }
 }
 
@@ -453,6 +530,12 @@ pub const TREE: &Node = scpi_tree![
                                 name: b"DECimal",
                                 optional: true,
                                 handler: Some(&ExamTypNumDecCommand {}),
+                                sub: None,
+                            },
+                            Node {
+                                name: b"WATT",
+                                optional: false,
+                                handler: Some(&ExamTypNumWattCommand {}),
                                 sub: None,
                             },
                             Node {

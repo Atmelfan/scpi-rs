@@ -1,3 +1,9 @@
+#[allow(unused_imports)]
+use {
+    crate::{error::ErrorCode, tokenizer::Token},
+    core::convert::{TryFrom, TryInto},
+};
+
 #[cfg(any(
     feature = "unit-length",
     feature = "unit-velocity",
@@ -22,15 +28,7 @@
     feature = "unit-volume"
 ))]
 #[allow(unused_imports)]
-use {
-    crate::{error::ErrorCode, tokenizer::Token},
-    core::convert::{TryFrom, TryInto},
-    uom::{
-        num_traits::Num,
-        si::{f32::*, Units},
-        Conversion,
-    },
-};
+use uom::{num_traits::Num, si::Units, Conversion};
 
 #[cfg(feature = "unit-acceleration")]
 use uom::si::acceleration::{
@@ -101,16 +99,116 @@ use uom::si::velocity::{
 #[cfg(feature = "unit-volume")]
 use uom::si::volume::{cubic_meter, cubic_millimeter, liter, milliliter, Volume};
 
+#[cfg(feature = "unit-frequency")]
+use uom::si::frequency::{gigahertz, hertz, kilohertz, megahertz, Frequency};
+
+use crate::error::Error;
+
+/// A logarithmic or linear unit
+pub enum Db<V, UNIT> {
+    /// No suffix provided, unknown if linear or log
+    None(V),
+    /// Linear suffix provided
+    Linear(UNIT),
+    /// Log suffix provided
+    Logarithmic(V, UNIT),
+}
+
+/// Amplitude specifier (
+pub enum Amplitude<UNIT> {
+    /// No amplitude specifier
+    None(UNIT),
+    /// <UNIT>PK
+    Peak(UNIT),
+    /// <UNIT>PP
+    PeakToPeak(UNIT),
+    /// <UNIT>RMS
+    Rms(UNIT),
+}
+
+impl<'a, UNIT> TryFrom<Token<'a>> for Amplitude<UNIT>
+where
+    UNIT: TryFrom<Token<'a>, Error = Error>,
+{
+    type Error = Error;
+
+    fn try_from(value: Token<'a>) -> Result<Self, Self::Error> {
+        fn ends_with_ignore_ascii(str: &[u8], needle: &[u8]) -> bool {
+            let (m, n) = (str.len(), needle.len());
+            m >= n && needle.eq_ignore_ascii_case(&str[m - n..])
+        }
+
+        match value {
+            Token::DecimalNumericSuffixProgramData(num, s) if ends_with_ignore_ascii(s, b"PK") => {
+                Ok(Self::Peak(<UNIT>::try_from(
+                    Token::DecimalNumericSuffixProgramData(num, &s[..s.len() - 2]),
+                )?))
+            }
+            Token::DecimalNumericSuffixProgramData(num, s) if ends_with_ignore_ascii(s, b"PP") => {
+                Ok(Self::PeakToPeak(<UNIT>::try_from(
+                    Token::DecimalNumericSuffixProgramData(num, &s[..s.len() - 2]),
+                )?))
+            }
+            Token::DecimalNumericSuffixProgramData(num, s) if ends_with_ignore_ascii(s, b"RMS") => {
+                Ok(Self::Rms(<UNIT>::try_from(
+                    Token::DecimalNumericSuffixProgramData(num, &s[..s.len() - 3]),
+                )?))
+            }
+            _ => Ok(Self::None(<UNIT>::try_from(value)?)),
+        }
+    }
+}
+
 #[allow(unused_macros)]
-macro_rules! try_from_unit {
-    ($unit:ident, $base:ty; $($($suffix:literal)|+ => $subunit:ty),+) => {
-        impl<'a, U> TryFrom<Token<'a>> for $unit<U, V>
+macro_rules! try_from_db_unit {
+    ($conversion:path, $unit:ident; $($($suffix:literal)|+ => $subunit:ty),+) => {
+        impl<'a, U, V> TryFrom<Token<'a>> for Db<V,$unit<U, V>>
         where
             U: Units<V> + ?Sized,
+            V: Num + uom::Conversion<V> + TryFrom<Token<'a>,Error=Error>,
+            $unit<U, V>: TryFrom<Token<'a>,Error=Error>,
+            $(
+            $subunit: $conversion
+            ),+
         {
-            type Error = crate::error::Error;
+            type Error = Error;
 
-            fn try_from(value: Token) -> Result<Self, Self::Error> {
+            fn try_from(value: Token<'a>) -> Result<Self, Self::Error> {
+                if let Token::DecimalNumericProgramData(_) = value {
+                    Ok(Self::None(<V>::try_from(value)?))
+                } else if let Token::DecimalNumericSuffixProgramData(num, suffix) = value {
+                    match suffix {
+                        $(
+                        s if $(s.eq_ignore_ascii_case($suffix))||+ => Ok(Self::Logarithmic(
+                            <V>::try_from(Token::DecimalNumericProgramData(num))?,
+                            <$unit<U,V>>::new::<$subunit>(V::one())
+                        ))
+                        ),+,
+                        _ => Ok(Self::Linear(<$unit<U, V>>::try_from(value)?))
+                    }
+                } else {
+                    Err(ErrorCode::DataTypeError.into())
+                }
+            }
+        }
+    };
+}
+
+#[allow(unused_macros)]
+macro_rules! try_from_unit {
+    ($conversion:path, $unit:ident, $base:ty; $($($suffix:literal)|+ => $subunit:ty),+) => {
+        impl<'a, U, V> TryFrom<Token<'a>> for $unit<U, V>
+        where
+            U: Units<V> + ?Sized,
+            V: Num + uom::Conversion<V> + TryFrom<Token<'a>,Error=Error>,
+            $base: $conversion,
+            $(
+            $subunit: $conversion
+            ),+
+        {
+            type Error = Error;
+
+            fn try_from(value: Token<'a>) -> Result<Self, Self::Error> {
                 if let Token::DecimalNumericProgramData(_) = value {
                     Ok($unit::new::<$base>(<V>::try_from(value)?))
                 } else if let Token::DecimalNumericSuffixProgramData(num, suffix) = value
@@ -132,7 +230,7 @@ macro_rules! try_from_unit {
 }
 
 #[cfg(feature = "unit-length")]
-try_from_unit![Length, meter;
+try_from_unit![uom::si::length::Conversion<V>, Length, meter;
     b"KM" => kilometer,
     b"M" => meter,
     b"MM" => millimeter,
@@ -149,7 +247,7 @@ try_from_unit![Length, meter;
 ];
 
 #[cfg(feature = "unit-velocity")]
-try_from_unit![Velocity, meter_per_second;
+try_from_unit![uom::si::velocity::Conversion<V>, Velocity, meter_per_second;
     b"KM/S"|b"KM.S-1" => kilometer_per_second,
     b"KMH"|b"KM/HR"|b"KM.HR-1" => kilometer_per_hour,
     b"M/S"|b"M.S-1" => meter_per_second,
@@ -163,7 +261,7 @@ try_from_unit![Velocity, meter_per_second;
 ];
 
 #[cfg(feature = "unit-acceleration")]
-try_from_unit![Acceleration, meter_per_second_squared;
+try_from_unit![uom::si::acceleration::Conversion<V>, Acceleration, meter_per_second_squared;
     b"KM/S2"|b"KM.S-2" => kilometer_per_second_squared,
     b"M/S2"|b"M.S-2" => meter_per_second_squared,
     b"MM/S2"|b"MM.S-2" => millimeter_per_second_squared,
@@ -171,15 +269,22 @@ try_from_unit![Acceleration, meter_per_second_squared;
 ];
 
 #[cfg(feature = "unit-electric-potential")]
-try_from_unit![ElectricPotential, volt;
+try_from_unit![uom::si::electric_potential::Conversion<V>, ElectricPotential, volt;
     b"KV" => kilovolt,
     b"V" => volt,
     b"MV" => millivolt,
     b"UV" => microvolt
 ];
 
+#[cfg(feature = "unit-electric-potential")]
+try_from_db_unit![uom::si::electric_potential::Conversion<V>, ElectricPotential;
+    b"DBV" => volt,
+    b"DBMV" => millivolt,
+    b"DBUV" => microvolt
+];
+
 #[cfg(feature = "unit-electric-current")]
-try_from_unit![ElectricCurrent, ampere;
+try_from_unit![uom::si::electric_current::Conversion<V>, ElectricCurrent, ampere;
     b"KA" => kiloampere,
     b"A" => ampere,
     b"MA" => milliampere,
@@ -187,8 +292,15 @@ try_from_unit![ElectricCurrent, ampere;
     b"NA" => nanoampere
 ];
 
+#[cfg(feature = "unit-electric-current")]
+try_from_db_unit![uom::si::electric_current::Conversion<V>, ElectricCurrent;
+    b"DBA" => ampere,
+    b"DBMA" => milliampere,
+    b"DBUA" => microampere
+];
+
 #[cfg(feature = "unit-electric-conductance")]
-try_from_unit![ElectricalConductance, siemens;
+try_from_unit![uom::si::electrical_conductance::Conversion<V>, ElectricalConductance, siemens;
     b"KSIE" => kilosiemens,
     b"SIE" => siemens,
     b"MSIE" => millisiemens,
@@ -196,7 +308,7 @@ try_from_unit![ElectricalConductance, siemens;
 ];
 
 #[cfg(feature = "unit-electric-resistance")]
-try_from_unit![ElectricalResistance, ohm;
+try_from_unit![uom::si::electrical_resistance::Conversion<V>, ElectricalResistance, ohm;
     b"GOHM" => gigaohm,
     b"MOHM" => megaohm,
     b"KOHM" => kiloohm,
@@ -205,7 +317,7 @@ try_from_unit![ElectricalResistance, ohm;
 ];
 
 #[cfg(feature = "unit-electric-charge")]
-try_from_unit![ElectricCharge, coulomb;
+try_from_unit![uom::si::electric_charge::Conversion<V>, ElectricCharge, coulomb;
     //Coloumb
     b"MAC" => megacoulomb,
     b"KC" => kilocoulomb,
@@ -218,7 +330,7 @@ try_from_unit![ElectricCharge, coulomb;
 ];
 
 #[cfg(feature = "unit-electric-capacitance")]
-try_from_unit![Capacitance, farad;
+try_from_unit![uom::si::capacitance::Conversion<V>, Capacitance, farad;
     b"F" => farad,
     b"MF" => millifarad,
     b"UF" => microfarad,
@@ -227,7 +339,7 @@ try_from_unit![Capacitance, farad;
 ];
 
 #[cfg(feature = "unit-electric-inductance")]
-try_from_unit![Inductance, henry;
+try_from_unit![uom::si::inductance::Conversion<V>, Inductance, henry;
     b"H" => henry,
     b"MH" => millihenry,
     b"UH" => microhenry,
@@ -236,7 +348,7 @@ try_from_unit![Inductance, henry;
 ];
 
 #[cfg(feature = "unit-energy")]
-try_from_unit![Energy, joule;
+try_from_unit![uom::si::energy::Conversion<V>, Energy, joule;
     b"MAJ" => megajoule,
     b"KJ" => kilojoule,
     b"J" => joule,
@@ -251,7 +363,7 @@ try_from_unit![Energy, joule;
 ];
 
 #[cfg(feature = "unit-power")]
-try_from_unit![Power, watt;
+try_from_unit![uom::si::power::Conversion<V>, Power, watt;
     b"MAW" => megawatt,
     b"KW" => kilowatt,
     b"W" => watt,
@@ -259,8 +371,15 @@ try_from_unit![Power, watt;
     b"UW" => microwatt
 ];
 
+#[cfg(feature = "unit-power")]
+try_from_db_unit![uom::si::power::Conversion<V>, Power;
+    b"DBW" => watt,
+    b"DBMW" | b"DBM" => milliwatt,
+    b"DBUW" => microwatt
+];
+
 #[cfg(feature = "unit-angle")]
-try_from_unit![Angle, radian;
+try_from_unit![uom::si::angle::Conversion<V>, Angle, radian;
     b"RAD" => radian,
     b"DEG" => degree,
     b"MNT" => aminute,
@@ -269,37 +388,42 @@ try_from_unit![Angle, radian;
 ];
 
 #[cfg(feature = "unit-amount-of-substance")]
-try_from_unit![AmountOfSubstance, mole;
+try_from_unit![uom::si::amount_of_substance::Conversion<V>, AmountOfSubstance, mole;
     b"MOL" => mole,
     b"MMOL" => millimole,
     b"UMOL" => micromole
 ];
 
 #[cfg(feature = "unit-magnetic-flux")]
-try_from_unit![MagneticFlux, weber;
+try_from_unit![uom::si::magnetic_flux::Conversion<V>, MagneticFlux, weber;
     b"WB" => weber
 ];
 
 #[cfg(feature = "unit-magnetic-flux-density")]
-try_from_unit![MagneticFluxDensity, tesla;
+try_from_unit![uom::si::magnetic_flux_density::Conversion<V>, MagneticFluxDensity, tesla;
     b"T" => tesla
 ];
 
 #[cfg(feature = "unit-ratio")]
-try_from_unit![Ratio, ratio;
+try_from_unit![uom::si::ratio::Conversion<V>, Ratio, ratio;
     b"PCT" => percent,
     b"PPM" => part_per_million
 ];
 
+#[cfg(feature = "unit-ratio")]
+try_from_db_unit![uom::si::ratio::Conversion<V>, Ratio;
+    b"DB" => ratio
+];
+
 #[cfg(feature = "unit-thermodynamic-temperature")]
-try_from_unit![ThermodynamicTemperature, degree_celsius;
+try_from_unit![uom::si::thermodynamic_temperature::Conversion<V>, ThermodynamicTemperature, degree_celsius;
     b"CEL" => degree_celsius,
     b"FAR" => degree_fahrenheit,
     b"K" => kelvin
 ];
 
 #[cfg(feature = "unit-time")]
-try_from_unit![Time, second;
+try_from_unit![uom::si::time::Conversion<V>, Time, second;
     b"S" => second,
     b"MS" => millisecond,
     b"US" => microsecond,
@@ -311,7 +435,7 @@ try_from_unit![Time, second;
 ];
 
 #[cfg(feature = "unit-pressure")]
-try_from_unit![Pressure, atmosphere;
+try_from_unit![uom::si::pressure::Conversion<V>, Pressure, atmosphere;
     b"ATM" => atmosphere,
     b"MMHG" => millimeter_of_mercury,
     b"INHG" => inch_of_mercury,
@@ -323,11 +447,19 @@ try_from_unit![Pressure, atmosphere;
 ];
 
 #[cfg(feature = "unit-volume")]
-try_from_unit![Volume, liter;
+try_from_unit![uom::si::volume::Conversion<V>, Volume, liter;
     b"L" => liter,
     b"ML" => milliliter,
     b"M3" => cubic_meter,
     b"MM3" => cubic_millimeter
+];
+
+#[cfg(feature = "unit-frequency")]
+try_from_unit![uom::si::frequency::Conversion<V>, Frequency, hertz;
+    b"GHZ" => gigahertz,
+    b"MHZ" | b"MAHZ" => megahertz,
+    b"KHZ" => kilohertz,
+    b"HZ" => hertz
 ];
 
 #[cfg(all(feature = "unit-length", test))]

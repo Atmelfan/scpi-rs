@@ -104,7 +104,7 @@ mod util;
 pub mod prelude {
     pub use crate::command::{Command, CommandTypeMeta};
     pub use crate::error::{ArrayErrorQueue, Error, ErrorCode, ErrorQueue};
-    pub use crate::response::{ArrayVecFormatter, Formatter};
+    pub use crate::response::{ArrayVecFormatter, Data, Formatter, ResponseUnit};
     pub use crate::tokenizer::{Token, Tokenizer};
     pub use crate::tree::Node;
     pub use crate::{Context, Device};
@@ -229,7 +229,10 @@ impl<'a> Context<'a> {
     ///  * `Ok(())` - If message (and all units within) was executed successfully
     ///  * `Err(error)` - If parser detected or a command returned an error
     ///
-    pub fn run(&mut self, s: &[u8], response: &mut dyn Formatter) -> Result<()> {
+    pub fn run<FMT>(&mut self, s: &[u8], response: &mut FMT) -> Result<()>
+    where
+        FMT: Formatter,
+    {
         let mut tokenizer = Tokenizer::new(s);
         self.exec(&mut tokenizer, response)
     }
@@ -244,11 +247,10 @@ impl<'a> Context<'a> {
     ///  * `Ok(())` - If message (and all units within) was executed successfully
     ///  * `Err(error)` - If parser detected or a command returned an error
     ///
-    pub fn exec(
-        &mut self,
-        tokenstream: &mut Tokenizer,
-        response: &mut dyn Formatter,
-    ) -> Result<()> {
+    pub fn exec<FMT>(&mut self, tokenstream: &mut Tokenizer, response: &mut FMT) -> Result<()>
+    where
+        FMT: Formatter,
+    {
         response.clear();
         self.execute(tokenstream, response).map_err(|err| {
             //Set appropriate bits in ESR
@@ -259,7 +261,10 @@ impl<'a> Context<'a> {
         })
     }
 
-    fn execute(&mut self, tokenstream: &mut Tokenizer, response: &mut dyn Formatter) -> Result<()> {
+    fn execute<FMT>(&mut self, tokenstream: &mut Tokenizer, response: &mut FMT) -> Result<()>
+    where
+        FMT: Formatter,
+    {
         // Point the current branch to root
         let mut is_query = false;
         let mut is_common = false;
@@ -406,4 +411,34 @@ impl<'a> Context<'a> {
     pub fn get_ese(&mut self) -> u8 {
         self.ese
     }
+}
+
+pub struct Hex<V>(V);
+
+pub struct Binary<V>(V);
+
+pub struct Octal<V>(V);
+
+/// Arbitrary data
+pub struct Arbitrary<'a>(pub &'a [u8]);
+
+/// Character data
+pub struct Character<'a>(pub &'a [u8]);
+
+/// Numeric values that can be substituted for `<numeric>`
+pub enum NumericValues<'a> {
+    /// `MAXimum`
+    Maximum,
+    /// `MINimum`
+    Minimum,
+    /// `DEFault`
+    Default,
+    /// `UP`
+    Up,
+    /// `DOWN`
+    Down,
+    /// `AUTO`
+    Auto,
+    /// Number
+    Numeric(Token<'a>),
 }

@@ -56,19 +56,20 @@ pub struct Node<'a> {
 }
 
 impl<'a> Node<'a> {
-    pub(crate) fn exec(
+    pub(crate) fn exec<FMT>(
         &self,
         context: &mut Context,
         args: &mut Tokenizer,
-        response: &mut dyn Formatter,
+        response: &mut FMT,
         query: bool,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        FMT: Formatter,
+    {
         if let Some(handler) = self.handler {
             //Execute self
             if query {
-                response.unit_start()?;
-                handler.query(context, args, response)?;
-                response.unit_end()
+                handler.query(context, args, &mut response.response_unit()?)
             } else {
                 handler.event(context, args)
             }

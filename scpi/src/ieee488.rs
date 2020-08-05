@@ -23,12 +23,11 @@
 ///
 /// Note that the comments about the default mandatory commands below are from the IEEE 488.2-1992 document and explain their purpose, not my implementation.
 pub mod commands {
-    use crate::command::{Command, CommandTypeMeta};
-    use crate::error::{ErrorCode, Result};
-    use crate::response::Formatter;
-    use crate::tokenizer::Tokenizer;
-    use crate::Context;
+    use crate::error::Result;
+    use crate::prelude::*;
+    use crate::Character;
     use crate::{nquery, qonly};
+
     use core::convert::TryInto;
 
     ///## 10.3 *CLS, Clear Status Command
@@ -79,9 +78,9 @@ pub mod commands {
             &self,
             context: &mut Context,
             _args: &mut Tokenizer,
-            response: &mut dyn Formatter,
+            response: &mut ResponseUnit,
         ) -> Result<()> {
-            response.u8_data(context.ese)
+            response.data(context.ese).finish()
         }
     }
 
@@ -97,11 +96,11 @@ pub mod commands {
             &self,
             context: &mut Context,
             _args: &mut Tokenizer,
-            response: &mut dyn Formatter,
+            response: &mut ResponseUnit,
         ) -> Result<()> {
-            response.u8_data(context.esr)?;
-            context.esr = 0;
-            Ok(())
+            response
+                .data(core::mem::replace(&mut context.esr, 0))
+                .finish()
         }
     }
 
@@ -131,18 +130,14 @@ pub mod commands {
             &self,
             _context: &mut Context,
             _args: &mut Tokenizer,
-            response: &mut dyn Formatter,
+            response: &mut ResponseUnit,
         ) -> Result<()> {
-            //TODO: Make this easier
-            response.ascii_data(self.manufacturer)?;
-            response.separator()?;
-            response.ascii_data(self.model)?;
-            response.separator()?;
-            response.ascii_data(self.serial)?;
-            response.separator()?;
-            response.ascii_data(self.firmware)?;
-
-            Ok(())
+            response
+                .data(Character(self.manufacturer))
+                .data(Character(self.model))
+                .data(Character(self.serial))
+                .data(Character(self.firmware))
+                .finish()
         }
     }
 
@@ -165,9 +160,9 @@ pub mod commands {
             &self,
             _context: &mut Context,
             _args: &mut Tokenizer,
-            response: &mut dyn Formatter,
+            response: &mut ResponseUnit,
         ) -> Result<()> {
-            response.ascii_data(b"1")
+            response.data(true).finish()
         }
     }
 
@@ -225,9 +220,9 @@ pub mod commands {
             &self,
             context: &mut Context,
             _args: &mut Tokenizer,
-            response: &mut dyn Formatter,
+            response: &mut ResponseUnit,
         ) -> Result<()> {
-            response.u8_data(context.sre)
+            response.data(context.sre).finish()
         }
     }
 
@@ -241,11 +236,11 @@ pub mod commands {
             &self,
             context: &mut Context,
             _args: &mut Tokenizer,
-            response: &mut dyn Formatter,
+            response: &mut ResponseUnit,
         ) -> Result<()> {
             // Set MAV bit as a message should always exist after
             // a query even if there's no output buffer.
-            response.u8_data(context.get_stb() | 0x10)
+            response.data(context.get_stb() | 0x10).finish()
         }
     }
 
@@ -270,16 +265,17 @@ pub mod commands {
             &self,
             context: &mut Context,
             _args: &mut Tokenizer,
-            response: &mut dyn Formatter,
+            response: &mut ResponseUnit,
         ) -> Result<()> {
-            let result = context.device.tst();
-            match result {
-                Ok(()) => response.i16_data(0),
-                Err(err) => {
-                    context.push_error(err);
-                    response.error(err)
-                }
-            }
+            response
+                .data(
+                    context
+                        .device
+                        .tst()
+                        .map(|_| 0i16)
+                        .unwrap_or_else(|err| err.get_code()),
+                )
+                .finish()
         }
     }
 

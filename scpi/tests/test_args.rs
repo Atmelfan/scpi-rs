@@ -9,11 +9,11 @@ use scpi::{
     ieee488_cls, ieee488_ese, ieee488_esr, ieee488_idn, ieee488_opc, ieee488_rst, ieee488_sre,
     ieee488_stb, ieee488_tst, ieee488_wai, nquery, qonly, scpi_status, scpi_system, scpi_tree,
 };
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
 
 mod test_util;
 use scpi::expression::numeric_list;
-use scpi::tokenizer::{Arbitrary, Character, NumericValues};
+use scpi::{Arbitrary, Character, NumericValues};
 
 extern crate std;
 
@@ -28,10 +28,10 @@ macro_rules! numeric_command {
                 &self,
                 _context: &mut Context,
                 args: &mut Tokenizer,
-                response: &mut dyn Formatter,
+                response: &mut ResponseUnit,
             ) -> Result<()> {
                 let x: $typ = args.next_data(false)?.unwrap().try_into()?;
-                response.$format(x)
+                response.data(x).finish()
             }
         }
     };
@@ -109,7 +109,7 @@ impl Command for NumCommand {
         &self,
         _context: &mut Context,
         args: &mut Tokenizer,
-        response: &mut dyn Formatter,
+        response: &mut ResponseUnit,
     ) -> Result<()> {
         const MAX: f32 = 100.0;
         const MIN: f32 = -100.0;
@@ -138,9 +138,7 @@ impl Command for NumCommand {
             }
             _ => Err(ErrorCode::IllegalParameterValue.into()),
         })?;
-        response.f32_data(x)?;
-        response.separator()?;
-        response.i32_data(option)
+        response.data(x).data(option).finish()
     }
 }
 #[test]
@@ -180,13 +178,13 @@ impl Command for NumRangeCommand {
         &self,
         _context: &mut Context,
         args: &mut Tokenizer,
-        response: &mut dyn Formatter,
+        response: &mut ResponseUnit,
     ) -> Result<()> {
         let x: f32 = args
             .next_data(false)?
             .unwrap()
             .numeric_range(0f32, -1f32, 1f32)?;
-        response.f32_data(x)
+        response.data(x).finish()
     }
 }
 #[test]
@@ -387,10 +385,10 @@ impl Command for Utf8Command {
         &self,
         _context: &mut Context,
         args: &mut Tokenizer,
-        response: &mut dyn Formatter,
+        response: &mut ResponseUnit,
     ) -> Result<()> {
         let x: &str = args.next_data(false)?.unwrap().try_into()?;
-        response.arb_data(Arbitrary(x.as_bytes()))
+        response.data(Arbitrary(x.as_bytes())).finish()
     }
 }
 #[test]
@@ -432,27 +430,21 @@ impl Command for NumericListCommand {
         &self,
         _context: &mut Context,
         args: &mut Tokenizer,
-        response: &mut dyn Formatter,
+        response: &mut ResponseUnit,
     ) -> Result<()> {
         let numbers = args.next_data(false)?.unwrap();
-        let mut first = true;
-        for num in numbers.numeric_list()? {
-            if !first {
-                response.separator()?;
-            }
-            first = false;
-            match num? {
+        for item in numbers.numeric_list()? {
+            match item? {
                 numeric_list::Token::Numeric(a) => {
-                    response.f32_data(a.try_into()?)?;
+                    response.data(f32::try_from(a)?);
                 }
                 numeric_list::Token::NumericRange(a, b) => {
-                    response.f32_data(a.try_into()?)?;
-                    response.separator()?;
-                    response.f32_data(b.try_into()?)?;
+                    response.data(f32::try_from(a)?);
+                    response.data(f32::try_from(b)?);
                 }
             }
         }
-        Ok(())
+        response.finish()
     }
 }
 #[test]

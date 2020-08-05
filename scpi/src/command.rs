@@ -3,7 +3,7 @@
 //!
 
 use crate::error::Result;
-use crate::response::Formatter;
+use crate::response::ResponseUnit;
 use crate::tokenizer::Tokenizer;
 use crate::Context;
 
@@ -37,7 +37,7 @@ use crate::Context;
 ///         Ok(())
 ///     }
 ///
-///     fn query(&self,context: &mut Context, args: &mut Tokenizer, response: &mut dyn Formatter) -> Result<()> {
+///     fn query(&self,context: &mut Context, args: &mut Tokenizer, response: &mut ResponseUnit) -> Result<()> {
 ///         Err(ErrorCode::UndefinedHeader.into())//Query not allowed
 ///     }
 ///
@@ -46,7 +46,7 @@ use crate::Context;
 /// ```
 ///
 pub trait Command {
-    fn help(&self, _response: &mut dyn Formatter) {}
+    fn help(&self, _response: &mut ResponseUnit) {}
 
     fn meta(&self) -> CommandTypeMeta {
         CommandTypeMeta::Unknown
@@ -60,7 +60,7 @@ pub trait Command {
         &self,
         context: &mut Context,
         args: &mut Tokenizer,
-        response: &mut dyn Formatter,
+        response: &mut ResponseUnit,
     ) -> Result<()>;
 }
 
@@ -100,7 +100,7 @@ macro_rules! nquery {
             &self,
             _context: &mut Context,
             _args: &mut Tokenizer,
-            _response: &mut dyn Formatter,
+            _response: &mut ResponseUnit,
         ) -> Result<()> {
             Err(ErrorCode::UndefinedHeader.into())
         }
@@ -120,7 +120,7 @@ mod test_command {
             &self,
             _context: &mut Context,
             _args: &mut Tokenizer,
-            _response: &mut dyn Formatter,
+            _response: &mut ResponseUnit,
         ) -> Result<()> {
             Ok(())
         }
@@ -155,7 +155,7 @@ mod test_command {
             &self,
             _context: &mut Context,
             _args: &mut Tokenizer,
-            _response: &mut dyn Formatter,
+            _response: &mut ResponseUnit,
         ) -> Result<()> {
             Ok(())
         }
