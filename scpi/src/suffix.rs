@@ -472,6 +472,7 @@ mod test_suffix {
     use core::convert::TryInto;
     use uom::si::f32::*;
     use uom::si::length::meter;
+    use crate::suffix::{Amplitude, Db};
 
     #[test]
     fn test_suffix_correct() {
@@ -492,6 +493,42 @@ mod test_suffix {
     fn test_suffix_datatype() {
         let l: Result<Length, Error> = Token::StringProgramData(b"STRING").try_into();
         assert_eq!(l, Err(Error::from(ErrorCode::DataTypeError)))
+    }
+
+    #[test]
+    fn test_suffix_amplitude() {
+        let none: Amplitude<ElectricPotential> = Token::DecimalNumericSuffixProgramData(b"1.0", b"V")
+            .try_into()
+            .unwrap();
+        assert!(matches!(none, Amplitude::None(_)));
+        let peak: Amplitude<ElectricPotential> = Token::DecimalNumericSuffixProgramData(b"1.0", b"VPK")
+            .try_into()
+            .unwrap();
+        assert!(matches!(peak, Amplitude::Peak(_)));
+        let peak_to_peak: Amplitude<ElectricPotential> = Token::DecimalNumericSuffixProgramData(b"1.0", b"VPP")
+            .try_into()
+            .unwrap();
+        assert!(matches!(peak_to_peak, Amplitude::PeakToPeak(_)));
+        let rms: Amplitude<ElectricPotential> = Token::DecimalNumericSuffixProgramData(b"1.0", b"VRMS")
+            .try_into()
+            .unwrap();
+        assert!(matches!(rms, Amplitude::Rms(_)))
+    }
+
+    #[test]
+    fn test_suffix_logarithmic() {
+        let none: Db<f32, ElectricPotential> = Token::DecimalNumericProgramData(b"1.0")
+            .try_into()
+            .unwrap();
+        assert!(matches!(none, Db::None(_)));
+        let peak: Db<f32, ElectricPotential> = Token::DecimalNumericSuffixProgramData(b"1.0", b"V")
+            .try_into()
+            .unwrap();
+        assert!(matches!(peak, Db::Linear(_)));
+        let peak_to_peak: Db<f32, ElectricPotential> = Token::DecimalNumericSuffixProgramData(b"1.0", b"DBV")
+            .try_into()
+            .unwrap();
+        assert!(matches!(peak_to_peak, Db::Logarithmic(_,_)));
     }
 
     #[test]
