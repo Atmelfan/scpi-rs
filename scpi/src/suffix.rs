@@ -468,11 +468,11 @@ mod test_suffix {
     extern crate std;
 
     use crate::error::{Error, ErrorCode};
+    use crate::suffix::{Amplitude, Db};
     use crate::tokenizer::Token;
     use core::convert::TryInto;
     use uom::si::f32::*;
     use uom::si::length::meter;
-    use crate::suffix::{Amplitude, Db};
 
     #[test]
     fn test_suffix_correct() {
@@ -497,38 +497,42 @@ mod test_suffix {
 
     #[test]
     fn test_suffix_amplitude() {
-        let none: Amplitude<ElectricPotential> = Token::DecimalNumericSuffixProgramData(b"1.0", b"V")
-            .try_into()
-            .unwrap();
+        let none: Amplitude<ElectricPotential> =
+            Token::DecimalNumericSuffixProgramData(b"1.0", b"V")
+                .try_into()
+                .unwrap();
         assert!(matches!(none, Amplitude::None(_)));
-        let peak: Amplitude<ElectricPotential> = Token::DecimalNumericSuffixProgramData(b"1.0", b"VPK")
-            .try_into()
-            .unwrap();
+        let peak: Amplitude<ElectricPotential> =
+            Token::DecimalNumericSuffixProgramData(b"1.0", b"VPK")
+                .try_into()
+                .unwrap();
         assert!(matches!(peak, Amplitude::Peak(_)));
-        let peak_to_peak: Amplitude<ElectricPotential> = Token::DecimalNumericSuffixProgramData(b"1.0", b"VPP")
-            .try_into()
-            .unwrap();
+        let peak_to_peak: Amplitude<ElectricPotential> =
+            Token::DecimalNumericSuffixProgramData(b"1.0", b"VPP")
+                .try_into()
+                .unwrap();
         assert!(matches!(peak_to_peak, Amplitude::PeakToPeak(_)));
-        let rms: Amplitude<ElectricPotential> = Token::DecimalNumericSuffixProgramData(b"1.0", b"VRMS")
-            .try_into()
-            .unwrap();
+        let rms: Amplitude<ElectricPotential> =
+            Token::DecimalNumericSuffixProgramData(b"1.0", b"VRMS")
+                .try_into()
+                .unwrap();
         assert!(matches!(rms, Amplitude::Rms(_)))
     }
 
     #[test]
     fn test_suffix_logarithmic() {
-        let none: Db<f32, ElectricPotential> = Token::DecimalNumericProgramData(b"1.0")
-            .try_into()
-            .unwrap();
+        let none: Db<f32, ElectricPotential> =
+            Token::DecimalNumericProgramData(b"1.0").try_into().unwrap();
         assert!(matches!(none, Db::None(_)));
         let peak: Db<f32, ElectricPotential> = Token::DecimalNumericSuffixProgramData(b"1.0", b"V")
             .try_into()
             .unwrap();
         assert!(matches!(peak, Db::Linear(_)));
-        let peak_to_peak: Db<f32, ElectricPotential> = Token::DecimalNumericSuffixProgramData(b"1.0", b"DBV")
-            .try_into()
-            .unwrap();
-        assert!(matches!(peak_to_peak, Db::Logarithmic(_,_)));
+        let peak_to_peak: Db<f32, ElectricPotential> =
+            Token::DecimalNumericSuffixProgramData(b"1.0", b"DBV")
+                .try_into()
+                .unwrap();
+        assert!(matches!(peak_to_peak, Db::Logarithmic(_, _)));
     }
 
     #[test]
