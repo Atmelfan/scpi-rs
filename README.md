@@ -56,7 +56,7 @@ _The documentation often uses the term 'throw' for returning an error, this shou
 These are the current limitations and differences from SCPI-99 specs (that I can remember) that needs to be addressed before version 1.0.0.
 They are listed in the rough order of which I care to fix them.
 
- * [ ] Response data formatting, currently each command is responsible for formatting their response. _In progress_
+ * [x] Response data formatting, currently each command is responsible for formatting their response. __Done__
  * [x] Better command data operators with automatic error checking. __TryInto and TrayFrom traits are implemented for Integer, float and string types__
  * [x] Automatic suffix/special number handling. __Supports all SCPI-99 simple suffixes and decibel__
  * [x] Provide working implementation of all IEEE 488.2 and SCPI-99 mandated commands. __All IEEE488.2/SCPI-99 mandated commands have default implementations.__

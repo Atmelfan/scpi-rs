@@ -25,7 +25,8 @@ use {
     feature = "unit-temperature",
     feature = "unit-time",
     feature = "unit-pressure",
-    feature = "unit-volume"
+    feature = "unit-volume",
+    feature = "unit-frequency"
 ))]
 #[allow(unused_imports)]
 use uom::{num_traits::Num, si::Units, Conversion};

@@ -24,8 +24,8 @@
 /// Note that the comments about the default mandatory commands below are from the IEEE 488.2-1992 document and explain their purpose, not my implementation.
 pub mod commands {
     use crate::error::Result;
+    use crate::format::Character;
     use crate::prelude::*;
-    use crate::Character;
     use crate::{nquery, qonly};
 
     use core::convert::TryInto;

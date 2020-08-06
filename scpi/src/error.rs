@@ -5,18 +5,6 @@
 
 use arraydeque::{Array, ArrayDeque, Saturating};
 
-/// Create a error
-///
-#[macro_export]
-macro_rules! scpi_error {
-    ($error:expr) => {
-        Error::new($error)
-    };
-    ($error:expr;$ext_msg:literal) => {
-        Error::extended($error, $ext_msg)
-    };
-}
-
 /// A SCPI error
 ///
 /// If `extended-error` feature is enabled, an optional extended

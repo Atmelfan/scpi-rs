@@ -40,15 +40,15 @@
 //! These are the current limitations and differences from SCPI-99 specs (that I can remember) that needs to be addressed before version 1.0.0.
 //! They are listed in the rough order of which I care to fix them.
 //!
-//!  *[ ] Response data formatting, currently each command is responsible for formatting their response. _In progress_
-//!  *[ ] Better command data operators with automatic error checking. _In progress. TryInto and TrayFrom traits are implemented for Integer, float and string types_
-//!  *[x] ~~Automatic suffix/special number handling.~~ _Supports all SCPI-99 simple suffixes and decibel_
-//!  *[x] ~~Provide working implementation of all IEEE 488.2 and SCPI-99 mandated commands.~~ All IEEE488.2/SCPI-99 mandated commands (and a few extra for good measure) have default implementations.
-//!  *[ ] Quotation marks inside string data, the parser cannot handle escaping `'` and `"` inside their respective block (eg "bla ""quoted"" bla").
-//!  *[x] ~~Expression data, not handled at all.~~ Supports non-nested numeric-/channel-list expressions
-//!  *[ ] Provide a reference instrument class implementation
-//!  *[ ] Error codes returned by the parser does not follow SCPI-99 accurately (because there's a fucking lot of them!).
-//!  *[ ] Working test suite.
+//!  *\[ ] Response data formatting, currently each command is responsible for formatting their response. _In progress_
+//!  *\[ ] Better command data operators with automatic error checking. _In progress. TryInto and TrayFrom traits are implemented for Integer, float and string types_
+//!  *\[x] ~~Automatic suffix/special number handling.~~ _Supports all SCPI-99 simple suffixes and decibel_
+//!  *\[x] ~~Provide working implementation of all IEEE 488.2 and SCPI-99 mandated commands.~~ All IEEE488.2/SCPI-99 mandated commands (and a few extra for good measure) have default implementations.
+//!  *\[ ] Quotation marks inside string data, the parser cannot handle escaping `'` and `"` inside their respective block (eg "bla ""quoted"" bla").
+//!  *\[x] ~~Expression data, not handled at all.~~ Supports non-nested numeric-/channel-list expressions
+//!  *\[ ] Provide a reference instrument class implementation
+//!  *\[ ] Error codes returned by the parser does not follow SCPI-99 accurately (because there's a fucking lot of them!).
+//!  *\[ ] Working test suite.
 //!
 //! # Nice to have
 //! Not necessary for a 1.0.0 version but would be nice to have in no particular order.
@@ -82,8 +82,8 @@ extern crate scpi_derive;
 
 /* Used to create responses */
 extern crate arraydeque;
-extern crate arrayvec;
 extern crate lexical_core;
+extern crate arrayvec;
 #[cfg(any(feature = "unit-any"))]
 pub extern crate uom;
 
@@ -107,6 +107,7 @@ pub mod prelude {
     pub use crate::response::{ArrayVecFormatter, Data, Formatter, ResponseUnit};
     pub use crate::tokenizer::{Token, Tokenizer};
     pub use crate::tree::Node;
+    pub use crate::NumericValues;
     pub use crate::{Context, Device};
     #[cfg(any(
         feature = "unit-length",
@@ -129,7 +130,8 @@ pub mod prelude {
         feature = "unit-temperature",
         feature = "unit-time",
         feature = "unit-pressure",
-        feature = "unit-volume"
+        feature = "unit-volume",
+        feature = "unit-frequency"
     ))]
     pub use uom;
 }
@@ -139,6 +141,34 @@ use crate::response::Formatter;
 use crate::scpi::EventRegister;
 use crate::tokenizer::{Token, Tokenizer};
 use crate::tree::Node;
+
+/// Wrappers to format and discriminate SCPI types
+pub mod format {
+
+    /// Hexadecimal data
+    #[derive(Debug, PartialEq, Copy, Clone)]
+    pub struct Hex<V>(pub V);
+
+    /// Binary data
+    #[derive(Debug, PartialEq, Copy, Clone)]
+    pub struct Binary<V>(pub V);
+
+    /// Octal data
+    #[derive(Debug, PartialEq, Copy, Clone)]
+    pub struct Octal<V>(pub V);
+
+    /// Arbitrary data
+    #[derive(Debug, PartialEq, Copy, Clone)]
+    pub struct Arbitrary<'a>(pub &'a [u8]);
+
+    /// Expression data
+    #[derive(Debug, PartialEq, Copy, Clone)]
+    pub struct Expression<'a>(pub &'a [u8]);
+
+    /// Character data
+    #[derive(Debug, PartialEq, Copy, Clone)]
+    pub struct Character<'a>(pub &'a [u8]);
+}
 
 /// A SCPI device
 ///
@@ -325,10 +355,6 @@ impl<'a> Context<'a> {
                 Token::HeaderQuerySuffix => {
                     is_query = true;
                 }
-                Token::ProgramMessageTerminator => {
-                    //
-                    break 'outer;
-                }
                 Token::ProgramHeaderSeparator | Token::ProgramMessageUnitSeparator => {
                     // Execute header if available
                     if let Some(n) = node {
@@ -413,19 +439,8 @@ impl<'a> Context<'a> {
     }
 }
 
-pub struct Hex<V>(V);
-
-pub struct Binary<V>(V);
-
-pub struct Octal<V>(V);
-
-/// Arbitrary data
-pub struct Arbitrary<'a>(pub &'a [u8]);
-
-/// Character data
-pub struct Character<'a>(pub &'a [u8]);
-
 /// Numeric values that can be substituted for `<numeric>`
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum NumericValues<'a> {
     /// `MAXimum`
     Maximum,

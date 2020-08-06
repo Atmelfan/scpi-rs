@@ -1,5 +1,5 @@
 use crate::error::{Error, ErrorCode};
-use crate::{Arbitrary, Character, NumericValues};
+use crate::format::{Arbitrary, Character, Expression};
 
 use core::slice::Iter;
 use core::str;
@@ -7,34 +7,60 @@ use core::str;
 use core::convert::TryFrom;
 
 use crate::expression::{channel_list, numeric_list};
-use crate::util;
+use crate::{util, NumericValues};
 
 /// SCPI tokens
-///
+/// Loosely based on IEEE488.2 Chapter 7
 ///
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Token<'a> {
-    /// Defined as \<mnemonic separator\> consisting of a single `:` character
-    HeaderMnemonicSeparator, //:
-    HeaderCommonPrefix, //*
-    HeaderQuerySuffix,  //?
-
-    ProgramMessageUnitSeparator, //;
-    ProgramMessageTerminator,    //\n+END
-    ProgramHeaderSeparator,      //SP
-    ProgramDataSeparator,        //,
-    ProgramMnemonic(&'a [u8]),   // <program mnemonic>
+    /// A header mnemonic separator `:`
+    HeaderMnemonicSeparator,
+    /// A common header prefix `*`
+    HeaderCommonPrefix,
+    /// A header query suffix `?`
+    HeaderQuerySuffix,
+    /// A message unit separator `;`
+    ProgramMessageUnitSeparator,
+    /// A Program header separator ` `
+    ProgramHeaderSeparator,
+    /// A program data separator ','
+    ProgramDataSeparator,
+    /// A program mnemonic
+    ProgramMnemonic(&'a [u8]),
+    /// A <CHARACTER PROGRAM DATA> 7.7.1
     CharacterProgramData(&'a [u8]),
+    /// A <DECIMAL NUMERIC PROGRAM DATA> 7.7.2
     DecimalNumericProgramData(&'a [u8]),
+    /// A <DECIMAL NUMERIC PROGRAM DATA> 7.7.2 followed by a <SUFFIX PROGRAM DATA> 7.7.3
     DecimalNumericSuffixProgramData(&'a [u8], &'a [u8]),
+    /// A <NONDECIMAL NUMERIC PROGRAM DATA> 7.7.4
     NonDecimalNumericProgramData(u32),
+    /// A <STRING PROGRAM DATA> 7.7.5
     StringProgramData(&'a [u8]),
+    /// A <ARBITRARY BLOCK PROGRAM DATA> 7.7.6
     ArbitraryBlockData(&'a [u8]),
+    /// A <EXPRESSION PROGRAM DATA> 7.7.7
     ExpressionProgramData(&'a [u8]),
+    /// Non-standard UTF8 data
     Utf8BlockData(&'a str),
 }
 
 impl<'a> Token<'a> {
+    pub fn is_data(&self) -> bool {
+        matches!(
+            self,
+            Self::CharacterProgramData(_)
+                | Self::DecimalNumericProgramData(_)
+                | Self::DecimalNumericSuffixProgramData(_,_)
+                | Self::NonDecimalNumericProgramData(_)
+                | Self::StringProgramData(_)
+                | Self::ArbitraryBlockData(_)
+                | Self::ExpressionProgramData(_)
+                | Self::Utf8BlockData(_)
+        )
+    }
+
     pub(crate) fn mnemonic_split_index(mnemonic: &'a [u8]) -> Option<(&'a [u8], &'a [u8])> {
         let last = mnemonic.iter().rposition(|p| !p.is_ascii_digit());
 
@@ -106,25 +132,6 @@ impl<'a> Token<'a> {
         }
     }
 
-    /// If token is an `ExpressionProgramData`, return a numeric list tokenizer to use.
-    /// Otherwise a
-    ///
-    pub fn numeric_list(&self) -> Result<numeric_list::Tokenizer, ErrorCode> {
-        if let Token::ExpressionProgramData(str) = self {
-            Ok(numeric_list::Tokenizer::new(str))
-        } else {
-            Err(ErrorCode::DataTypeError)
-        }
-    }
-
-    pub fn channel_list(&'a self) -> Result<channel_list::Tokenizer, ErrorCode> {
-        if let Token::ExpressionProgramData(str) = self {
-            channel_list::Tokenizer::new(str).ok_or(ErrorCode::ExecExpressionError)
-        } else {
-            Err(ErrorCode::DataTypeError)
-        }
-    }
-
     /// If token is `CharacterProgramData`, try to map into another token.
     /// If token is not a `CharacterProgramData` the token will be returned as-is
     ///
@@ -170,39 +177,38 @@ impl<'a> Token<'a> {
     /// ```
     ///
     ///
-    pub fn numeric<F, R: TryFrom<Token<'a>, Error = Error>>(self, num: F) -> Result<R, Error>
+    pub fn numeric<F, R: TryFrom<Token<'a>, Error = Error>>(self, special: F) -> Result<R, Error>
     where
         F: FnOnce(NumericValues) -> Result<R, Error>,
     {
         match self {
-            Token::CharacterProgramData(special) => match special {
-                x if Token::mnemonic_compare(b"MAXimum", x) => num(NumericValues::Maximum),
-                x if Token::mnemonic_compare(b"MINimum", x) => num(NumericValues::Minimum),
-                x if Token::mnemonic_compare(b"DEFault", x) => num(NumericValues::Default),
-                x if Token::mnemonic_compare(b"UP", x) => num(NumericValues::Up),
-                x if Token::mnemonic_compare(b"DOWN", x) => num(NumericValues::Down),
-                x if Token::mnemonic_compare(b"AUTO", x) => num(NumericValues::Auto),
+            Token::CharacterProgramData(s) => match s {
+                x if Token::mnemonic_compare(b"MAXimum", x) => special(NumericValues::Maximum),
+                x if Token::mnemonic_compare(b"MINimum", x) => special(NumericValues::Minimum),
+                x if Token::mnemonic_compare(b"DEFault", x) => special(NumericValues::Default),
+                x if Token::mnemonic_compare(b"UP", x) => special(NumericValues::Up),
+                x if Token::mnemonic_compare(b"DOWN", x) => special(NumericValues::Down),
+                x if Token::mnemonic_compare(b"AUTO", x) => special(NumericValues::Auto),
                 _ => <R>::try_from(self),
             },
             _ => <R>::try_from(self),
         }
     }
 
-    ///
-    pub fn numeric_range<R: TryFrom<Token<'a>, Error = Error>>(
-        self,
-        default: R,
+    pub fn numeric_range<F, R: TryFrom<Token<'a>, Error = Error>>(
+        &self,
         min: R,
         max: R,
+        special: F,
     ) -> Result<R, Error>
     where
+        F: FnOnce(NumericValues) -> Result<R, Error>,
         R: PartialOrd + Copy,
     {
         let value = self.numeric(|choice| match choice {
             NumericValues::Maximum => Ok(max),
             NumericValues::Minimum => Ok(min),
-            NumericValues::Default => Ok(default),
-            _ => Err(ErrorCode::IllegalParameterValue.into()),
+            x => special(x),
         })?;
         if value > max || value < min {
             Err(ErrorCode::DataOutOfRange.into())
@@ -224,12 +230,16 @@ impl<'a> TryFrom<Token<'a>> for &'a [u8] {
     fn try_from(value: Token<'a>) -> Result<&'a [u8], Self::Error> {
         match value {
             Token::StringProgramData(s) => Ok(s),
-            Token::NonDecimalNumericProgramData(_)
-            | Token::DecimalNumericProgramData(_)
-            | Token::ArbitraryBlockData(_)
-            | Token::DecimalNumericSuffixProgramData(_, _)
-            | Token::CharacterProgramData(_) => Err(ErrorCode::DataTypeError.into()),
-            _ => Err(ErrorCode::SyntaxError.into()),
+            t => {
+                if t.is_data() {
+                    Err(ErrorCode::DataTypeError.into())
+                } else {
+                    Err(Error::extended(
+                        ErrorCode::DeviceSpecificError,
+                        b"Parser error",
+                    ))
+                }
+            }
         }
     }
 }
@@ -264,12 +274,16 @@ impl<'a> TryFrom<Token<'a>> for bool {
                     Err(ErrorCode::IllegalParameterValue.into())
                 }
             }
-            Token::StringProgramData(_)
-            | Token::Utf8BlockData(_)
-            | Token::NonDecimalNumericProgramData(_)
-            | Token::DecimalNumericSuffixProgramData(_, _)
-            | Token::ArbitraryBlockData(_) => Err(ErrorCode::DataTypeError.into()),
-            _ => Err(ErrorCode::SyntaxError.into()),
+            t => {
+                if t.is_data() {
+                    Err(ErrorCode::DataTypeError.into())
+                } else {
+                    Err(Error::extended(
+                        ErrorCode::DeviceSpecificError,
+                        b"Parser error",
+                    ))
+                }
+            }
         }
     }
 }
@@ -289,45 +303,130 @@ impl<'a> TryFrom<Token<'a>> for &'a str {
                 str::from_utf8(s).map_err(|_| ErrorCode::StringDataError.into())
             }
             Token::Utf8BlockData(s) => Ok(s),
-            Token::NonDecimalNumericProgramData(_)
-            | Token::DecimalNumericProgramData(_)
-            | Token::DecimalNumericSuffixProgramData(_, _)
-            | Token::CharacterProgramData(_) => Err(ErrorCode::DataTypeError.into()),
-            _ => Err(ErrorCode::SyntaxError.into()),
+            t => {
+                if t.is_data() {
+                    Err(ErrorCode::DataTypeError.into())
+                } else {
+                    Err(Error::extended(
+                        ErrorCode::DeviceSpecificError,
+                        b"Parser error",
+                    ))
+                }
+            }
         }
     }
 }
 
+/// Convert character data into a str.
+///
+/// # Returns
+/// * `Ok(&str)` - If data is character data.
+/// * `Err(DataTypeError)` - If data is not character string.
+/// * `Err(SyntaxError)` - If token is not data
 impl<'a> TryFrom<Token<'a>> for Arbitrary<'a> {
     type Error = Error;
 
     fn try_from(value: Token<'a>) -> Result<Arbitrary<'a>, Self::Error> {
         match value {
-            Token::StringProgramData(_)
-            | Token::NonDecimalNumericProgramData(_)
-            | Token::DecimalNumericProgramData(_)
-            | Token::DecimalNumericSuffixProgramData(_, _)
-            | Token::Utf8BlockData(_)
-            | Token::CharacterProgramData(_) => Err(ErrorCode::DataTypeError.into()),
             Token::ArbitraryBlockData(s) => Ok(Arbitrary(s)),
-            _ => Err(ErrorCode::SyntaxError.into()),
+            t => {
+                if t.is_data() {
+                    Err(ErrorCode::DataTypeError.into())
+                } else {
+                    Err(Error::extended(
+                        ErrorCode::DeviceSpecificError,
+                        b"Parser error",
+                    ))
+                }
+            }
         }
     }
 }
 
+/// Convert character data into a str.
+///
+/// # Returns
+/// * `Ok(&str)` - If data is character data.
+/// * `Err(DataTypeError)` - If data is not character string.
+/// * `Err(SyntaxError)` - If token is not data
 impl<'a> TryFrom<Token<'a>> for Character<'a> {
     type Error = Error;
 
     fn try_from(value: Token<'a>) -> Result<Character<'a>, Self::Error> {
         match value {
-            Token::StringProgramData(_)
-            | Token::NonDecimalNumericProgramData(_)
-            | Token::DecimalNumericProgramData(_)
-            | Token::DecimalNumericSuffixProgramData(_, _)
-            | Token::Utf8BlockData(_)
-            | Token::ArbitraryBlockData(_) => Err(ErrorCode::DataTypeError.into()),
             Token::CharacterProgramData(s) => Ok(Character(s)),
-            _ => Err(ErrorCode::SyntaxError.into()),
+            t => {
+                if t.is_data() {
+                    Err(ErrorCode::DataTypeError.into())
+                } else {
+                    Err(Error::extended(
+                        ErrorCode::DeviceSpecificError,
+                        b"Parser error",
+                    ))
+                }
+            }
+        }
+    }
+}
+
+impl<'a> TryFrom<Token<'a>> for numeric_list::NumericList<'a> {
+    type Error = Error;
+
+    fn try_from(value: Token<'a>) -> Result<numeric_list::NumericList<'a>, Self::Error> {
+        match value {
+            Token::ExpressionProgramData(s) => Ok(numeric_list::NumericList::new(s)),
+            t => {
+                if t.is_data() {
+                    Err(ErrorCode::DataTypeError.into())
+                } else {
+                    Err(Error::extended(
+                        ErrorCode::DeviceSpecificError,
+                        b"Parser error",
+                    ))
+                }
+            }
+        }
+    }
+}
+
+impl<'a> TryFrom<Token<'a>> for channel_list::ChannelList<'a> {
+    type Error = Error;
+
+    fn try_from(value: Token<'a>) -> Result<channel_list::ChannelList<'a>, Self::Error> {
+        match value {
+            Token::ArbitraryBlockData(s) => channel_list::ChannelList::new(s).ok_or_else(|| {
+                Error::extended(ErrorCode::InvalidExpression, b"Invalid channel list")
+            }),
+            t => {
+                if t.is_data() {
+                    Err(ErrorCode::DataTypeError.into())
+                } else {
+                    Err(Error::extended(
+                        ErrorCode::DeviceSpecificError,
+                        b"Parser error",
+                    ))
+                }
+            }
+        }
+    }
+}
+
+impl<'a> TryFrom<Token<'a>> for Expression<'a> {
+    type Error = Error;
+
+    fn try_from(value: Token<'a>) -> Result<Expression<'a>, Self::Error> {
+        match value {
+            Token::ArbitraryBlockData(s) => Ok(Expression(s)),
+            t => {
+                if t.is_data() {
+                    Err(ErrorCode::DataTypeError.into())
+                } else {
+                    Err(Error::extended(
+                        ErrorCode::DeviceSpecificError,
+                        b"Parser error",
+                    ))
+                }
+            }
         }
     }
 }
@@ -359,13 +458,19 @@ macro_rules! impl_tryfrom_float {
                         ref x if Token::mnemonic_compare(b"NAN", x) => Ok(<$from>::NAN),
                         _ => Err(ErrorCode::DataTypeError.into()),
                     },
-                    Token::NonDecimalNumericProgramData(_)
-                    | Token::StringProgramData(_)
-                    | Token::ArbitraryBlockData(_) => Err(ErrorCode::DataTypeError.into()),
                     Token::DecimalNumericSuffixProgramData(_, _) => {
                         Err(ErrorCode::SuffixNotAllowed.into())
                     }
-                    _ => Err(ErrorCode::SyntaxError.into()),
+                    t => {
+                        if t.is_data() {
+                            Err(ErrorCode::DataTypeError.into())
+                        } else {
+                            Err(Error::extended(
+                                ErrorCode::DeviceSpecificError,
+                                b"Parser error",
+                            ))
+                        }
+                    }
                 }
             }
         }
@@ -413,19 +518,29 @@ macro_rules! impl_tryfrom_integer {
                     Token::NonDecimalNumericProgramData(value) => {
                         <$from>::try_from(value).map_err(|_| ErrorCode::DataOutOfRange.into())
                     }
-                    Token::CharacterProgramData(_)
-                    | Token::StringProgramData(_)
-                    | Token::ArbitraryBlockData(_) => Err(ErrorCode::DataTypeError.into()),
                     Token::DecimalNumericSuffixProgramData(_, _) => {
                         Err(ErrorCode::SuffixNotAllowed.into())
                     }
-                    _ => Err(ErrorCode::SyntaxError.into()),
+                    t => {
+                        if t.is_data() {
+                            Err(ErrorCode::DataTypeError.into())
+                        } else {
+                            Err(Error::extended(
+                                ErrorCode::DeviceSpecificError,
+                                b"Parser error",
+                            ))
+                        }
+                    }
                 }
             }
         }
     };
 }
 
+// Need to fallback to floating point if numeric is not NR1 formatted.
+// Use double precision on larger types to avoid rounding errors.
+impl_tryfrom_integer!(usize, f64);
+impl_tryfrom_integer!(isize, f64);
 impl_tryfrom_integer!(i64, f64);
 impl_tryfrom_integer!(u64, f64);
 impl_tryfrom_integer!(i32, f64);
@@ -434,8 +549,6 @@ impl_tryfrom_integer!(i16, f32);
 impl_tryfrom_integer!(u16, f32);
 impl_tryfrom_integer!(i8, f32);
 impl_tryfrom_integer!(u8, f32);
-impl_tryfrom_integer!(usize, f64);
-impl_tryfrom_integer!(isize, f64);
 
 #[derive(Clone)]
 pub struct Tokenizer<'a> {
@@ -456,14 +569,7 @@ impl<'a> Tokenizer<'a> {
             let token = item?;
             match token {
                 //Data object
-                Token::CharacterProgramData(_)
-                | Token::DecimalNumericProgramData(_)
-                | Token::DecimalNumericSuffixProgramData(_, _)
-                | Token::NonDecimalNumericProgramData(_)
-                | Token::StringProgramData(_)
-                | Token::ArbitraryBlockData(_)
-                | Token::ExpressionProgramData(_)
-                | Token::Utf8BlockData(_) => {
+                t if t.is_data() => {
                     //Valid data object, consume and return
                     self.next();
                     Ok(Some(token))
@@ -1162,7 +1268,11 @@ impl<'a> Iterator for Tokenizer<'a> {
             // Parser should reset itself and parse next message as a new message.
             b'\n' => {
                 self.chars.next();
-                Some(Ok(Token::ProgramMessageTerminator))
+                if self.chars.next().is_none() {
+                    None
+                } else {
+                    Some(Err(ErrorCode::SyntaxError))
+                }
             }
             /* Data separator*/
             b',' => {

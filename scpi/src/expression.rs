@@ -14,14 +14,14 @@ pub mod numeric_list {
 
     /// Numeric list expression tokenizer
     #[derive(Clone)]
-    pub struct Tokenizer<'a> {
+    pub struct NumericList<'a> {
         pub tokenizer: tokenizer::Tokenizer<'a>,
         pub first: bool,
     }
 
-    impl<'a> Tokenizer<'a> {
-        pub fn new(s: &'a [u8]) -> Tokenizer<'a> {
-            Tokenizer {
+    impl<'a> NumericList<'a> {
+        pub fn new(s: &'a [u8]) -> NumericList<'a> {
+            NumericList {
                 tokenizer: tokenizer::Tokenizer::new(s),
                 first: true,
             }
@@ -42,7 +42,7 @@ pub mod numeric_list {
         }
     }
 
-    impl<'a> Iterator for Tokenizer<'a> {
+    impl<'a> Iterator for NumericList<'a> {
         type Item = Result<Token<'a>, Error>;
 
         fn next(&mut self) -> Option<Self::Item> {
@@ -73,18 +73,18 @@ pub mod numeric_list {
     #[cfg(test)]
     mod tests {
         use crate::error::{Error, ErrorCode};
-        use crate::expression::numeric_list::{Number, Token, Tokenizer};
+        use crate::expression::numeric_list::{Number, NumericList, Token};
 
         extern crate std;
 
         #[test]
         fn test_numeric_data() {
-            let spec = Tokenizer::new(b"2").read_numeric_data();
+            let spec = NumericList::new(b"2").read_numeric_data();
             assert_eq!(
                 spec,
                 Ok(Token::Numeric(Number::DecimalNumericProgramData(b"2")))
             );
-            let range = Tokenizer::new(b"2:5").read_numeric_data();
+            let range = NumericList::new(b"2:5").read_numeric_data();
             assert_eq!(
                 range,
                 Ok(Token::NumericRange(
@@ -92,13 +92,13 @@ pub mod numeric_list {
                     Number::DecimalNumericProgramData(b"5")
                 ))
             );
-            let specfail = Tokenizer::new(b"2::5").read_numeric_data();
+            let specfail = NumericList::new(b"2::5").read_numeric_data();
             assert_eq!(specfail, Err(ErrorCode::NumericDataError.into()));
         }
 
         #[test]
         fn test_numeric_list() {
-            let mut expr = Tokenizer::new(b"3.1415,1.1:3.9e6");
+            let mut expr = NumericList::new(b"3.1415,1.1:3.9e6");
             assert_eq!(
                 expr.next().unwrap(),
                 Ok(Token::Numeric(Number::DecimalNumericProgramData(b"3.1415")))
@@ -115,7 +115,7 @@ pub mod numeric_list {
 
         #[test]
         fn test_numeric_leading() {
-            let mut expr = Tokenizer::new(b",1,2:5");
+            let mut expr = NumericList::new(b",1,2:5");
             assert_eq!(
                 expr.next().unwrap(),
                 Err(Error::extended(
@@ -127,7 +127,7 @@ pub mod numeric_list {
 
         #[test]
         fn test_numeric_repeated() {
-            let mut expr = Tokenizer::new(b"1,,2:5");
+            let mut expr = NumericList::new(b"1,,2:5");
             assert_eq!(
                 expr.next().unwrap(),
                 Ok(Token::Numeric(Number::DecimalNumericProgramData(b"1")))
@@ -226,12 +226,12 @@ pub mod channel_list {
 
     /// Channel list expression tokenizer
     #[derive(Clone)]
-    pub struct Tokenizer<'a> {
+    pub struct ChannelList<'a> {
         pub chars: Iter<'a, u8>,
         pub first: bool,
     }
 
-    impl<'a> Tokenizer<'a> {
+    impl<'a> ChannelList<'a> {
         /// Create a new channel-list tokenizer
         ///
         /// # Returns
@@ -241,7 +241,7 @@ pub mod channel_list {
             let mut iter = expr.iter();
             if let Some(x) = iter.next() {
                 if *x == b'@' {
-                    Some(Tokenizer {
+                    Some(ChannelList {
                         chars: iter.clone(),
                         first: true,
                     })
@@ -322,7 +322,7 @@ pub mod channel_list {
         //}
     }
 
-    impl<'a> Iterator for Tokenizer<'a> {
+    impl<'a> Iterator for ChannelList<'a> {
         type Item = Result<Token<'a>, ErrorCode>;
 
         fn next(&mut self) -> Option<Self::Item> {
@@ -347,13 +347,13 @@ pub mod channel_list {
 
     #[cfg(test)]
     mod tests {
-        use crate::expression::channel_list::{ChannelSpec, Token, Tokenizer};
+        use crate::expression::channel_list::{ChannelList, ChannelSpec, Token};
 
         extern crate std;
 
         #[test]
         fn test_channel_list() {
-            let mut expr = Tokenizer::new(b"@1!12,3!4:5!6,'POTATO'").unwrap();
+            let mut expr = ChannelList::new(b"@1!12,3!4:5!6,'POTATO'").unwrap();
 
             // Destructure a spec
             let spec = expr.next().unwrap().unwrap();

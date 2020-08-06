@@ -1,7 +1,9 @@
 use scpi::error::Result;
 use scpi::expression::numeric_list;
+use scpi::expression::numeric_list::NumericList;
+use scpi::format::{Arbitrary, Character};
 use scpi::prelude::*;
-use scpi::{Arbitrary, NumericValues};
+use scpi::NumericValues;
 
 //Default commands
 use core::convert::{TryFrom, TryInto};
@@ -21,11 +23,9 @@ use scpi::{
     nquery,
     //Helpers
     qonly,
-    scpi_error,
     scpi_status,
     scpi_system,
     scpi_tree,
-    Character,
 };
 
 use git_version::git_version;
@@ -71,7 +71,7 @@ impl Command for ErrorCustomCommand {
             .next_data(true)?
             .unwrap_or(Token::NonDecimalNumericProgramData(0u32))
             .try_into()?;
-        Err(scpi_error!(ErrorCode::Custom(code, b"Custom error")))
+        Err(Error::new(ErrorCode::Custom(code, b"Custom error")))
     }
 }
 
@@ -90,7 +90,10 @@ impl Command for ErrorExtendedCommand {
             .next_data(true)?
             .unwrap_or(Token::NonDecimalNumericProgramData(0u32))
             .try_into()?;
-        Err(scpi_error!(ErrorCode::Custom(code, b"Error"); b"Additional information"))
+        Err(Error::extended(
+            ErrorCode::Custom(code, b"Error"),
+            b"Additional information",
+        ))
     }
 }
 
@@ -174,18 +177,13 @@ impl Command for ExamTypNumDecCommand {
         args: &mut Tokenizer,
         response: &mut ResponseUnit,
     ) -> Result<()> {
-        let x: Db<f32, f32::Power> = args
-            .next_data(true)?
-            .map_or(Ok(Db::None(0.0)), |t| t.try_into())?;
-        let l: f32::Power = match x {
-            // No suffix was given
-            Db::None(f) => f32::Power::new::<watt>(f),
-            // A linear prefix was given
-            Db::Linear(v) => v,
-            // A logarithmic 'DB' suffix was given
-            Db::Logarithmic(d, v) => f32::Ratio::new::<ratio>(10.0f32.powf(d / 10.0)) * v,
-        };
-        response.header(b"WATT").data(l.get::<watt>()).finish()
+        let x: f32 = args.next_data(true)?.map_or(Ok(0.0), |t| {
+            t.numeric_range(10.0, -10.0, |special| match special {
+                NumericValues::Default => Ok(0.0),
+                _ => Err(ErrorCode::IllegalParameterValue.into()),
+            })
+        })?;
+        response.data(x).finish()
     }
 }
 
@@ -309,9 +307,12 @@ impl Command for ExamTypNumAngleCommand {
             args.next_data(true)?
                 .map_or(Ok(f64::Angle::new::<radian>(1.0)), |t| {
                     t.numeric_range(
-                        f64::Angle::new::<degree>(1.0),
-                        f64::Angle::new::<degree>(0.0),
-                        f64::Angle::new::<degree>(380.0),
+                        f64::Angle::new::<degree>(-180.0),
+                        f64::Angle::new::<degree>(180.0),
+                        |special| match special {
+                            NumericValues::Default => Ok(f64::Angle::new::<degree>(0.0)),
+                            _ => Err(ErrorCode::IllegalParameterValue.into()),
+                        },
                     )
                 })?;
         response.header(b"RADian").data(x.get::<radian>()).finish()
@@ -394,9 +395,8 @@ impl Command for ExamTypListNumCommand {
         args: &mut Tokenizer,
         response: &mut ResponseUnit,
     ) -> Result<()> {
-        let list = args.next_data(false)?.unwrap();
-        let numbers = list.numeric_list()?;
-        for item in numbers {
+        let list: NumericList = args.next_data(false)?.unwrap().try_into()?;
+        for item in list {
             match item? {
                 numeric_list::Token::Numeric(a) => {
                     response.data(f32::try_from(a)?);

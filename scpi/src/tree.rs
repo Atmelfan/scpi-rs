@@ -44,11 +44,9 @@ macro_rules! scpi_tree {
 pub struct Node<'a> {
     /// Mnemonic of this node, must follow the form SCPI notation (eg `LARGEsmall[<index>]` etc)
     pub name: &'static [u8],
-    /// Command handler
-    /// If None, the parser will return a UndefinedHeader error if the node is called (may still be traversed)
+    /// Command handler. If None, the parser will return a UndefinedHeader error if the node is called (may still be traversed)
     pub handler: Option<&'a dyn Command>,
-    /// Subcommands
-    /// The node may contain None or an array of subcommands. If a message attempts to traverse
+    /// Subnodes. The node may contain None or an array of subcommands. If a message attempts to traverse
     /// this node and it does not have any subnodes (eg `IMhelping:THISnode:DONTexist), a UndefinedHeaderError will be returned.
     pub sub: Option<&'a [Node<'a>]>,
     ///Marks the node as being optional (called default with inverse behaviour in IEE488)

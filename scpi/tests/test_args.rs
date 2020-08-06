@@ -13,7 +13,9 @@ use std::convert::{TryFrom, TryInto};
 
 mod test_util;
 use scpi::expression::numeric_list;
-use scpi::{Arbitrary, Character, NumericValues};
+use scpi::expression::numeric_list::NumericList;
+use scpi::format::{Arbitrary, Character};
+use scpi::NumericValues;
 
 extern crate std;
 
@@ -183,7 +185,10 @@ impl Command for NumRangeCommand {
         let x: f32 = args
             .next_data(false)?
             .unwrap()
-            .numeric_range(0f32, -1f32, 1f32)?;
+            .numeric_range(-1f32, 1f32, |special| match special {
+                NumericValues::Default => Ok(0f32),
+                _ => Err(ErrorCode::IllegalParameterValue.into()),
+            })?;
         response.data(x).finish()
     }
 }
@@ -201,10 +206,6 @@ fn test_numeric_range() {
     execute_str!(ctx, b"*NUMRANGE? MIN" => result, response {
         assert_eq!(result, Ok(()));
         assert_eq!(response, b"-1.0\n");
-    });
-    execute_str!(ctx, b"*NUMRANGE? DEF" => result, response {
-        assert_eq!(result, Ok(()));
-        assert_eq!(response, b"0.0\n");
     });
     execute_str!(ctx, b"*NUMRANGE? 5" => result, _response {
         assert_eq!(result, Err(Error::from(ErrorCode::DataOutOfRange)));
@@ -432,8 +433,8 @@ impl Command for NumericListCommand {
         args: &mut Tokenizer,
         response: &mut ResponseUnit,
     ) -> Result<()> {
-        let numbers = args.next_data(false)?.unwrap();
-        for item in numbers.numeric_list()? {
+        let numbers: NumericList = args.next_data(false)?.unwrap().try_into()?;
+        for item in numbers {
             match item? {
                 numeric_list::Token::Numeric(a) => {
                     response.data(f32::try_from(a)?);

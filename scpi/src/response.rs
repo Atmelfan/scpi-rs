@@ -1,5 +1,5 @@
 use crate::error::{Error, ErrorCode, Result};
-use crate::{Arbitrary, Binary, Character, Hex, Octal};
+use crate::format::{Arbitrary, Binary, Character, Expression, Hex, Octal};
 use arrayvec::{Array, ArrayVec};
 use lexical_core::Number;
 
@@ -108,7 +108,15 @@ impl<'a> Data for Arbitrary<'a> {
 
 impl<'a> Data for Character<'a> {
     fn format_response_data(&self, formatter: &mut dyn Formatter) -> Result<()> {
-        formatter.push_str(self.0)
+        formatter.push_ascii(self.0)
+    }
+}
+
+impl<'a> Data for Expression<'a> {
+    fn format_response_data(&self, formatter: &mut dyn Formatter) -> Result<()> {
+        formatter.push_byte(b'(')?;
+        formatter.push_ascii(self.0)?;
+        formatter.push_byte(b')')
     }
 }
 
@@ -129,7 +137,7 @@ impl<'a> Data for &'a [u8] {
                 if !first {
                     formatter.push_str(br#""""#)?;
                 }
-                formatter.push_str(ss)?;
+                formatter.push_ascii(ss)?;
                 first = false;
             }
             formatter.push_byte(b'"')
@@ -179,6 +187,12 @@ pub trait Formatter {
     /// Push raw string to output
     fn push_str(&mut self, s: &[u8]) -> Result<()>;
 
+    /// Push ascii to output, panics if
+    fn push_ascii(&mut self, s: &[u8]) -> Result<()> {
+        debug_assert!(s.is_ascii());
+        self.push_str(s)
+    }
+
     ///Push single byte to output
     fn push_byte(&mut self, b: u8) -> Result<()>;
 
@@ -227,10 +241,8 @@ pub struct ResponseUnit<'a> {
 
 impl<'a> ResponseUnit<'a> {
     pub fn header(&mut self, header: &[u8]) -> &mut Self {
+        debug_assert!(!self.has_data, "Tried to put header after data");
         self.result = self.result.and_then(|_| {
-            if self.has_data {
-                panic!("Tried to put header after data");
-            }
             if self.has_header {
                 self.fmt.push_byte(b':')?;
             }
