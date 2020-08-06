@@ -1,6 +1,6 @@
 [package]
 name = "scpi"
-version = "0.2.7"
+version = "0.3.0"
 authors = ["Atmelfan <gustavp@gpa-robotics.com>"]
 edition = "2018"
 license = "MIT"
@@ -14,11 +14,13 @@ documentation = "https://docs.rs/crate/scpi"
 repository = "https://github.com/Atmelfan/scpi-rs"
 readme = "README.md"
 
+build = "build.rs"
+
 [badges]
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-scpi_derive = { path = "../scpi_derive", version="0.1.1" }
+scpi_derive = { path = "../scpi_derive", version="0.3.0" }
 lexical-core = { version="0.7", features=["radix"], default-features=false }
 arraydeque = { version = "0.4", default-features = false }
 arrayvec = { version = "0.5.1", default-features=false }
@@ -33,8 +35,13 @@ features = [
     "try-from"
 ]
 
+[build-dependencies]
+built = { version = "0.4", features = ["git2", "semver"] }
+
 [features]
 default = [
+    # Library build information
+    "build-info",
     # Types
     "usize", "u8", "u16", "u32", "u64",
     "isize", "i8", "i16", "i32", "i64",
@@ -68,6 +75,9 @@ extended-error = []
 
 # Support UTF8 arbitrarydata block #s'utf8-data'
 arbitrary-utf8-string = []
+
+# Include build info
+build-info = []
 
 ###################################### TYPES ######################################
 # Unsigned
