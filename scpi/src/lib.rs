@@ -136,14 +136,11 @@ pub mod info {
             if let (Some(v), Some(dirty), Some(hash)) =
                 (built::GIT_VERSION, built::GIT_DIRTY, built::GIT_COMMIT_HASH)
             {
-                response
-                    .data(v.as_bytes())
-                    .data(hash.as_bytes());
-                if dirty { }
+                response.data(v.as_bytes()).data(hash.as_bytes());
+                if dirty {
                     response.data(Character(b"DIRTY"));
-            } else {
+                }
             }
-
             response.finish()
         }
     }
