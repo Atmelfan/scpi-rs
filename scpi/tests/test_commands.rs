@@ -417,6 +417,10 @@ fn test_stat_operation() {
         assert_eq!(result, Ok(()));
         assert_eq!(response, b"16;144\n");
     });
+    execute_str!(ctx, b"stat:preset;:stat:oper:enable?;ptr?;ntr?" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"0;32767;0\n");
+    });
 }
 
 #[test]
@@ -447,5 +451,9 @@ fn test_stat_questionable() {
     execute_str!(ctx, b"*stb?;*ques #HFFFF;*stb?" => result, response {
         assert_eq!(result, Ok(()));
         assert_eq!(response, b"16;24\n");
+    });
+    execute_str!(ctx, b"stat:preset;:stat:ques:enable?;ptr?;ntr?" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"0;32767;0\n");
     });
 }
