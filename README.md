@@ -29,12 +29,15 @@ scpi = "0.x"
 The API is still work in progress so the minor version should be specified.
 
 ## Features
-These features are by default turned off.
+These features are by default turned *OFF*.
 - `extended-error` - Allows extended error messages of the form `<error code>, "error message;extended message"`.
 Requires more data and program memory.
 - `arbitrary-utf8-string` - Allows UTF8 arbitrary data block, `#s"Detta är en utf8 sträng med roliga bokstäver`.
 Checked by the parser and emits a InvalidBlockData if the UTF8 data is malformed. **This is not a part of the SCPI standard**
-- ``
+
+These features are by default turned **ON**.
+- `build-info` - Includes build info in the library and creates a `LIBrary[:VERsion]?` command macro to query it.
+- `unit-*` - Creates conversion from a argument \[and suffix] into corresponding [uom](https://crates.io/crates/uom) unit. Disable the ones you don't need to save space and skip uom.
 
 ## Getting started
 Look at the [`example`](https://github.com/Atmelfan/scpi-rs/tree/master/example) for how to create a tree and run commands.
@@ -65,7 +68,7 @@ They are listed in the rough order of which I care to fix them.
  * [x] Expression data, not handled at all. __Supports non-nested numeric-/channel-list expressions__
  * [ ] Provide a reference instrument class implementation
  * [ ] Error codes returned by the parser does not follow SCPI-99 accurately (because there's a fucking lot of them!).
- * [ ] Working test suite.
+ * [x] Working test suite. __Better than nothing I suppose__
 
 ## Nice to have
 Not necessary for a 1.0.0 version but would be nice to have in no particular order.
