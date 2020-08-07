@@ -35,7 +35,7 @@ pub enum Token<'a> {
     /// A <DECIMAL NUMERIC PROGRAM DATA> 7.7.2 followed by a <SUFFIX PROGRAM DATA> 7.7.3
     DecimalNumericSuffixProgramData(&'a [u8], &'a [u8]),
     /// A <NONDECIMAL NUMERIC PROGRAM DATA> 7.7.4
-    NonDecimalNumericProgramData(u32),
+    NonDecimalNumericProgramData(u64),
     /// A <STRING PROGRAM DATA> 7.7.5
     StringProgramData(&'a [u8]),
     /// A <ARBITRARY BLOCK PROGRAM DATA> 7.7.6
@@ -129,23 +129,6 @@ impl<'a> Token<'a> {
                     }
             }
             _ => false,
-        }
-    }
-
-    /// If token is `CharacterProgramData`, try to map into another token.
-    /// If token is not a `CharacterProgramData` the token will be returned as-is
-    ///
-    /// # Arguments
-    /// * `special` - Function which maps a slice (likely a mnemonic) to a new Token (or emit an error)
-    ///
-    pub fn map_character_data<F>(self, special: F) -> Result<Token<'a>, Error>
-    where
-        F: FnOnce(&[u8]) -> Result<Token<'a>, Error>,
-    {
-        if let Token::CharacterProgramData(s) = self {
-            special(s)
-        } else {
-            Ok(self)
         }
     }
 
@@ -456,6 +439,8 @@ macro_rules! impl_tryfrom_float {
                             Ok(<$from>::NEG_INFINITY)
                         }
                         ref x if Token::mnemonic_compare(b"NAN", x) => Ok(<$from>::NAN),
+                        ref x if Token::mnemonic_compare(b"MAXimum", x) => Ok(<$from>::MAX),
+                        ref x if Token::mnemonic_compare(b"MINimum", x) => Ok(<$from>::MIN),
                         _ => Err(ErrorCode::DataTypeError.into()),
                     },
                     Token::DecimalNumericSuffixProgramData(_, _) => {
@@ -518,6 +503,12 @@ macro_rules! impl_tryfrom_integer {
                     Token::NonDecimalNumericProgramData(value) => {
                         <$from>::try_from(value).map_err(|_| ErrorCode::DataOutOfRange.into())
                     }
+                    Token::CharacterProgramData(s) => match s {
+                        //Check for special float values
+                        ref x if Token::mnemonic_compare(b"MAXimum", x) => Ok(<$from>::MAX),
+                        ref x if Token::mnemonic_compare(b"MINimum", x) => Ok(<$from>::MIN),
+                        _ => Err(ErrorCode::DataTypeError.into()),
+                    },
                     Token::DecimalNumericSuffixProgramData(_, _) => {
                         Err(ErrorCode::SuffixNotAllowed.into())
                     }

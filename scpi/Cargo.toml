@@ -31,6 +31,9 @@ default-features = false
 optional = true
 features = [
     "autoconvert",
+    "usize", "u8", "u16", "u32", "u64",
+    "isize", "i8", "i16", "i32", "i64",
+    "f32", "f64",
     "si",
     "try-from"
 ]
@@ -42,10 +45,6 @@ built = { version = "0.4", features = ["git2", "semver"] }
 default = [
     # Library build information
     "build-info",
-    # Types
-    "usize", "u8", "u16", "u32", "u64",
-    "isize", "i8", "i16", "i32", "i64",
-    "f32", "f64",
     # Units
     "unit-length",
     "unit-velocity",
@@ -78,25 +77,6 @@ arbitrary-utf8-string = []
 
 # Include build info
 build-info = []
-
-###################################### TYPES ######################################
-# Unsigned
-u8 = ["uom/u8", "f32"]
-u16 = ["uom/u16", "f32"]
-u32 = ["uom/u32", "f64"]
-u64 = ["uom/u64", "f64"]
-u128 = ["uom/u128", "f64"]
-usize = ["uom/usize", "f64"]
-# Signed
-i8 = ["uom/i8", "f32"]
-i16 = ["uom/i16", "f32"]
-i32 = ["uom/i32", "f32"]
-i64 = ["uom/i64", "f64"]
-i128 = ["uom/i128", "f64"]
-isize = ["uom/isize", "f64"]
-# Float
-f32 = ["uom/f32"]
-f64 = ["uom/f64"]
 
 ###################################### UNITS ######################################
 # Individual units

@@ -68,10 +68,7 @@ impl Command for ErrorCustomCommand {
     nquery!();
 
     fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<()> {
-        let code: i16 = _args
-            .next_data(true)?
-            .unwrap_or(Token::NonDecimalNumericProgramData(0u32))
-            .try_into()?;
+        let code: i16 = _args.next_data(true)?.map_or(Ok(0), |t| t.try_into())?;
         Err(Error::new(ErrorCode::Custom(code, b"Custom error")))
     }
 }
@@ -87,10 +84,7 @@ impl Command for ErrorExtendedCommand {
     nquery!();
 
     fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<()> {
-        let code: i16 = _args
-            .next_data(true)?
-            .unwrap_or(Token::NonDecimalNumericProgramData(0u32))
-            .try_into()?;
+        let code: i16 = _args.next_data(true)?.map_or(Ok(0), |t| t.try_into())?;
         Err(Error::extended(
             ErrorCode::Custom(code, b"Error"),
             b"Additional information",

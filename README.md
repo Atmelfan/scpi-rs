@@ -1,4 +1,4 @@
-# SCPI
+# scpi 0.3.0
 
 ![Quickstart](https://github.com/Atmelfan/scpi-rs/workflows/Quickstart/badge.svg)
 ![Fuzzing](https://github.com/Atmelfan/scpi-rs/workflows/Fuzzing/badge.svg)
@@ -15,45 +15,45 @@ It does not require the std library (ie it's `no_std` compatible) or a system al
 
 **API is unstable (as of 0.2.\*)**
 
-# Scope
+## Scope
 The crate does not support any transport layer, it only reads ascii-strings (`[u8]`) and writes ascii responses.
 
 It does not implement any higher level functions/error handling other than SCPI parsing and mandated registers/commands(optional).
 
-# Using this crate
+## Using this crate
 Add `scpi` to your dependencies:
-```
+```toml
 [dependencies]
 scpi = "0.x"
 ```
 The API is still work in progress so the minor version should be specified.
 
-# Features
+## Features
 These features are by default turned off.
-- `extended-error` - Allows extended error messages of the form `<error code>, "error message;extended message"`. 
+- `extended-error` - Allows extended error messages of the form `<error code>, "error message;extended message"`.
 Requires more data and program memory.
-- `arbitrary-utf8-string` - Allows UTF8 arbitrary data block, `#s"Detta är en utf8 sträng med roliga bokstäver`. 
+- `arbitrary-utf8-string` - Allows UTF8 arbitrary data block, `#s"Detta är en utf8 sträng med roliga bokstäver`.
 Checked by the parser and emits a InvalidBlockData if the UTF8 data is malformed. **This is not a part of the SCPI standard**
-                             
+- ``
 
-# Getting started
+## Getting started
 Look at the [`example`](https://github.com/Atmelfan/scpi-rs/tree/master/example) for how to create a tree and run commands.
 
-# Character coding
-SCPI is strictly ASCII and will throw a error InvalidCharacter if any non-ascii `(>127)` characters are encountered (Exception: Arbitrary data blocks). 
+## Character coding
+SCPI is strictly ASCII and will throw a error InvalidCharacter if any non-ascii `(>127)` characters are encountered (Exception: Arbitrary data blocks).
 This library uses ASCII `[u8]` and not Rust UTF-8 `str`, use `to/from_bytes()` to convert in between them.
 
 String/arbitrary-block data may be converted to str with the try_into trait which will throw a SCPI error if the data is not valid UTF8.
 
-# Error handling
-The `Context::exec(...)` function aborts execution and returns on the first error it encounters. 
+## Error handling
+The `Context::run(...)` function aborts execution and returns on the first error it encounters.
 Execution may be resumed where it aborted by calling exec again with the same tokenizer.
 
 User commands will often use functions which may return an error, these should mostly be propagated down to the parser by rusts `?` operator.
 
 _The documentation often uses the term 'throw' for returning an error, this should not be confused with exceptions etc which are not used._
 
-# Limitations and differences
+## Limitations and differences
 These are the current limitations and differences from SCPI-99 specs (that I can remember) that needs to be addressed before version 1.0.0.
 They are listed in the rough order of which I care to fix them.
 
@@ -66,13 +66,13 @@ They are listed in the rough order of which I care to fix them.
  * [ ] Provide a reference instrument class implementation
  * [ ] Error codes returned by the parser does not follow SCPI-99 accurately (because there's a fucking lot of them!).
  * [ ] Working test suite.
- 
-# Nice to have
+
+## Nice to have
 Not necessary for a 1.0.0 version but would be nice to have in no particular order.
 
- * Double-precision float (`f64`) support.
+ * [x] Double-precision float (`f64`) support.
 
-# Contribution
+## Contribution
 Contributions are welcome because I don't know what the fuck I'm doing.
 
 Project organisation:
@@ -80,6 +80,7 @@ Project organisation:
  * `example` - A simple example application used for testing
  * `scpi` - Main library
  * `scpi_derive` - Internal macro support library, used by `scpi` to generate error messages and suffixes (enter at own risk)
- 
- # License
- This project is licensed under the MIT License, see LICENSE.txt.
+
+
+# License
+This project is licensed under the MIT License, see LICENSE.txt.
