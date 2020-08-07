@@ -76,7 +76,7 @@ macro_rules! add_numeric_command {
             name: $cmd,
             optional: false,
             handler: Some(&$name {}),
-            sub: None,
+            sub: &[],
         }
     };
 }

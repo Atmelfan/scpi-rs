@@ -9,11 +9,11 @@ use crate::Context;
 #[macro_export]
 macro_rules! scpi_tree {
     ($($node:expr),*) => {
-    &Node{name: b"ROOT", optional: false, handler: None, sub: Some(&[
+    &Node{name: b"ROOT", optional: false, handler: None, sub: &[
         $(
             $node
         ),*
-    ])}
+    ]}
     };
 }
 
@@ -33,7 +33,7 @@ macro_rules! scpi_tree {
 ///         model: b"Potato",
 ///         serial: b"42",
 ///         firmware: b"0"
-///     }), sub: None}
+///     }), sub: &[]}
 ///     //...
 /// ];
 /// ```
@@ -48,7 +48,7 @@ pub struct Node<'a> {
     pub handler: Option<&'a dyn Command>,
     /// Subnodes. The node may contain None or an array of subcommands. If a message attempts to traverse
     /// this node and it does not have any subnodes (eg `IMhelping:THISnode:DONTexist), a UndefinedHeaderError will be returned.
-    pub sub: Option<&'a [Node<'a>]>,
+    pub sub: &'a [Node<'a>],
     ///Marks the node as being optional (called default with inverse behaviour in IEE488)
     pub optional: bool,
 }
@@ -71,9 +71,9 @@ impl<'a> Node<'a> {
             } else {
                 handler.event(context, args)
             }
-        } else if self.sub.is_some() {
+        } else if !self.sub.is_empty() {
             //No handler, check for a default child
-            for child in self.sub.unwrap() {
+            for child in self.sub {
                 if child.optional {
                     return child.exec(context, args, response, query);
                 }

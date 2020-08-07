@@ -439,149 +439,149 @@ pub const TREE: &Node = scpi_tree![
         name: b"ABORt",
         handler: None,
         optional: false,
-        sub: None,
+        sub: &[],
     },
     Node {
         name: b"INITiate",
         handler: None,
         optional: false,
-        sub: Some(&[Node {
+        sub: &[Node {
             name: b"IMMediate",
             handler: None,
             optional: true,
-            sub: None,
-        }]),
+            sub: &[],
+        }],
     },
     Node {
         name: b"EXAMple",
         optional: true,
         handler: None,
-        sub: Some(&[
+        sub: &[
             Node {
                 name: b"HELLO",
                 optional: false,
                 handler: None,
-                sub: Some(&[Node {
+                sub: &[Node {
                     name: b"WORLD",
                     optional: true,
                     handler: Some(&HelloWorldCommand {}),
-                    sub: None,
-                }]),
+                    sub: &[],
+                }],
             },
             Node {
                 name: b"ERRor",
                 optional: false,
                 handler: None,
-                sub: Some(&[
+                sub: &[
                     Node {
                         name: b"CUSTom",
                         optional: false,
                         handler: Some(&ErrorCustomCommand {}),
-                        sub: None,
+                        sub: &[],
                     },
                     #[cfg(feature = "extended-error")]
                     Node {
                         name: b"EXTended",
                         optional: false,
                         handler: Some(&ErrorExtendedCommand {}),
-                        sub: None,
+                        sub: &[],
                     },
                     Node {
                         name: b"MULtiple",
                         optional: false,
                         handler: Some(&ErrorMultipleCommand {}),
-                        sub: None,
+                        sub: &[],
                     },
-                ]),
+                ],
             },
             Node {
                 name: b"NODE",
                 optional: false,
                 handler: None,
-                sub: Some(&[
+                sub: &[
                     Node {
                         name: b"DEFault",
                         optional: true,
                         handler: Some(&ExamNodeDefCommand {}),
-                        sub: None,
+                        sub: &[],
                     },
                     Node {
                         name: b"ARGuments",
                         optional: true,
                         handler: Some(&ExamNodeArgCommand {}),
-                        sub: None,
+                        sub: &[],
                     },
-                ]),
+                ],
             },
             Node {
                 name: b"TYPes",
                 optional: false,
                 handler: None,
-                sub: Some(&[
+                sub: &[
                     Node {
                         name: b"NUMeric",
                         optional: false,
                         handler: None,
-                        sub: Some(&[
+                        sub: &[
                             Node {
                                 name: b"DECimal",
                                 optional: true,
                                 handler: Some(&ExamTypNumDecCommand {}),
-                                sub: None,
+                                sub: &[],
                             },
                             Node {
                                 name: b"WATT",
                                 optional: false,
                                 handler: Some(&ExamTypNumWattCommand {}),
-                                sub: None,
+                                sub: &[],
                             },
                             Node {
                                 name: b"VOLT",
                                 optional: false,
                                 handler: Some(&ExamTypNumVoltCommand {}),
-                                sub: None,
+                                sub: &[],
                             },
                             Node {
                                 name: b"ANGLE",
                                 optional: false,
                                 handler: Some(&ExamTypNumAngleCommand {}),
-                                sub: None,
+                                sub: &[],
                             },
-                        ]),
+                        ],
                     },
                     Node {
                         name: b"STRing",
                         optional: false,
                         handler: Some(&ExamTypStrCommand {}),
-                        sub: None,
+                        sub: &[],
                     },
                     Node {
                         name: b"ARBitrary",
                         optional: false,
                         handler: Some(&ExamTypArbCommand {}),
-                        sub: None,
+                        sub: &[],
                     },
                     Node {
                         name: b"LIST",
                         optional: false,
                         handler: None,
-                        sub: Some(&[
+                        sub: &[
                             Node {
                                 name: b"NUMeric",
                                 optional: true,
                                 handler: Some(&ExamTypListNumCommand {}),
-                                sub: None,
+                                sub: &[],
                             },
                             Node {
                                 name: b"CHANnel",
                                 optional: false,
                                 handler: Some(&ExamTypListChanCommand {}),
-                                sub: None,
+                                sub: &[],
                             }
-                        ]),
+                        ],
                     },
-                ]),
+                ],
             },
-        ]),
+        ],
     }
 ];

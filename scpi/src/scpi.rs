@@ -561,91 +561,91 @@ pub mod commands {
                 name: b"STATus",
                 optional: false,
                 handler: None,
-                sub: Some(&[
+                sub: &[
                     Node {
                         name: b"OPERation",
                         optional: false,
                         handler: None,
-                        sub: Some(&[
+                        sub: &[
                             Node {
                                 name: b"CONDition",
                                 optional: false,
                                 handler: Some(&StatOperCondCommand {}),
-                                sub: None,
+                                sub: &[],
                             },
                             Node {
                                 name: b"ENABle",
                                 optional: false,
                                 handler: Some(&StatOperEnabCommand {}),
-                                sub: None,
+                                sub: &[],
                             },
                             Node {
                                 name: b"EVENt",
                                 optional: true,
                                 handler: Some(&StatOperEvenCommand {}),
-                                sub: None,
+                                sub: &[],
                             },
                             Node {
                                 name: b"NTRansition",
                                 optional: false,
                                 handler: Some(&StatOperNtrCommand {}),
-                                sub: None,
+                                sub: &[],
                             },
                             Node {
                                 name: b"PTRansition",
                                 optional: false,
                                 handler: Some(&StatOperPtrCommand {}),
-                                sub: None,
+                                sub: &[],
                             },
-                        ]),
+                        ],
                     },
                     Node {
                         name: b"QUEStionable",
                         optional: false,
                         handler: None,
-                        sub: Some(&[
+                        sub: &[
                             Node {
                                 name: b"CONDition",
                                 optional: false,
                                 handler: Some(&StatQuesCondCommand {}),
-                                sub: None,
+                                sub: &[],
                             },
                             Node {
                                 name: b"ENABle",
                                 optional: false,
                                 handler: Some(&StatQuesEnabCommand {}),
-                                sub: None,
+                                sub: &[],
                             },
                             Node {
                                 name: b"EVENt",
                                 optional: true,
                                 handler: Some(&StatQuesEvenCommand {}),
-                                sub: None,
+                                sub: &[],
                             },
                             Node {
                                 name: b"NTRansition",
                                 optional: false,
                                 handler: Some(&StatQuesNtrCommand {}),
-                                sub: None,
+                                sub: &[],
                             },
                             Node {
                                 name: b"PTRansition",
                                 optional: false,
                                 handler: Some(&StatQuesPtrCommand {}),
-                                sub: None,
+                                sub: &[],
                             },
-                        ]),
+                        ],
                     },
                     Node {
                         name: b"PRESet",
                         optional: false,
                         handler: Some(&StatPresCommand {}),
-                        sub: None,
+                        sub: &[],
                     },
                     $(
                         $node
                     ),*
-                ]),
+                ],
             }
         };
     }
@@ -658,42 +658,42 @@ pub mod commands {
                 name: b"SYSTem",
                 optional: false,
                 handler: None,
-                sub: Some(&[
+                sub: &[
                     Node {
                         name: b"ERRor",
                         optional: false,
                         handler: None,
-                        sub: Some(&[
+                        sub: &[
                             Node {
                                 name: b"ALL",
                                 optional: false,
                                 handler: Some(&SystErrAllCommand {}),
-                                sub: None,
+                                sub: &[],
                             },
                             Node {
                                 name: b"NEXT",
                                 optional: true,
                                 handler: Some(&SystErrNextCommand {}),
-                                sub: None,
+                                sub: &[],
                             },
                             Node {
                                 name: b"COUNt",
                                 optional: false,
                                 handler: Some(&SystErrCounCommand {}),
-                                sub: None,
+                                sub: &[],
                             },
-                        ]),
+                        ],
                     },
                     Node {
                         name: b"VERSion",
                         optional: false,
                         handler: Some(&SystVersCommand { year: 1999, rev: 0 }),
-                        sub: None,
+                        sub: &[],
                     },
                     $(
                         $node
                     ),*
-                ]),
+                ],
             }
         };
     }

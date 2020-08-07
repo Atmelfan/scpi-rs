@@ -161,12 +161,12 @@ pub mod info {
                 name: b"LIBrary",
                 optional: false,
                 handler: None,
-                sub: Some(&[Node {
+                sub: &[Node {
                     name: b"VERSion",
                     optional: true,
                     handler: Some(&scpi::info::LibVersionCommand {}),
-                    sub: None,
-                }]),
+                    sub: &[],
+                }],
             }
         };
     }
@@ -389,8 +389,10 @@ impl<'a> Context<'a> {
             match tok {
                 Token::ProgramMnemonic(_) => {
                     //Common nodes always use ROOT as base node
-                    let subcommands = if is_common { self.root.sub } else { branch.sub }
-                        .ok_or(ErrorCode::UndefinedHeader)?;
+                    let subcommands = if is_common { self.root.sub } else { branch.sub };
+                    if subcommands.is_empty() {
+                        return Err(ErrorCode::UndefinedHeader.into());
+                    }
 
                     for sub in subcommands {
                         if is_common {
@@ -405,9 +407,9 @@ impl<'a> Context<'a> {
                             //Normal node must match mnemonic
                             node = Some(sub);
                             continue 'outer;
-                        } else if sub.optional && sub.sub.is_some() {
+                        } else if sub.optional && !sub.sub.is_empty() {
                             //A optional node may have matching children
-                            for subsub in sub.sub.unwrap() {
+                            for subsub in sub.sub {
                                 if tok.match_program_header(subsub.name) {
                                     //Normal node must match mnemonic
                                     node = Some(subsub);

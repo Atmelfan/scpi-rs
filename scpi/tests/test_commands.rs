@@ -33,31 +33,31 @@ const IEEE488_TREE: &Node = scpi_tree![
         name: b"*ERR",
         optional: false,
         handler: Some(&ErrorCommand {}),
-        sub: None,
+        sub: &[],
     },
     Node {
         name: b"*OPER",
         optional: false,
         handler: Some(&OperCommand {}),
-        sub: None,
+        sub: &[],
     },
     Node {
         name: b"*QUES",
         optional: false,
         handler: Some(&QuesCommand {}),
-        sub: None,
+        sub: &[],
     },
     Node {
         name: b"*QUERY",
         optional: false,
         handler: Some(&QueryCommand {}),
-        sub: None,
+        sub: &[],
     },
     Node {
         name: b"*EVENT",
         optional: false,
         handler: Some(&EventCommand {}),
-        sub: None,
+        sub: &[],
     }
 ];
 
