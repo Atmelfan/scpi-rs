@@ -1,6 +1,6 @@
 [package]
 name = "scpi"
-version = "0.3.2"
+version = "0.3.3"
 authors = ["Atmelfan <gustavp@gpa-robotics.com>"]
 edition = "2018"
 license = "MIT"
@@ -20,7 +20,7 @@ build = "build.rs"
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-scpi_derive = { path = "../scpi_derive", version="0.3.2" }
+scpi_derive = { path = "../scpi_derive", version="0.3.3" }
 lexical-core = { version="0.7", features=["radix"], default-features=false }
 arraydeque = { version = "0.4", default-features = false }
 arrayvec = { version = "0.5", default-features=false }
