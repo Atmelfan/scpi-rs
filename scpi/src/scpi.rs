@@ -245,12 +245,17 @@ pub mod commands {
             response: &mut ResponseUnit,
         ) -> Result<()> {
             //Always return first error (NoError if empty)
-            loop {
-                let error = context.errors.pop_front_error();
-                if error == ErrorCode::NoError {
-                    break response.finish();
+            if context.errors.is_empty() {
+                response.data(Error::new(ErrorCode::NoError)).finish()
+            } else {
+                loop {
+                    let err = context.errors.pop_front_error();
+                    if err == ErrorCode::NoError {
+                        break;
+                    }
+                    response.data(err);
                 }
-                response.data(error);
+                response.finish()
             }
         }
     }
