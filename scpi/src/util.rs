@@ -1,5 +1,8 @@
 use core::slice::Iter;
 
+#[cfg(not(feature = "use_libm"))]
+#[allow(unused_imports)]
+use lexical_core::Float;
 #[cfg(feature = "use_libm")]
 use libm;
 
