@@ -35,22 +35,22 @@ pub(crate) fn skip_ws(iter: &mut Iter<u8>) {
 
 pub(crate) fn roundf32(x: f32) -> f32 {
     #[cfg(feature = "use_libm")]
-        {
-            libm::roundf(x)
-        }
+    {
+        libm::roundf(x)
+    }
     #[cfg(not(feature = "use_libm"))]
-        {
-            <f32>::round(x)
-        }
+    {
+        <f32>::round(x)
+    }
 }
 
 pub(crate) fn roundf64(x: f64) -> f64 {
     #[cfg(feature = "use_libm")]
-        {
-            libm::round(x)
-        }
+    {
+        libm::round(x)
+    }
     #[cfg(not(feature = "use_libm"))]
-        {
-            <f64>::round(x)
-        }
+    {
+        <f64>::round(x)
+    }
 }

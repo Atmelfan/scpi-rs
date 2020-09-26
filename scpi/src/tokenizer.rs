@@ -465,8 +465,6 @@ macro_rules! impl_tryfrom_float {
 impl_tryfrom_float!(f32);
 impl_tryfrom_float!(f64);
 
-
-
 // TODO: Shitty way of rounding integers
 macro_rules! impl_tryfrom_integer {
     (round; f64, $val:expr) => {

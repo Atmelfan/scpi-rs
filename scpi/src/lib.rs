@@ -93,10 +93,10 @@ extern crate scpi_derive;
 extern crate arraydeque;
 extern crate arrayvec;
 extern crate lexical_core;
-#[cfg(any(feature = "unit-any"))]
-pub extern crate uom;
 #[cfg(feature = "use_libm")]
 extern crate libm;
+#[cfg(any(feature = "unit-any"))]
+pub extern crate uom;
 
 pub mod command;
 pub mod error;
