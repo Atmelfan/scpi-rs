@@ -34,6 +34,7 @@
 //! Requires more data and program memory.
 //! - `arbitrary-utf8-string` - Allows UTF8 arbitrary data block, `#s"Detta är en utf8 sträng med roliga bokstäver`.
 //! Checked by the parser and emits a InvalidBlockData if the UTF8 data is malformed. **This is not a part of the SCPI standard**
+//! - `use_libm` - Uses libm for math operations instead of intrinsics on target which does not support them. **Use this if you get linker errors about round/roundf**
 //!
 //! These features are by default turned **ON**.
 //! - `build-info` - Includes build info in the library and creates a `LIBrary[:VERsion]?` command macro to query it.
@@ -94,6 +95,8 @@ extern crate arrayvec;
 extern crate lexical_core;
 #[cfg(any(feature = "unit-any"))]
 pub extern crate uom;
+#[cfg(feature = "use_libm")]
+extern crate libm;
 
 pub mod command;
 pub mod error;
