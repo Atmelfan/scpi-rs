@@ -33,31 +33,31 @@ const IEEE488_TREE: &Node = scpi_tree![
         name: b"*ERR",
         optional: false,
         handler: Some(&ErrorCommand {}),
-        sub: None,
+        sub: &[],
     },
     Node {
         name: b"*OPER",
         optional: false,
         handler: Some(&OperCommand {}),
-        sub: None,
+        sub: &[],
     },
     Node {
         name: b"*QUES",
         optional: false,
         handler: Some(&QuesCommand {}),
-        sub: None,
+        sub: &[],
     },
     Node {
         name: b"*QUERY",
         optional: false,
         handler: Some(&QueryCommand {}),
-        sub: None,
+        sub: &[],
     },
     Node {
         name: b"*EVENT",
         optional: false,
         handler: Some(&EventCommand {}),
-        sub: None,
+        sub: &[],
     }
 ];
 
@@ -374,8 +374,11 @@ fn test_syst_err() {
     });
     execute_str!(ctx, b"*err -100;*err -200;syst:err:count?;all?" => result, response {
         assert_eq!(result, Ok(()));
-        println!("{:?}\n{:?}",b"2;-100,\"Command error\",-200,\"Execution error\"\n", response);
         assert_eq!(response.eq_ignore_ascii_case(b"2;-100,\"Command error\",-200,\"Execution error\"\n"), true);
+    });
+    execute_str!(ctx, b"syst:err:all?" => result, response {
+        assert_eq!(result, Ok(()));
+        assert_eq!(response, b"0,\"No error\"\n");
     });
 }
 

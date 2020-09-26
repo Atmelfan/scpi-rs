@@ -304,7 +304,7 @@ pub mod commands {
                     serial: $serial,
                     firmware: $firmware,
                 }),
-                sub: None,
+                sub: &[],
             }
         };
     }
@@ -316,7 +316,7 @@ pub mod commands {
                 name: b"*CLS",
                 optional: false,
                 handler: Some(&ClsCommand {}),
-                sub: None,
+                sub: &[],
             }
         };
     }
@@ -328,7 +328,7 @@ pub mod commands {
                 name: b"*ESE",
                 optional: false,
                 handler: Some(&EseCommand {}),
-                sub: None,
+                sub: &[],
             }
         };
     }
@@ -340,7 +340,7 @@ pub mod commands {
                 name: b"*ESR",
                 optional: false,
                 handler: Some(&EsrCommand {}),
-                sub: None,
+                sub: &[],
             }
         };
     }
@@ -352,7 +352,7 @@ pub mod commands {
                 name: b"*OPC",
                 optional: false,
                 handler: Some(&OpcCommand {}),
-                sub: None,
+                sub: &[],
             }
         };
     }
@@ -364,7 +364,7 @@ pub mod commands {
                 name: b"*RST",
                 optional: false,
                 handler: Some(&RstCommand {}),
-                sub: None,
+                sub: &[],
             }
         };
     }
@@ -376,7 +376,7 @@ pub mod commands {
                 name: b"*SRE",
                 optional: false,
                 handler: Some(&SreCommand {}),
-                sub: None,
+                sub: &[],
             }
         };
     }
@@ -388,7 +388,7 @@ pub mod commands {
                 name: b"*STB",
                 optional: false,
                 handler: Some(&StbCommand {}),
-                sub: None,
+                sub: &[],
             }
         };
     }
@@ -400,7 +400,7 @@ pub mod commands {
                 name: b"*TST",
                 optional: false,
                 handler: Some(&TstCommand {}),
-                sub: None,
+                sub: &[],
             }
         };
     }
@@ -412,7 +412,7 @@ pub mod commands {
                 name: b"*WAI",
                 optional: false,
                 handler: Some(&WaiCommand {}),
-                sub: None,
+                sub: &[],
             }
         };
     }
