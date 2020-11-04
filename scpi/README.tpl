@@ -1,4 +1,4 @@
-# {{crate}} {{version}}
+# {{crate}}
 
 {{readme}}
 

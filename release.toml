@@ -1,0 +1,4 @@
+pre-release-replacements = [
+    {file="scpi/README.md", search="predicates = .*", replace="{{crate_name}} = \"{{version}}\""},
+    {file="scpi/src/lib.rs", search="predicates = .*", replace="{{crate_name}} = \"{{version}}\""},
+]
