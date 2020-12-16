@@ -78,31 +78,8 @@ fn find_prop_path<'a>(meta: &'a Meta, attr: &str, property: &str) -> bool {
     false
 }
 
-fn find_prop_f(meta: &Meta, attr: &str, property: &str) -> Option<f32> {
-    if let Meta::List(list) = meta {
-        if list.path.is_ident(attr) {
-            //println!("{:?}", list);
-            let inner = get_inner_meta(list);
-
-            for name_value in inner {
-                if let Meta::NameValue(MetaNameValue {
-                    ref path,
-                    lit: Lit::Float(ref s),
-                    ..
-                }) = name_value
-                {
-                    if path.is_ident(property) {
-                        return Some(s.base10_parse::<f32>().ok().unwrap());
-                    }
-                }
-            }
-        }
-    }
-    None
-}
-
-#[proc_macro_derive(ScpiUnit, attributes(unit))]
-pub fn derive_heap_size(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+#[proc_macro_derive(ScpiEnum, attributes(scpi))]
+pub fn derive_scpi_enum(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // Parse the input tokens into a syntax tree.
     let input = parse_macro_input!(input as DeriveInput);
 
@@ -121,13 +98,12 @@ pub fn derive_heap_size(input: proc_macro::TokenStream) -> proc_macro::TokenStre
         //println!(" - {} : ", variant_name.to_string());
         for attr in variant.attrs.iter() {
             let meta = attr.parse_meta().unwrap();
-            if let Some(suffix) = find_prop_bstr(&meta, "unit", "suffix") {
-                let multiplier = find_prop_f(&meta, "unit", "multiplier").unwrap_or(1.0f32);
-                //println!("\tb\"{}\" => ({}, {}), ", String::from_utf8(suffix.value()).unwrap(), variant_name, multiplier);
-
+            if let Some(mnemonic) = find_prop_bstr(&meta, "scpi", "mnemonic") {
                 let x = quote! {
-                    x if x.eq_ignore_ascii_case(#suffix) => Ok((#name::#variant_name, #multiplier))
+                    x if scpi::util::mnemonic_compare(#mnemonic, x) => Some(#name::#variant_name)
                 };
+
+                println!("{}", x);
 
                 variant_matches.push(x);
             }
@@ -135,14 +111,13 @@ pub fn derive_heap_size(input: proc_macro::TokenStream) -> proc_macro::TokenStre
     }
 
     variant_matches.push(quote! {
-        _ => Err(SuffixError::Unknown)
+        _ => None
     });
 
     let expanded = quote! {
         // The generated impl.
-        impl  #name {
-            #[doc="Returns matched suffix element unit and multiplier or an `SuffixError::UnknownSuffix` error if unsuccessful"]
-            pub fn from_suffix(s: &[u8]) -> Result<(#name, f32), SuffixError> {
+        impl scpi::option::ScpiEnum for #name {
+            fn from_mnemonic(s: &[u8]) -> Option<#name> {
                 match s {
                     #(#variant_matches),*
                 }

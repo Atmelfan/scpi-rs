@@ -102,13 +102,16 @@ pub mod command;
 pub mod error;
 pub mod expression;
 pub mod ieee488;
+pub mod option;
 pub mod response;
-pub mod scpi;
+pub mod scpi1999;
 pub mod suffix;
 pub mod tokenizer;
 pub mod tree;
+pub mod util;
 
-mod util;
+// For compatibility
+pub use scpi1999 as scpi;
 
 #[cfg(feature = "build-info")]
 pub mod info {

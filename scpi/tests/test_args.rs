@@ -559,10 +559,10 @@ mod boolean {
             assert_eq!(response, b"0;1\n");
         });
         execute_str!(ctx, b"*BOOL? 1.0" => result, _response {
-            assert_eq!(result, Err(Error::from(ErrorCode::IllegalParameterValue)));
+            assert_eq!(result, Ok(()));
         });
         execute_str!(ctx, b"*BOOL? -1" => result, _response {
-            assert_eq!(result, Err(Error::from(ErrorCode::IllegalParameterValue)));
+            assert_eq!(result, Ok(()));
         });
     }
     #[test]

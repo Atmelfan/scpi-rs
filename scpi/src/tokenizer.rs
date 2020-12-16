@@ -61,44 +61,6 @@ impl<'a> Token<'a> {
         )
     }
 
-    pub(crate) fn mnemonic_split_index(mnemonic: &'a [u8]) -> Option<(&'a [u8], &'a [u8])> {
-        let last = mnemonic.iter().rposition(|p| !p.is_ascii_digit());
-
-        if let Some(index) = last {
-            if index == mnemonic.len() - 1 {
-                None
-            } else {
-                Some(mnemonic.split_at(index + 1))
-            }
-        } else {
-            None
-        }
-    }
-
-    /// Compare a string to a mnemonic
-    /// # Arguments
-    /// * `mnemonic` - Reference mnemonic to compare with (Example `TRIGger2`)
-    /// * `s` - String to compare to mnemonic
-    ///
-    pub fn mnemonic_compare(mnemonic: &[u8], s: &[u8]) -> bool {
-        //LONGform == longform || LONG == long
-        //TODO: This sucks.
-        let mut optional = true;
-        mnemonic.len() >= s.len() && {
-            let mut s_iter = s.iter();
-            mnemonic.iter().all(|m| {
-                let x = s_iter.next();
-                if m.is_ascii_lowercase() && x.is_some() {
-                    optional = false;
-                }
-                x.map_or(
-                    !(m.is_ascii_uppercase() || m.is_ascii_digit()) && optional,
-                    |x| m.eq_ignore_ascii_case(x),
-                )
-            })
-        }
-    }
-
     /// Returns true if token is a ProgramMnemonic that matches provided mnemonic.
     /// Header suffix is optional if equal to 1 or not present in mnemonic.
     /// Header suffixes other than 1 must match exactly.
@@ -113,18 +75,18 @@ impl<'a> Token<'a> {
     pub fn match_program_header(&self, mnemonic: &'a [u8]) -> bool {
         match self {
             Token::ProgramMnemonic(s) | Token::CharacterProgramData(s) => {
-                Self::mnemonic_compare(mnemonic, s)
+                util::mnemonic_compare(mnemonic, s)
                     || match (
-                        Self::mnemonic_split_index(mnemonic),
-                        Self::mnemonic_split_index(s),
+                        util::mnemonic_split_index(mnemonic),
+                        util::mnemonic_split_index(s),
                     ) {
                         (None, None) => false,
-                        (Some((m, index)), None) => Self::mnemonic_compare(m, s) && index == b"1",
+                        (Some((m, index)), None) => util::mnemonic_compare(m, s) && index == b"1",
                         (None, Some((x, index))) => {
-                            Self::mnemonic_compare(mnemonic, x) && index == b"1"
+                            util::mnemonic_compare(mnemonic, x) && index == b"1"
                         }
                         (Some((m, index1)), Some((x, index2))) => {
-                            Self::mnemonic_compare(m, x) && (index1 == index2)
+                            util::mnemonic_compare(m, x) && (index1 == index2)
                         }
                     }
             }
@@ -166,12 +128,12 @@ impl<'a> Token<'a> {
     {
         match self {
             Token::CharacterProgramData(s) => match s {
-                x if Token::mnemonic_compare(b"MAXimum", x) => special(NumericValues::Maximum),
-                x if Token::mnemonic_compare(b"MINimum", x) => special(NumericValues::Minimum),
-                x if Token::mnemonic_compare(b"DEFault", x) => special(NumericValues::Default),
-                x if Token::mnemonic_compare(b"UP", x) => special(NumericValues::Up),
-                x if Token::mnemonic_compare(b"DOWN", x) => special(NumericValues::Down),
-                x if Token::mnemonic_compare(b"AUTO", x) => special(NumericValues::Auto),
+                x if util::mnemonic_compare(b"MAXimum", x) => special(NumericValues::Maximum),
+                x if util::mnemonic_compare(b"MINimum", x) => special(NumericValues::Minimum),
+                x if util::mnemonic_compare(b"DEFault", x) => special(NumericValues::Default),
+                x if util::mnemonic_compare(b"UP", x) => special(NumericValues::Up),
+                x if util::mnemonic_compare(b"DOWN", x) => special(NumericValues::Down),
+                x if util::mnemonic_compare(b"AUTO", x) => special(NumericValues::Auto),
                 _ => <R>::try_from(self),
             },
             _ => <R>::try_from(self),
@@ -239,14 +201,9 @@ impl<'a> TryFrom<Token<'a>> for bool {
 
     fn try_from(value: Token<'a>) -> Result<bool, Self::Error> {
         match value {
-            Token::DecimalNumericProgramData(s) => {
-                if s.eq_ignore_ascii_case(b"1") {
-                    Ok(true)
-                } else if s.eq_ignore_ascii_case(b"0") {
-                    Ok(false)
-                } else {
-                    Err(ErrorCode::IllegalParameterValue.into())
-                }
+            Token::DecimalNumericProgramData(_) => {
+                // Round numeric to integer, non-zero equals true
+                Ok(<isize>::try_from(value)? != 0)
             }
             Token::CharacterProgramData(s) => {
                 if s.eq_ignore_ascii_case(b"ON") {
@@ -434,13 +391,13 @@ macro_rules! impl_tryfrom_float {
                         }),
                     Token::CharacterProgramData(s) => match s {
                         //Check for special float values
-                        ref x if Token::mnemonic_compare(b"INFinity", x) => Ok(<$from>::INFINITY),
-                        ref x if Token::mnemonic_compare(b"NINFinity", x) => {
+                        ref x if util::mnemonic_compare(b"INFinity", x) => Ok(<$from>::INFINITY),
+                        ref x if util::mnemonic_compare(b"NINFinity", x) => {
                             Ok(<$from>::NEG_INFINITY)
                         }
-                        ref x if Token::mnemonic_compare(b"NAN", x) => Ok(<$from>::NAN),
-                        ref x if Token::mnemonic_compare(b"MAXimum", x) => Ok(<$from>::MAX),
-                        ref x if Token::mnemonic_compare(b"MINimum", x) => Ok(<$from>::MIN),
+                        ref x if util::mnemonic_compare(b"NAN", x) => Ok(<$from>::NAN),
+                        ref x if util::mnemonic_compare(b"MAXimum", x) => Ok(<$from>::MAX),
+                        ref x if util::mnemonic_compare(b"MINimum", x) => Ok(<$from>::MIN),
                         _ => Err(ErrorCode::DataTypeError.into()),
                     },
                     Token::DecimalNumericSuffixProgramData(_, _) => {
@@ -515,8 +472,8 @@ macro_rules! impl_tryfrom_integer {
                     }
                     Token::CharacterProgramData(s) => match s {
                         //Check for special float values
-                        ref x if Token::mnemonic_compare(b"MAXimum", x) => Ok(<$from>::MAX),
-                        ref x if Token::mnemonic_compare(b"MINimum", x) => Ok(<$from>::MIN),
+                        ref x if util::mnemonic_compare(b"MAXimum", x) => Ok(<$from>::MAX),
+                        ref x if util::mnemonic_compare(b"MINimum", x) => Ok(<$from>::MIN),
                         _ => Err(ErrorCode::DataTypeError.into()),
                     },
                     Token::DecimalNumericSuffixProgramData(_, _) => {
@@ -597,18 +554,6 @@ impl<'a> Tokenizer<'a> {
                 Err(ErrorCode::MissingParameter.into())
             }
         }
-    }
-}
-
-fn ascii_to_digit(digit: u8, radix: u8) -> Option<u32> {
-    let lowercase = digit.to_ascii_lowercase();
-
-    if digit.is_ascii_digit() && digit - b'0' < radix {
-        Some((digit - b'0') as u32)
-    } else if radix > 10 && lowercase.is_ascii_alphabetic() && lowercase - b'a' < radix - 10 {
-        Some((lowercase - b'a' + 10) as u32)
-    } else {
-        None
     }
 }
 
@@ -741,7 +686,6 @@ impl<'a> Tokenizer<'a> {
     /// <SUFFIX PROGRAM DATA>
     /// See IEEE 488.2-1992 7.7.3
     /// Reads a suffix and returns it as a string if successful, otherwise it returns an error.
-    /// TODO: Syntax check suffix
     ///
     /// Returned errors:
     /// * SuffixTooLong if suffix is longer than 12 characters
@@ -843,7 +787,7 @@ impl<'a> Tokenizer<'a> {
     /// See IEEE 488.2-1992 7.7.6
     ///
     fn read_arbitrary_data(&mut self, format: u8) -> Result<Token<'a>, ErrorCode> {
-        if let Some(len) = ascii_to_digit(format, 10) {
+        if let Some(len) = util::ascii_to_digit(format, 10) {
             if len == 0 {
                 //Take rest of string
                 let rest = self.chars.as_slice();
@@ -957,37 +901,35 @@ impl<'a> Tokenizer<'a> {
 mod test_parse {
     use crate::error::ErrorCode;
     use crate::tokenizer::{Token, Tokenizer};
+    use crate::util;
 
     extern crate std;
 
     #[test]
     fn test_split_mnemonic() {
         assert_eq!(
-            Token::mnemonic_split_index(b"TRIGger54"),
+            util::mnemonic_split_index(b"TRIGger54"),
             Some((b"TRIGger".as_ref(), b"54".as_ref()))
         );
         assert_eq!(
-            Token::mnemonic_split_index(b"T123r54"),
+            util::mnemonic_split_index(b"T123r54"),
             Some((b"T123r".as_ref(), b"54".as_ref()))
         );
-        assert_eq!(Token::mnemonic_split_index(b"TRIGger"), None);
-        assert_eq!(Token::mnemonic_split_index(b""), None);
+        assert_eq!(util::mnemonic_split_index(b"TRIGger"), None);
+        assert_eq!(util::mnemonic_split_index(b""), None);
     }
 
     #[test]
     fn test_compare_mnemonic() {
         //Should return true
-        assert!(Token::mnemonic_compare(b"TRIGger", b"trigger"));
-        assert!(Token::mnemonic_compare(b"TRIGger", b"trig"));
-        assert!(Token::mnemonic_compare(b"TRIGger", b"TRIGGER"));
-        assert!(Token::mnemonic_compare(b"TRIGger", b"TRIG"));
+        assert!(util::mnemonic_compare(b"TRIGger", b"trigger"));
+        assert!(util::mnemonic_compare(b"TRIGger", b"trig"));
+        assert!(util::mnemonic_compare(b"TRIGger", b"TRIGGER"));
+        assert!(util::mnemonic_compare(b"TRIGger", b"TRIG"));
         //Should return false
-        assert!(!Token::mnemonic_compare(b"TRIGger", b"TRIGge"));
-        assert!(!Token::mnemonic_compare(
-            b"TRIGger",
-            b"triggeristoodamnlong"
-        ));
-        assert!(!Token::mnemonic_compare(b"TRIGger", b"tri"));
+        assert!(!util::mnemonic_compare(b"TRIGger", b"TRIGge"));
+        assert!(!util::mnemonic_compare(b"TRIGger", b"triggeristoodamnlong"));
+        assert!(!util::mnemonic_compare(b"TRIGger", b"tri"));
     }
 
     #[test]
