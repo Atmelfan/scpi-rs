@@ -52,7 +52,7 @@ impl<'a> Token<'a> {
             self,
             Self::CharacterProgramData(_)
                 | Self::DecimalNumericProgramData(_)
-                | Self::DecimalNumericSuffixProgramData(_,_)
+                | Self::DecimalNumericSuffixProgramData(_, _)
                 | Self::NonDecimalNumericProgramData(_)
                 | Self::StringProgramData(_)
                 | Self::ArbitraryBlockData(_)
