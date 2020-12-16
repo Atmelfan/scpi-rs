@@ -91,7 +91,8 @@ pub fn derive_scpi_enum(input: proc_macro::TokenStream) -> proc_macro::TokenStre
         _ => panic!("Can only derive enum!"),
     };
 
-    let mut variant_matches = Vec::new();
+    let mut from_mnemonic_matches = Vec::new();
+    let mut to_mnemonic_matches = Vec::new();
 
     for variant in variants {
         let variant_name = &variant.ident;
@@ -102,24 +103,49 @@ pub fn derive_scpi_enum(input: proc_macro::TokenStream) -> proc_macro::TokenStre
                 let x = quote! {
                     x if scpi::util::mnemonic_compare(#mnemonic, x) => Some(#name::#variant_name)
                 };
+                from_mnemonic_matches.push(x);
 
-                println!("{}", x);
+                let mnemonic_return =
+                    LitByteStr::new(&mnemonic.value().to_ascii_uppercase(), name.span());
 
-                variant_matches.push(x);
+                let x2 = quote! {
+                    #name::#variant_name => #mnemonic_return
+                };
+                println!("{}", x2);
+                to_mnemonic_matches.push(x2);
             }
         }
     }
-
-    variant_matches.push(quote! {
+    let match_none = quote! {
         _ => None
-    });
+    };
+    from_mnemonic_matches.push(match_none);
 
     let expanded = quote! {
         // The generated impl.
         impl scpi::option::ScpiEnum for #name {
             fn from_mnemonic(s: &[u8]) -> Option<#name> {
                 match s {
-                    #(#variant_matches),*
+                    #(#from_mnemonic_matches),*
+                }
+            }
+
+            fn to_mnemonic(&self) -> &'static [u8] {
+                match self {
+                    #(#to_mnemonic_matches),*
+                }
+            }
+        }
+
+
+        impl<'a> TryFrom<scpi::tokenizer::Token<'a>> for #name {
+            type Error = scpi::error::Error;
+
+            fn try_from(value: scpi::tokenizer::Token<'a>) -> scpi::error::Result<Self> {
+                if let scpi::tokenizer::Token::CharacterProgramData(s) = value {
+                    Self::from_mnemonic(s).ok_or(scpi::error::ErrorCode::IllegalParameterValue.into())
+                } else {
+                    Err(scpi::error::ErrorCode::DataTypeError.into())
                 }
             }
         }
@@ -177,7 +203,7 @@ pub fn derive_error_messages(input: proc_macro::TokenStream) -> proc_macro::Toke
                 let cx = quote! {
                     #name::#variant_name => #code
                 };
-                println!("--- {}", cx);
+                //println!("--- {}", cx);
                 //compile_error!("bint");
                 code_variant_matches.push(cx);
 
@@ -194,7 +220,7 @@ pub fn derive_error_messages(input: proc_macro::TokenStream) -> proc_macro::Toke
                 let cx = quote! {
                     #name::#variant_name(code,_) => code
                 };
-                println!("--- {}", cx);
+                //println!("--- {}", cx);
                 code_variant_matches.push(cx);
             }
         }

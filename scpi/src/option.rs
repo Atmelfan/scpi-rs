@@ -1,5 +1,9 @@
+use crate::error::{ErrorCode, Result};
+use crate::response::{Data, Formatter};
+use crate::tokenizer::Token;
+
 ///
-trait ScpiEnum
+pub trait ScpiEnum
 where
     Self: Sized,
 {
@@ -7,13 +11,31 @@ where
     ///
     fn from_mnemonic(s: &[u8]) -> Option<Self>;
 
-    //fn to_mnemonic(&self) -> &'static [u8];
+    fn to_mnemonic(&self) -> &'static [u8];
+
+    fn from_token(value: Token) -> Result<Self> {
+        if let Token::CharacterProgramData(s) = value {
+            Self::from_mnemonic(s).ok_or_else(|| ErrorCode::IllegalParameterValue.into())
+        } else {
+            Err(ErrorCode::DataTypeError.into())
+        }
+    }
+}
+
+impl<T> Data for T
+where
+    T: ScpiEnum,
+{
+    fn format_response_data(&self, formatter: &mut dyn Formatter) -> Result<()> {
+        formatter.push_str(self.to_mnemonic())
+    }
 }
 
 #[cfg(test)]
 mod tests {
     extern crate self as scpi;
     use super::ScpiEnum;
+    use core::convert::TryFrom;
 
     #[derive(Copy, Clone, PartialEq, Debug, ScpiEnum)]
     enum MyEnum {

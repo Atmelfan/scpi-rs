@@ -1,6 +1,6 @@
 use scpi::error::Result;
-use scpi::expression::numeric_list;
 use scpi::expression::numeric_list::NumericList;
+use scpi::expression::{channel_list, numeric_list};
 use scpi::format::{Arbitrary, Character};
 use scpi::prelude::*;
 use scpi::NumericValues;
@@ -30,6 +30,7 @@ use scpi::{
 };
 
 use git_version::git_version;
+use scpi::expression::channel_list::ChannelList;
 use scpi::suffix::{Amplitude, Db};
 use uom::si::angle::{degree, radian};
 use uom::si::electric_potential::volt;
@@ -368,11 +369,47 @@ impl Command for ExamTypListChanCommand {
     fn query(
         &self,
         _context: &mut Context,
-        _args: &mut Tokenizer,
-        _response: &mut ResponseUnit,
+        args: &mut Tokenizer,
+        response: &mut ResponseUnit,
     ) -> Result<()> {
-        //TODO: Implement this
-        todo!()
+        let mut array = [false; 8];
+        let list: ChannelList = args.next_data(false)?.unwrap().try_into()?;
+        for spec in list {
+            match spec? {
+                channel_list::Token::ChannelSpec(a) => {
+                    let index: isize = a.try_into()?;
+                    if index > 0 {
+                        let x = array
+                            .get_mut((index - 1) as usize)
+                            .ok_or(ErrorCode::IllegalParameterValue)?;
+                        *x = true;
+                    } else {
+                        Err(ErrorCode::IllegalParameterValue)?;
+                    }
+                }
+                channel_list::Token::ChannelRange(a, b) => {
+                    let start: isize = a.try_into()?;
+                    let stop: isize = b.try_into()?;
+                    match (start, stop) {
+                        (x, y) if x > 0 && y > 0 => {
+                            for v in array
+                                .get_mut(((x - 1) as usize)..=((y - 1) as usize))
+                                .ok_or(ErrorCode::IllegalParameterValue)?
+                            {
+                                *v = true;
+                            }
+                            Ok(())
+                        }
+                        _ => Err(ErrorCode::IllegalParameterValue),
+                    }?;
+                }
+                _ => return Err(ErrorCode::IllegalParameterValue.into()),
+            }
+        }
+        for x in array.iter() {
+            response.data(*x);
+        }
+        response.finish()
     }
 }
 

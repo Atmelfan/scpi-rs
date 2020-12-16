@@ -11,7 +11,8 @@
 //! list is unspecified. Channel lists are also used by the ROUTe subsystem, “Command
 //! Reference,” 15.1.
 
-use crate::error::ErrorCode;
+use crate::error::{Error, ErrorCode};
+use core::convert::TryFrom;
 use core::slice::Iter;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -85,6 +86,75 @@ impl<'a> Iterator for ChannelSpecIterator<'a> {
                 })
                 .map_err(|_| ErrorCode::ExpressionError)
         })
+    }
+}
+
+impl<'a> TryFrom<ChannelSpec<'a>> for isize {
+    type Error = Error;
+
+    fn try_from(value: ChannelSpec) -> Result<Self, Self::Error> {
+        if value.dimension() == 1 {
+            let i: isize = value
+                .into_iter()
+                .next()
+                .unwrap_or(Err(ErrorCode::ExpressionError))?;
+            Ok(i)
+        } else {
+            Err(Error::extended(
+                ErrorCode::InvalidExpression,
+                b"Unexpected channel dimension",
+            ))
+        }
+    }
+}
+
+impl<'a> TryFrom<ChannelSpec<'a>> for (isize, isize) {
+    type Error = Error;
+
+    fn try_from(value: ChannelSpec) -> Result<Self, Self::Error> {
+        if value.dimension() == 2 {
+            let i1: isize = value
+                .into_iter()
+                .next()
+                .unwrap_or(Err(ErrorCode::ExpressionError))?;
+            let i2: isize = value
+                .into_iter()
+                .next()
+                .unwrap_or(Err(ErrorCode::ExpressionError))?;
+            Ok((i1, i2))
+        } else {
+            Err(Error::extended(
+                ErrorCode::ExpressionError,
+                b"Unexpected channel dimension",
+            ))
+        }
+    }
+}
+
+impl<'a> TryFrom<ChannelSpec<'a>> for (isize, isize, isize) {
+    type Error = Error;
+
+    fn try_from(value: ChannelSpec) -> Result<Self, Self::Error> {
+        if value.dimension() == 3 {
+            let i1: isize = value
+                .into_iter()
+                .next()
+                .unwrap_or(Err(ErrorCode::ExpressionError))?;
+            let i2: isize = value
+                .into_iter()
+                .next()
+                .unwrap_or(Err(ErrorCode::ExpressionError))?;
+            let i3: isize = value
+                .into_iter()
+                .next()
+                .unwrap_or(Err(ErrorCode::ExpressionError))?;
+            Ok((i1, i2, i3))
+        } else {
+            Err(Error::extended(
+                ErrorCode::ExpressionError,
+                b"Unexpected channel dimension",
+            ))
+        }
     }
 }
 

@@ -334,7 +334,7 @@ impl<'a> TryFrom<Token<'a>> for channel_list::ChannelList<'a> {
 
     fn try_from(value: Token<'a>) -> Result<channel_list::ChannelList<'a>, Self::Error> {
         match value {
-            Token::ArbitraryBlockData(s) => channel_list::ChannelList::new(s).ok_or_else(|| {
+            Token::ExpressionProgramData(s) => channel_list::ChannelList::new(s).ok_or_else(|| {
                 Error::extended(ErrorCode::InvalidExpression, b"Invalid channel list")
             }),
             t => {
