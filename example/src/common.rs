@@ -384,7 +384,7 @@ impl Command for ExamTypListChanCommand {
                             .ok_or(ErrorCode::IllegalParameterValue)?;
                         *x = true;
                     } else {
-                        Err(ErrorCode::IllegalParameterValue)?;
+                        return Err(ErrorCode::IllegalParameterValue.into());
                     }
                 }
                 channel_list::Token::ChannelRange(a, b) => {
