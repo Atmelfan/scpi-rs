@@ -1,0 +1,35 @@
+[package]
+name = "vxi-server"
+version = "0.3.4"
+authors = ["Atmelfan <gustavp@gpa-robotics.com>"]
+edition = "2018"
+license-file = "../LICENSE.txt"
+
+description = "VXI-11 library"
+keywords = []
+categories = []
+
+homepage = "https://github.com/Atmelfan/scpi-rs"
+documentation = "https://github.com/Atmelfan/scpi-rs"
+repository = "https://github.com/Atmelfan/scpi-rs"
+readme = "./README.md"
+
+autoexamples = false
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+smoltcp = { version ="0.6", features = ["phy-tap_interface"] }
+log = { version = "0.4.4", default-features = false }
+byteorder = "1.3"
+arrayvec = "0.5.2"
+managed = "0.7.2"
+
+[dev-dependencies]
+env_logger = "0.5"
+getopts = "0.2"
+rand = "0.3"
+url = "1.0"
+
+[[example]]
+name = "server"

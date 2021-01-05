@@ -26,6 +26,8 @@
       <sourceFolder url="file://$MODULE_DIR$/scpi_instrument/examples" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/scpi_instrument/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/scpi_instrument/benches" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/vxi-server/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/vxi-server/examples" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/example-cortexm/target" />
       <excludeFolder url="file://$MODULE_DIR$/example/target" />
       <excludeFolder url="file://$MODULE_DIR$/example_nostd/target" />
