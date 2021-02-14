@@ -445,7 +445,7 @@ pub enum ErrorCode {
     /// 5.6.1.5) was lost when the device changed to LOCS from REMS or to LWLS
     /// from RWLS.
     #[error(code=-202,message=b"Settings lost due to rtl")]
-    SettingsLostDueToRTL,
+    SettingsLostDueToRtl,
     /// `-203, "Command protected"`
     ///
     /// Indicates that a legal password-protected program command or query could not
