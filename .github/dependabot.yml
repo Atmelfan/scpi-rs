@@ -6,9 +6,9 @@
 version: 2
 updates:
   # Enable version updates for Cargo
-  - package-ecosystem: "rust:cargo"
+  - package-ecosystem: "cargo"
     # Look for a workspace
     directory: "/"
     # Check for updates live
     schedule:
-      interval: "live"
+      interval: "weekly"
