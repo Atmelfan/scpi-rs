@@ -45,6 +45,8 @@ built = { version = "0.4", features = ["git2", "semver"] }
 default = [
     # Library build information
     "build-info",
+    # Use libm in order to build on stable
+    "libm",
     # Units
     "unit-length",
     "unit-velocity",
@@ -69,8 +71,11 @@ default = [
     "unit-volume"
 ]
 
+# Use std
+std = ["lexical-core/std"]
+
 # Use libm instead of intrinsics
-use_libm = ["libm"]
+libm = ["lexical-core/libm"]
 
 # Support extender errors (example -100,"Command error;extended")
 extended-error = []
