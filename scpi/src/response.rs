@@ -1,6 +1,6 @@
 use crate::error::{Error, ErrorCode, Result};
 use crate::format::{Arbitrary, Binary, Character, Expression, Hex, Octal};
-use arrayvec::{Array, ArrayVec};
+use arrayvec::ArrayVec;
 use lexical_core::Number;
 
 const RESPONSE_DATA_SEPARATOR: u8 = b',';
@@ -176,7 +176,7 @@ impl<'a> Data for Error {
 ///
 ///```
 /// use scpi::response::ArrayVecFormatter;
-/// let mut array = ArrayVecFormatter::<[u8; 128]>::new();
+/// let mut array = ArrayVecFormatter::<128>::new();
 ///
 ///
 ///```
@@ -273,27 +273,27 @@ impl<'a> ResponseUnit<'a> {
     }
 }
 
-pub struct ArrayVecFormatter<T: Array<Item = u8>> {
-    vec: ArrayVec<T>,
+pub struct ArrayVecFormatter<const CAP: usize> {
+    vec: ArrayVec<u8, CAP>,
     pub(crate) has_units: bool,
 }
 
-impl<T: Array<Item = u8>> Default for ArrayVecFormatter<T> {
+impl<const CAP: usize> Default for ArrayVecFormatter<CAP> {
     fn default() -> Self {
         ArrayVecFormatter {
-            vec: ArrayVec::<T>::new(),
+            vec: ArrayVec::<u8, CAP>::new(),
             has_units: false,
         }
     }
 }
 
-impl<T: Array<Item = u8>> ArrayVecFormatter<T> {
+impl<const CAP: usize> ArrayVecFormatter<CAP> {
     pub fn new() -> Self {
         ArrayVecFormatter::default()
     }
 }
 
-impl<T: Array<Item = u8>> Formatter for ArrayVecFormatter<T> {
+impl<const CAP: usize> Formatter for ArrayVecFormatter<CAP> {
     /// Internal use
     fn push_str(&mut self, s: &[u8]) -> Result<()> {
         self.vec
@@ -344,7 +344,7 @@ impl<T: Array<Item = u8>> Formatter for ArrayVecFormatter<T> {
 
 #[test]
 fn test_vecarray() {
-    let mut array = ArrayVecFormatter::<[u8; 16]>::new();
+    let mut array = ArrayVecFormatter::<16>::new();
     array.message_start().unwrap();
     // First unit
     array
@@ -362,7 +362,7 @@ fn test_vecarray() {
 
 #[test]
 fn test_outamemory() {
-    let mut array = ArrayVecFormatter::<[u8; 1]>::new();
+    let mut array = ArrayVecFormatter::<1>::new();
     array.push_byte(b'x').unwrap();
     assert_eq!(
         array.push_byte(b'x'),
@@ -376,7 +376,7 @@ fn test_outamemory() {
 
 #[test]
 fn test_f32() {
-    let mut array = ArrayVecFormatter::<[u8; 32]>::new();
+    let mut array = ArrayVecFormatter::<32>::new();
     f32::INFINITY.format_response_data(&mut array).unwrap();
     array.data_separator().unwrap();
     f32::NEG_INFINITY.format_response_data(&mut array).unwrap();

@@ -14,11 +14,11 @@ use common::*;
 fn main() {
     let mut my_device = MyDevice {};
 
-    let mut errors = ArrayErrorQueue::<[Error; 10]>::new();
+    let mut errors = ArrayErrorQueue::<10>::new();
     let mut context = Context::new(&mut my_device, &mut errors, TREE);
 
     //Response bytebuffer
-    let mut buf = ArrayVecFormatter::<[u8; 256]>::new();
+    let mut buf = ArrayVecFormatter::<256>::new();
 
     #[cfg(not(feature = "no_std"))]
     {

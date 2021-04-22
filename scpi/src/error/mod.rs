@@ -3,7 +3,8 @@
 //! Each error variant has a corresponding error/event number as the enum discriminant.
 //!
 
-use arraydeque::{Array, ArrayDeque, Saturating};
+mod arrayqueue;
+pub use arrayqueue::*;
 
 /// A SCPI error
 ///
@@ -1023,104 +1024,5 @@ pub trait ErrorQueue {
     /// Is queue empty?
     fn is_empty(&self) -> bool {
         self.len() == 0
-    }
-}
-
-/// Default error queue based on a alloc-less arrayqueue.
-pub struct ArrayErrorQueue<T: Array<Item = Error>> {
-    vec: ArrayDeque<T>,
-}
-
-impl<T: Array<Item = Error>> Default for ArrayErrorQueue<T> {
-    fn default() -> Self {
-        ArrayErrorQueue {
-            vec: ArrayDeque::<T, Saturating>::new(),
-        }
-    }
-}
-
-impl<T: Array<Item = Error>> ArrayErrorQueue<T> {
-    pub fn new() -> Self {
-        ArrayErrorQueue::default()
-    }
-}
-
-impl<T: Array<Item = Error>> ErrorQueue for ArrayErrorQueue<T> {
-    fn push_back_error(&mut self, err: Error) {
-        //Try to queue an error, replace last with QueueOverflow if full
-        if self.vec.push_back(err).is_err() {
-            self.vec.pop_back();
-            self.vec.push_back(ErrorCode::QueueOverflow.into()).ok();
-        }
-    }
-
-    fn pop_front_error(&mut self) -> Error {
-        self.vec
-            .pop_front()
-            .unwrap_or_else(|| ErrorCode::NoError.into())
-    }
-
-    fn len(&self) -> usize {
-        self.vec.len()
-    }
-
-    fn clear(&mut self) {
-        self.vec.clear()
-    }
-}
-
-#[cfg(test)]
-mod test_error_queue {
-    use super::{ArrayErrorQueue, Error, ErrorCode, ErrorQueue};
-
-    #[test]
-    fn test_extended() {
-        // Check that errorqueue returns NoError when there are no errors
-        let mut errors = ArrayErrorQueue::<[Error; 10]>::new();
-        errors.push_back_error(Error::extended(ErrorCode::Custom(1, b"Error"), b"Extended"));
-        #[cfg(feature = "extended-error")]
-        assert_eq!(
-            errors.pop_front_error(),
-            Error(ErrorCode::Custom(1, b"Error"), Some(b"Extended"))
-        );
-        #[cfg(not(feature = "extended-error"))]
-        assert_eq!(
-            errors.pop_front_error(),
-            Error(ErrorCode::Custom(1, b"Error"))
-        );
-    }
-
-    #[test]
-    fn test_queue_noerror() {
-        // Check that errorqueue returns NoError when there are no errors
-        let mut errors = ArrayErrorQueue::<[Error; 10]>::new();
-        errors.push_back_error(ErrorCode::Custom(1, b"One").into());
-        errors.push_back_error(ErrorCode::Custom(2, b"Two").into());
-        assert_eq!(
-            errors.pop_front_error(),
-            Error::new(ErrorCode::Custom(1, b"One"))
-        );
-        assert_eq!(
-            errors.pop_front_error(),
-            Error::new(ErrorCode::Custom(2, b"Two"))
-        );
-        assert_eq!(errors.pop_front_error(), Error::new(ErrorCode::NoError));
-    }
-
-    #[test]
-    fn test_queue_overflow() {
-        // Check that errorqueue returns NoError when there are no errors
-        let mut errors = ArrayErrorQueue::<[Error; 2]>::new();
-        errors.push_back_error(ErrorCode::Custom(1, b"One").into());
-        errors.push_back_error(ErrorCode::Custom(2, b"Two").into());
-        errors.push_back_error(ErrorCode::Custom(3, b"Three").into());
-        assert_eq!(
-            errors.pop_front_error(),
-            Error::new(ErrorCode::Custom(1, b"One"))
-        );
-        assert_eq!(
-            errors.pop_front_error(),
-            Error::new(ErrorCode::QueueOverflow)
-        );
     }
 }

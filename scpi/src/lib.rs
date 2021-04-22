@@ -91,7 +91,6 @@
 extern crate scpi_derive;
 
 /* Used to create responses */
-extern crate arraydeque;
 extern crate arrayvec;
 extern crate lexical_core;
 #[cfg(any(feature = "unit-any"))]
