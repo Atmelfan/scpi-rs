@@ -426,13 +426,13 @@ impl_tryfrom_float!(f64);
 macro_rules! impl_tryfrom_integer {
     (round; f64, $val:expr) => {
         {
-            util::roundf64($val)
+            <f64>::round($val)
         }
 
     };
     (round; f32, $val:expr) => {
         {
-            util::roundf32($val)
+            <f32>::round($val)
         }
     };
     ($from:ty, $intermediate:tt) => {

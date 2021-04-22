@@ -1,11 +1,5 @@
 use core::slice::Iter;
 
-#[cfg(not(feature = "use_libm"))]
-#[allow(unused_imports)]
-use lexical_core::Float;
-#[cfg(feature = "use_libm")]
-use libm;
-
 /// Skip continuous digits
 ///
 pub(crate) fn skip_digits(iter: &mut Iter<u8>) -> bool {
@@ -91,27 +85,5 @@ pub(crate) fn ascii_to_digit(digit: u8, radix: u8) -> Option<u32> {
         Some((lowercase - b'a' + 10) as u32)
     } else {
         None
-    }
-}
-
-pub(crate) fn roundf32(x: f32) -> f32 {
-    #[cfg(feature = "use_libm")]
-    {
-        libm::roundf(x)
-    }
-    #[cfg(not(feature = "use_libm"))]
-    {
-        <f32>::round(x)
-    }
-}
-
-pub(crate) fn roundf64(x: f64) -> f64 {
-    #[cfg(feature = "use_libm")]
-    {
-        libm::round(x)
-    }
-    #[cfg(not(feature = "use_libm"))]
-    {
-        <f64>::round(x)
     }
 }
