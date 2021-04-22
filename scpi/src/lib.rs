@@ -97,7 +97,6 @@ extern crate lexical_core;
 #[cfg(any(feature = "unit-any"))]
 pub extern crate uom;
 
-
 pub mod command;
 pub mod error;
 pub mod expression;
