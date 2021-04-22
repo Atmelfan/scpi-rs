@@ -71,6 +71,9 @@ default = [
     "unit-volume"
 ]
 
+# Use std
+std = ["lexical-core/std"]
+
 # Use libm instead of intrinsics
 libm = ["lexical-core/libm"]
 
