@@ -71,7 +71,7 @@ default = [
 ]
 
 # Use libm instead of intrinsics
-use_libm = ["libm"]
+use_libm = ["libm", "lexical-core/libm"]
 
 # Support extender errors (example -100,"Command error;extended")
 extended-error = []
