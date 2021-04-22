@@ -424,17 +424,6 @@ impl_tryfrom_float!(f64);
 
 // TODO: Shitty way of rounding integers
 macro_rules! impl_tryfrom_integer {
-    (round; f64, $val:expr) => {
-        {
-            util::roundf64($val)
-        }
-
-    };
-    (round; f32, $val:expr) => {
-        {
-            util::roundf32($val)
-        }
-    };
     ($from:ty, $intermediate:tt) => {
         impl<'a> TryFrom<Token<'a>> for $from {
             type Error = Error;
@@ -445,7 +434,7 @@ macro_rules! impl_tryfrom_integer {
                         .or_else(|e| {
                             if matches!(e.code, lexical_core::ErrorCode::InvalidDigit) {
                                 let nrf = lexical_core::parse::<$intermediate>(value)?;
-                                let f = impl_tryfrom_integer!(round; $intermediate, nrf);
+                                let f = lexical_core::Float::round(nrf);
                                 if f > (<$from>::MAX as $intermediate) {
                                     Err(lexical_core::ErrorCode::Overflow.into())
                                 } else if f < (<$from>::MIN as $intermediate) {

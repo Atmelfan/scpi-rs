@@ -350,7 +350,7 @@ fn test_vecarray() {
     array
         .response_unit()
         .unwrap()
-        .data(b"potato".as_slice())
+        .data(&b"potato"[..])
         .data(0u8)
         .finish()
         .unwrap();
