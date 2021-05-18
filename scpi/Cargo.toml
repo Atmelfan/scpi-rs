@@ -38,7 +38,7 @@ features = [
 ]
 
 [build-dependencies]
-built = { version = "0.4", features = ["git2", "semver"] }
+built = { version = "0.5", features = ["git2", "semver"] }
 
 [features]
 default = [
