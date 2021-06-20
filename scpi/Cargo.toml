@@ -14,8 +14,6 @@ documentation = "https://docs.rs/crate/scpi"
 repository = "https://github.com/Atmelfan/scpi-rs"
 readme = "README.md"
 
-build = "build.rs"
-
 [badges]
 maintenance = { status = "actively-developed" }
 
@@ -37,13 +35,8 @@ features = [
     "try-from"
 ]
 
-[build-dependencies]
-built = { version = "0.5", features = ["git2", "semver"] }
-
 [features]
 default = [
-    # Library build information
-    "build-info",
     # Use libm in order to build on stable
     "libm",
     # Units
@@ -81,9 +74,6 @@ extended-error = []
 
 # Support UTF8 arbitrarydata block #s'utf8-data'
 arbitrary-utf8-string = []
-
-# Include build info
-build-info = []
 
 ###################################### UNITS ######################################
 # Individual units
