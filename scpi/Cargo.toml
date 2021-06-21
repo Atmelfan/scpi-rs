@@ -72,9 +72,6 @@ libm = ["lexical-core/libm"]
 # Support extender errors (example -100,"Command error;extended")
 extended-error = []
 
-# Support UTF8 arbitrarydata block #s'utf8-data'
-arbitrary-utf8-string = []
-
 ###################################### UNITS ######################################
 # Individual units
 unit-length = ["uom"]
