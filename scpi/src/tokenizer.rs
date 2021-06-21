@@ -793,8 +793,7 @@ impl<'a> Tokenizer<'a> {
             }
 
             let payload_len = lexical_core::parse::<usize>(
-                &self
-                    .chars
+                self.chars
                     .as_slice()
                     .get(..len as usize)
                     .ok_or(ErrorCode::InvalidBlockData)?,
