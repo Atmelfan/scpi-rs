@@ -1,6 +1,6 @@
 [package]
 name = "scpi_derive"
-version = "0.3.5"
+version = "0.4.0"
 authors = ["Atmelfan <gustavp@gpa-robotics.com>"]
 edition = "2018"
 license-file = "../LICENSE.txt"
