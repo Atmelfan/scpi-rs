@@ -38,7 +38,6 @@
 //!
 //! These features are by default turned **ON**.
 //! - `libm` - Uses libm for no_std operation on stable.
-//! - `build-info` - Includes build info in the library and creates a `LIBrary[:VERsion]?` command macro to query it.
 //! - `unit-*` - Creates conversion from a argument \[and suffix] into corresponding [uom](https://crates.io/crates/uom) unit. Disable the ones you don't need to save space and skip uom.
 //!
 //! # Getting started
@@ -110,71 +109,6 @@ pub mod util;
 
 // For compatibility
 pub use scpi1999 as scpi;
-
-#[cfg(feature = "build-info")]
-pub mod info {
-    use crate::error::Result;
-    use crate::format::Character;
-    use crate::prelude::*;
-    use crate::qonly;
-
-    /// Build information
-    pub mod built {
-        include!(concat!(env!("OUT_DIR"), "/built.rs"));
-    }
-
-    /// # `LIBrary[:VERSion]?`
-    ///
-    /// Returns the library and rustc version ast string data
-    /// If available, git tag and hash are included as string data,
-    /// if git repo was dirty a character data flag DIRTY is appended.
-    ///
-    /// Example `"0.3.0","rustc 1.47.0-nightly (6c8927b0c 2020-07-26)","85b43cf","85b43cfa0319e85cff726e2716beca50859a4ef4",DIRTY`
-    pub struct LibVersionCommand {}
-
-    impl Command for LibVersionCommand {
-        qonly!();
-
-        fn query(
-            &self,
-            _context: &mut Context,
-            _args: &mut Tokenizer,
-            response: &mut ResponseUnit,
-        ) -> Result<()> {
-            response
-                .data(built::PKG_VERSION.as_bytes())
-                .data(built::RUSTC_VERSION.as_bytes());
-
-            if let (Some(v), Some(dirty), Some(hash)) =
-                (built::GIT_VERSION, built::GIT_DIRTY, built::GIT_COMMIT_HASH)
-            {
-                response.data(v.as_bytes()).data(hash.as_bytes());
-                if dirty {
-                    response.data(Character(b"DIRTY"));
-                }
-            }
-            response.finish()
-        }
-    }
-
-    /// Creates a `LIBrary:VERSion` command
-    #[macro_export]
-    macro_rules! scpi_crate_version {
-        () => {
-            Node {
-                name: b"LIBrary",
-                optional: false,
-                handler: None,
-                sub: &[Node {
-                    name: b"VERSion",
-                    optional: true,
-                    handler: Some(&scpi::info::LibVersionCommand {}),
-                    sub: &[],
-                }],
-            }
-        };
-    }
-}
 
 /// Prelude containing the most useful stuff
 ///
