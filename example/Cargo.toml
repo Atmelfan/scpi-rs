@@ -23,4 +23,3 @@ path = "src/bench.rs"
 default = []
 no_std = ["scpi/libm"]
 extended-error = ["scpi/extended-error"]
-arbitrary-utf8-string = ["scpi/arbitrary-utf8-string"]

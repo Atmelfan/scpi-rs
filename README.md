@@ -32,11 +32,10 @@ The API is still work in progress so the minor version should be specified.
 These features are by default turned *OFF*.
 - `extended-error` - Allows extended error messages of the form `<error code>, "error message;extended message"`.
 Requires more data and program memory.
-- `arbitrary-utf8-string` - Allows UTF8 arbitrary data block, `#s"Detta är en utf8 sträng med roliga bokstäver`.
-Checked by the parser and emits a InvalidBlockData if the UTF8 data is malformed. **This is not a part of the SCPI standard**
-- `use_libm` - Uses libm for math operations instead of intrinsics on target which does not support them. **Use this if you get linker errors about round/roundf**
+- `std` - Use std library, note that libm feature can be disabled with std.
 
 These features are by default turned **ON**.
+- `libm` - Uses libm for no_std operation on stable no_std.
 - `build-info` - Includes build info in the library and creates a `LIBrary[:VERsion]?` command macro to query it.
 - `unit-*` - Creates conversion from a argument \[and suffix] into corresponding [uom](https://crates.io/crates/uom) unit. Disable the ones you don't need to save space and skip uom.
 
