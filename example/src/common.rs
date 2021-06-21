@@ -23,7 +23,6 @@ use scpi::{
     nquery,
     //Helpers
     qonly,
-    scpi_crate_version,
     scpi_status,
     scpi_system,
     scpi_tree,
@@ -469,8 +468,6 @@ pub const TREE: &Node = scpi_tree![
     scpi_status!(),
     // Create default SCPI mandated SYSTem subsystem
     scpi_system!(),
-    //
-    scpi_crate_version!(),
     //Test
     Node {
         name: b"ABORt",
