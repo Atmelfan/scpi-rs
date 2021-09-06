@@ -19,7 +19,7 @@ maintenance = { status = "actively-developed" }
 
 [dependencies]
 scpi_derive = { path = "../scpi_derive", version= "^0.4.2-alpha.0"}
-lexical-core = { version="0.7", features=["radix"], default-features=false }
+lexical-core = { version="0.8", features=["radix"], default-features=false }
 arrayvec = { version = "0.7", default-features = false }
 
 [dependencies.uom]
