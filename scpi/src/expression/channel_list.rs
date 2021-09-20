@@ -191,9 +191,10 @@ impl<'a> ChannelList<'a> {
         let mut dim = 1usize;
         // Read full spec
         let s = self.chars.as_slice();
-        while self.chars.clone().next().map_or(false, |ch| {
-            ch.is_ascii_digit() || *ch == b'-' || *ch == b'+' || *ch == b'!'
-        }) {
+        while self.chars
+            .clone()
+            .next()
+            .map_or(false, |ch| ch.is_ascii_digit() || *ch == b'-' || *ch == b'+' || *ch == b'!') {
             if let Some(x) = self.chars.next() {
                 if *x == b'!' {
                     dim += 1;
