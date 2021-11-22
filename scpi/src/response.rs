@@ -2,7 +2,8 @@ use crate::error::{Error, ErrorCode, Result};
 use crate::format::{Arbitrary, Binary, Character, Expression, Hex, Octal};
 use arrayvec::ArrayVec;
 
-use lexical_util::constants::FormattedSize;
+use lexical_core::FormattedSize
+use lexical_core::NumberFormatBuilder;
 
 const RESPONSE_DATA_SEPARATOR: u8 = b',';
 const RESPONSE_HEADER_SEPARATOR: u8 = b' ';
@@ -20,7 +21,7 @@ macro_rules! impl_non_decimal_data {
                 let mut buf = [b'0'; <$typ>::FORMATTED_SIZE];
                 const FORMAT: u128 = NumberFormatBuilder::from_radix($radix);
                 let options = lexical_core::WriteIntegerOptions::new();
-                let slc = lexical_core::write::<_, FORMAT>(self.0, &mut buf, &options);
+                let slc = lexical_core::write_with_options::<_, FORMAT>(self.0, &mut buf, &options);
                 formatter.push_str($prefix)?;
                 formatter.push_str(slc)
             }

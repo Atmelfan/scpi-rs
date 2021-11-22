@@ -375,7 +375,7 @@ macro_rules! impl_tryfrom_float {
             fn try_from(value: Token) -> Result<Self, Self::Error> {
                 match value {
                     Token::DecimalNumericProgramData(value) => lexical_core::parse::<$from>(value)
-                        .map_err(|e| match e.code {
+                        .map_err(|e| match e {
                             lexical_core::Error::InvalidDigit(_) => {
                                 ErrorCode::InvalidCharacterInNumber.into()
                             }
@@ -428,7 +428,7 @@ macro_rules! impl_tryfrom_integer {
                 match value {
                     Token::DecimalNumericProgramData(value) => lexical_core::parse::<$from>(value)
                         .or_else(|e| {
-                            if matches!(e.code, lexical_core::Error::InvalidDigit(_)) {
+                            if matches!(e, lexical_core::Error::InvalidDigit(_)) {
                                 let nrf = lexical_core::parse::<$intermediate>(value)?;
                                 let f = <$intermediate>::round(nrf);
                                 if f > (<$from>::MAX as $intermediate) {
@@ -442,7 +442,7 @@ macro_rules! impl_tryfrom_integer {
                                 Err(e)
                             }
                         })
-                        .map_err(|e| match e.code {
+                        .map_err(|e| match e {
                             lexical_core::Error::InvalidDigit(_) => {
                                 ErrorCode::InvalidCharacterInNumber.into()
                             }
@@ -709,7 +709,7 @@ impl<'a> Tokenizer<'a> {
             _ => return Err(ErrorCode::NumericDataError),
         };
         let (n, len) = lexical_core::parse_partial_radix(self.chars.as_slice(), radixi).map_err(
-            |e| match e.code {
+            |e| match e {
                 lexical_core::Error::InvalidDigit(_) => ErrorCode::InvalidCharacterInNumber,
                 lexical_core::Error::Overflow(_) | lexical_core::Error::Underflow(_) => {
                     ErrorCode::DataOutOfRange
