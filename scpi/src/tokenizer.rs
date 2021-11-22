@@ -702,13 +702,15 @@ impl<'a> Tokenizer<'a> {
     ///
     /// Returned errors:
     fn read_nondecimal_data(&mut self, radix: u8) -> Result<Token<'a>, ErrorCode> {
+        let options = lexical_core::ParseIntegerOptions::new();
         let radixi = match radix {
             b'H' | b'h' => 16u8,
             b'Q' | b'q' => 8u8,
             b'B' | b'b' => 2u8,
             _ => return Err(ErrorCode::NumericDataError),
         };
-        let (n, len) = lexical_core::parse_partial_radix(self.chars.as_slice(), radixi).map_err(
+        let format = NumberFormatBuilder::from_radix(radixi);
+        let (n, len) = lexical_core::parse_partial_with_options::<u64, format>(self.chars.as_slice(), &options).map_err(
             |e| match e {
                 lexical_core::Error::InvalidDigit(_) => ErrorCode::InvalidCharacterInNumber,
                 lexical_core::Error::Overflow(_) | lexical_core::Error::Underflow(_) => {

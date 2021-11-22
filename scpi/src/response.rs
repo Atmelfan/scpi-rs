@@ -2,7 +2,7 @@ use crate::error::{Error, ErrorCode, Result};
 use crate::format::{Arbitrary, Binary, Character, Expression, Hex, Octal};
 use arrayvec::ArrayVec;
 
-use lexical_core::FormattedSize
+use lexical_core::FormattedSize;
 use lexical_core::NumberFormatBuilder;
 
 const RESPONSE_DATA_SEPARATOR: u8 = b',';
