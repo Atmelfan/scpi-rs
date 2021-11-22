@@ -703,14 +703,21 @@ impl<'a> Tokenizer<'a> {
     /// Returned errors:
     fn read_nondecimal_data(&mut self, radix: u8) -> Result<Token<'a>, ErrorCode> {
         let options = lexical_core::ParseIntegerOptions::new();
-        let radixi = match radix {
-            b'H' | b'h' => 16u8,
-            b'Q' | b'q' => 8u8,
-            b'B' | b'b' => 2u8,
+        let (n, len) = match radix {
+            b'H' | b'h' => {
+                const FORMAT: u128 = NumberFormatBuilder::from_radix(16);
+                lexical_core::parse_partial_with_options::<u64, FORMAT>(self.chars.as_slice(), &options)
+            },
+            b'Q' | b'q' => {
+                const FORMAT: u128 = NumberFormatBuilder::from_radix(8);
+                lexical_core::parse_partial_with_options::<u64, FORMAT>(self.chars.as_slice(), &options)
+            },
+            b'B' | b'b' => {
+                const FORMAT: u128 = NumberFormatBuilder::from_radix(2);
+                lexical_core::parse_partial_with_options::<u64, FORMAT>(self.chars.as_slice(), &options)
+            },
             _ => return Err(ErrorCode::NumericDataError),
-        };
-        let format = NumberFormatBuilder::from_radix(radixi);
-        let (n, len) = lexical_core::parse_partial_with_options::<u64, format>(self.chars.as_slice(), &options).map_err(
+        }.map_err(
             |e| match e {
                 lexical_core::Error::InvalidDigit(_) => ErrorCode::InvalidCharacterInNumber,
                 lexical_core::Error::Overflow(_) | lexical_core::Error::Underflow(_) => {
