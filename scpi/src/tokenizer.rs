@@ -376,11 +376,11 @@ macro_rules! impl_tryfrom_float {
                 match value {
                     Token::DecimalNumericProgramData(value) => lexical_core::parse::<$from>(value)
                         .map_err(|e| match e.code {
-                            lexical_core::ErrorCode::InvalidDigit => {
+                            lexical_core::Error::InvalidDigit(_) => {
                                 ErrorCode::InvalidCharacterInNumber.into()
                             }
-                            lexical_core::ErrorCode::Overflow
-                            | lexical_core::ErrorCode::Underflow => {
+                            lexical_core::Error::Overflow(_)
+                            | lexical_core::Error::Underflow(_) => {
                                 ErrorCode::DataOutOfRange.into()
                             }
                             _ => ErrorCode::NumericDataError.into(),
@@ -428,13 +428,13 @@ macro_rules! impl_tryfrom_integer {
                 match value {
                     Token::DecimalNumericProgramData(value) => lexical_core::parse::<$from>(value)
                         .or_else(|e| {
-                            if matches!(e.code, lexical_core::ErrorCode::InvalidDigit) {
+                            if matches!(e.code, lexical_core::Error::InvalidDigit(_)) {
                                 let nrf = lexical_core::parse::<$intermediate>(value)?;
                                 let f = lexical_core::Float::round(nrf);
                                 if f > (<$from>::MAX as $intermediate) {
-                                    Err(lexical_core::ErrorCode::Overflow.into())
+                                    Err(lexical_core::Error::Overflow(0).into())
                                 } else if f < (<$from>::MIN as $intermediate) {
-                                    Err(lexical_core::ErrorCode::Underflow.into())
+                                    Err(lexical_core::Error::Underflow(0).into())
                                 } else {
                                     Ok(f as $from)
                                 }
@@ -443,11 +443,11 @@ macro_rules! impl_tryfrom_integer {
                             }
                         })
                         .map_err(|e| match e.code {
-                            lexical_core::ErrorCode::InvalidDigit => {
+                            lexical_core::Error::InvalidDigit(_) => {
                                 ErrorCode::InvalidCharacterInNumber.into()
                             }
-                            lexical_core::ErrorCode::Overflow
-                            | lexical_core::ErrorCode::Underflow => {
+                            lexical_core::Error::Overflow(_)
+                            | lexical_core::Error::Underflow(_) => {
                                 ErrorCode::DataOutOfRange.into()
                             }
                             _ => ErrorCode::NumericDataError.into(),
@@ -710,8 +710,8 @@ impl<'a> Tokenizer<'a> {
         };
         let (n, len) = lexical_core::parse_partial_radix(self.chars.as_slice(), radixi).map_err(
             |e| match e.code {
-                lexical_core::ErrorCode::InvalidDigit => ErrorCode::InvalidCharacterInNumber,
-                lexical_core::ErrorCode::Overflow | lexical_core::ErrorCode::Underflow => {
+                lexical_core::Error::InvalidDigit(_) => ErrorCode::InvalidCharacterInNumber,
+                lexical_core::Error::Overflow(_) | lexical_core::Error::Underflow(_) => {
                     ErrorCode::DataOutOfRange
                 }
                 _ => ErrorCode::NumericDataError,
