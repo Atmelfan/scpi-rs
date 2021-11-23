@@ -380,9 +380,7 @@ macro_rules! impl_tryfrom_float {
                                 ErrorCode::InvalidCharacterInNumber.into()
                             }
                             lexical_core::Error::Overflow(_)
-                            | lexical_core::Error::Underflow(_) => {
-                                ErrorCode::DataOutOfRange.into()
-                            }
+                            | lexical_core::Error::Underflow(_) => ErrorCode::DataOutOfRange.into(),
                             _ => ErrorCode::NumericDataError.into(),
                         }),
                     Token::CharacterProgramData(s) => match s {
@@ -447,9 +445,7 @@ macro_rules! impl_tryfrom_integer {
                                 ErrorCode::InvalidCharacterInNumber.into()
                             }
                             lexical_core::Error::Overflow(_)
-                            | lexical_core::Error::Underflow(_) => {
-                                ErrorCode::DataOutOfRange.into()
-                            }
+                            | lexical_core::Error::Underflow(_) => ErrorCode::DataOutOfRange.into(),
                             _ => ErrorCode::NumericDataError.into(),
                         }),
                     Token::NonDecimalNumericProgramData(value) => {
@@ -706,15 +702,24 @@ impl<'a> Tokenizer<'a> {
         let (n, len) = match radix {
             b'H' | b'h' => {
                 const FORMAT: u128 = lexical_core::NumberFormatBuilder::from_radix(16);
-                lexical_core::parse_partial_with_options::<u64, FORMAT>(self.chars.as_slice(), &options)
+                lexical_core::parse_partial_with_options::<u64, FORMAT>(
+                    self.chars.as_slice(), 
+                    &options
+                )
             },
             b'Q' | b'q' => {
                 const FORMAT: u128 = lexical_core::NumberFormatBuilder::from_radix(8);
-                lexical_core::parse_partial_with_options::<u64, FORMAT>(self.chars.as_slice(), &options)
+                lexical_core::parse_partial_with_options::<u64, FORMAT>(
+                    self.chars.as_slice(), 
+                    &options
+                )
             },
             b'B' | b'b' => {
                 const FORMAT: u128 = lexical_core::NumberFormatBuilder::from_radix(2);
-                lexical_core::parse_partial_with_options::<u64, FORMAT>(self.chars.as_slice(), &options)
+                lexical_core::parse_partial_with_options::<u64, FORMAT>(
+                    self.chars.as_slice(), 
+                    &options
+                )
             },
             _ => return Err(ErrorCode::NumericDataError),
         }.map_err(
