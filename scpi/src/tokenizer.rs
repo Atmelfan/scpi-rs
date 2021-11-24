@@ -723,7 +723,7 @@ impl<'a> Tokenizer<'a> {
             }
             _ => return Err(ErrorCode::NumericDataError),
         }
-        .map_err( |e| match e {
+        .map_err(|e| match e {
             lexical_core::Error::InvalidDigit(_) => ErrorCode::InvalidCharacterInNumber,
             lexical_core::Error::Overflow(_) | lexical_core::Error::Underflow(_) => {
                 ErrorCode::DataOutOfRange
