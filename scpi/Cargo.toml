@@ -19,7 +19,7 @@ maintenance = { status = "actively-developed" }
 
 [dependencies]
 scpi_derive = { path = "../scpi_derive", version= "^0.4.2-alpha.0"}
-lexical-core = { version="0.7", features=["radix"], default-features=false }
+lexical-core = { version="0.8", features=["parse-floats", "parse-integers", "write-floats", "write-integers", "radix"], default-features=false }
 arrayvec = { version = "0.7", default-features = false }
 
 [dependencies.uom]
@@ -37,8 +37,6 @@ features = [
 
 [features]
 default = [
-    # Use libm in order to build on stable
-    "libm",
     # Units
     "unit-length",
     "unit-velocity",
@@ -66,8 +64,7 @@ default = [
 # Use std
 std = ["lexical-core/std"]
 
-# Use libm instead of intrinsics
-libm = ["lexical-core/libm"]
+compact = ["lexical-core/compact"]
 
 # Support extender errors (example -100,"Command error;extended")
 extended-error = []
