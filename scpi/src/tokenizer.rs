@@ -703,34 +703,32 @@ impl<'a> Tokenizer<'a> {
             b'H' | b'h' => {
                 const FORMAT: u128 = lexical_core::NumberFormatBuilder::from_radix(16);
                 lexical_core::parse_partial_with_options::<u64, FORMAT>(
-                    self.chars.as_slice(), 
-                    &options
+                    self.chars.as_slice(),
+                    &options,
                 )
-            },
+            }
             b'Q' | b'q' => {
                 const FORMAT: u128 = lexical_core::NumberFormatBuilder::from_radix(8);
                 lexical_core::parse_partial_with_options::<u64, FORMAT>(
-                    self.chars.as_slice(), 
-                    &options
+                    self.chars.as_slice(),
+                    &options,
                 )
-            },
+            }
             b'B' | b'b' => {
                 const FORMAT: u128 = lexical_core::NumberFormatBuilder::from_radix(2);
                 lexical_core::parse_partial_with_options::<u64, FORMAT>(
-                    self.chars.as_slice(), 
-                    &options
+                    self.chars.as_slice(),
+                    &options,
                 )
-            },
+            }
             _ => return Err(ErrorCode::NumericDataError),
-        }.map_err(
-            |e| match e {
-                lexical_core::Error::InvalidDigit(_) => ErrorCode::InvalidCharacterInNumber,
-                lexical_core::Error::Overflow(_) | lexical_core::Error::Underflow(_) => {
-                    ErrorCode::DataOutOfRange
-                }
-                _ => ErrorCode::NumericDataError,
-            },
-        )?;
+        }.map_err( |e| match e {
+            lexical_core::Error::InvalidDigit(_) => ErrorCode::InvalidCharacterInNumber,
+            lexical_core::Error::Overflow(_) | lexical_core::Error::Underflow(_) => {
+                ErrorCode::DataOutOfRange
+            }
+            _ => ErrorCode::NumericDataError,
+        })?;
         if len > 0 {
             self.chars.nth(len - 1).unwrap();
             let ret = Token::NonDecimalNumericProgramData(n);
