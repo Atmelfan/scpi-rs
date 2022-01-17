@@ -23,7 +23,7 @@ lexical-core = { version="0.8", features=["parse-floats", "parse-integers", "wri
 arrayvec = { version = "0.7", default-features = false }
 
 [dependencies.uom]
-version = "0.31.1"
+version = "0.32.0"
 default-features = false
 optional = true
 features = [
