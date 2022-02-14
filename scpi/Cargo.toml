@@ -2,7 +2,7 @@
 name = "scpi"
 version = "0.4.2-alpha.0"
 authors = ["Atmelfan <gustavp@gpa-robotics.com>"]
-edition = "2018"
+edition = "2021"
 license = "MIT"
 
 description = "SCPI/IEEE488.2 parser library"
