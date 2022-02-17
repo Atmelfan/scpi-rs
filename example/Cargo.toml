@@ -1,6 +1,6 @@
 [package]
 name = "scpi_example"
-version = "0.4.2-alpha.0"
+version = "0.4.2"
 authors = ["Atmelfan <gustavp@gpa-robotics.com>"]
 edition = "2021"
 publish = false
@@ -8,7 +8,7 @@ publish = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-scpi = {path = "../scpi", version = "^0.4.2-alpha.0"}
+scpi = {path = "../scpi", version = "0.4.2"}
 git-version = "0.3.4"
 
 [dev-dependencies]
@@ -21,5 +21,5 @@ path = "src/bench.rs"
 
 [features]
 default = []
-no_std = []
+std = ["scpi/std"]
 extended-error = ["scpi/extended-error"]

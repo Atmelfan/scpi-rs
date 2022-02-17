@@ -1,8 +1,8 @@
-#![cfg_attr(feature = "no_std", no_std)]
+#![cfg_attr(not(feature = "std"), no_std)]
 
 use scpi::prelude::*;
 
-#[cfg(not(feature = "no_std"))]
+#[cfg(feature = "std")]
 use std::{
     io::{self, BufRead},
     str,
@@ -20,7 +20,7 @@ fn main() {
     //Response bytebuffer
     let mut buf = ArrayVecFormatter::<256>::new();
 
-    #[cfg(not(feature = "no_std"))]
+    #[cfg(feature = "std")]
     {
         let stdin = io::stdin();
         for line in stdin.lock().lines() {
@@ -38,7 +38,7 @@ fn main() {
             //}
         }
     }
-    #[cfg(feature = "no_std")]
+    #[cfg(not(feature = "std"))]
     {
         // Dummy to test no_std compiles
         context.run(b"*idn?", &mut buf).unwrap();
