@@ -35,7 +35,6 @@ Requires more data and program memory.
 - `std` - Use std library, note that libm feature can be disabled with std.
 
 These features are by default turned **ON**.
-- `libm` - Uses libm for no_std operation on stable.
 - `unit-*` - Creates conversion from a argument \[and suffix] into corresponding [uom](https://crates.io/crates/uom) unit. Disable the ones you don't need to save space and skip uom.
 
 ## Getting started
