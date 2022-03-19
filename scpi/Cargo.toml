@@ -1,6 +1,6 @@
 [package]
 name = "scpi"
-version = "0.4.2"
+version = "0.4.3"
 authors = ["Atmelfan <gustavp@gpa-robotics.com>"]
 edition = "2021"
 license = "MIT"
@@ -18,8 +18,8 @@ readme = "README.md"
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-scpi_derive = { path = "../scpi_derive", version= "0.4.2"}
-lexical-core = { version="0.8", features=["parse-floats", "parse-integers", "write-floats", "write-integers", "radix"], default-features=false }
+scpi_derive = { path = "../scpi_derive", version= "0.4.3"}
+lexical-core = { version="0.8.3", features=["parse-floats", "parse-integers", "write-floats", "write-integers", "power-of-two"], default-features=false }
 arrayvec = { version = "0.7", default-features = false }
 
 [dependencies.uom]

@@ -1,6 +1,6 @@
 [package]
 name = "scpi_example"
-version = "0.4.2"
+version = "0.4.3"
 authors = ["Atmelfan <gustavp@gpa-robotics.com>"]
 edition = "2021"
 publish = false
@@ -8,7 +8,7 @@ publish = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-scpi = {path = "../scpi", version = "0.4.2"}
+scpi = {path = "../scpi", version = "0.4.3"}
 git-version = "0.3.4"
 
 [dev-dependencies]
