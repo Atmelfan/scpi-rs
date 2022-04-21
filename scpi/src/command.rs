@@ -7,6 +7,9 @@ use crate::response::ResponseUnit;
 use crate::tokenizer::Tokenizer;
 use crate::Context;
 
+#[cfg(feature = "async")]
+use async_trait::async_trait;
+
 /// This trait implements a command with optional event/query operations.
 ///
 ///
@@ -64,6 +67,37 @@ pub trait Command {
     ) -> Result<()>;
 }
 
+/// Async version of [Command]
+#[cfg(feature = "async")]
+#[async_trait]
+trait AsyncCommand {
+    async fn async_event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<()>;
+
+    async fn async_query(
+        &self,
+        context: &mut Context,
+        args: &mut Tokenizer,
+        response: &mut ResponseUnit,
+    ) -> Result<()>;
+}
+
+#[cfg(feature = "async")]
+impl AsyncCommand for Command {
+    async fn async_event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<()> {
+        self.event(context, args)
+    }
+
+    async fn async_query(
+        &self,
+        context: &mut Context,
+        args: &mut Tokenizer,
+        response: &mut ResponseUnit,
+    ) -> Result<()> {
+        self.query(context, args, response)
+    }
+}
+
+
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum CommandTypeMeta {
     Unknown,
@@ -105,6 +139,28 @@ macro_rules! nquery {
             Err(ErrorCode::UndefinedHeader.into())
         }
     };
+}
+
+/// Stub command which defines no event or query
+struct Stub;
+
+impl Command for Stub {
+    fn meta(&self) -> CommandTypeMeta {
+        CommandTypeMeta::None
+    }
+    
+    fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<()> {
+        Err(ErrorCode::UndefinedHeader.into())
+    }
+
+    fn query(
+        &self,
+        _context: &mut Context,
+        _args: &mut Tokenizer,
+        _response: &mut ResponseUnit,
+    ) -> Result<()> {
+        Err(ErrorCode::UndefinedHeader.into())
+    }
 }
 
 #[cfg(test)]
