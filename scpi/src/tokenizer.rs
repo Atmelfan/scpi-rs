@@ -418,7 +418,7 @@ impl_tryfrom_float!(f64);
 
 // TODO: Shitty way of rounding integers
 macro_rules! impl_tryfrom_integer {
-    ($from:ty, $intermediate:tt) => {
+    ($from:ty, $intermediate:ty) => {
         impl<'a> TryFrom<Token<'a>> for $from {
             type Error = Error;
 
