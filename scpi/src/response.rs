@@ -85,7 +85,7 @@ macro_rules! impl_real {
 impl_real!(f32);
 impl_real!(f64);
 
-impl<'a> Data for bool {
+impl Data for bool {
     fn format_response_data(&self, formatter: &mut dyn Formatter) -> Result<()> {
         if *self {
             formatter.push_byte(b'1')
@@ -149,7 +149,7 @@ impl<'a> Data for &'a [u8] {
     }
 }
 
-impl<'a> Data for Error {
+impl Data for Error {
     fn format_response_data(&self, formatter: &mut dyn Formatter) -> Result<()> {
         self.get_code().format_response_data(formatter)?;
         formatter.data_separator()?;
