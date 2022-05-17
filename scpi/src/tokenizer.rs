@@ -428,7 +428,7 @@ macro_rules! impl_tryfrom_integer {
                     Token::DecimalNumericProgramData(value) => lexical_core::parse::<$from>(value)
                         .or_else(|e| {
                             if matches!(e, lexical_core::Error::InvalidDigit(_)) {
-                                let nrf = lexical_core::parse::<$intermediate>(value)?;
+                                let f = lexical_core::parse::<$intermediate>(value)?;
 
                                 if f.is_infinite() || f.is_nan() {
                                     Err(lexical_core::Error::Overflow(0).into())
