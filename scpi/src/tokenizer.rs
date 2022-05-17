@@ -434,7 +434,7 @@ macro_rules! impl_tryfrom_integer {
                                 } else if f < (<$from>::MIN as $intermediate) {
                                     Err(lexical_core::Error::Underflow(0).into())
                                 } else {
-                                    Ok(f)
+                                    Ok(f as $from)
                                 }
                             } else {
                                 Err(e)
