@@ -36,6 +36,7 @@ mod tests {
     extern crate self as scpi;
     use super::ScpiEnum;
     use core::convert::TryFrom;
+    use crate::tokenizer::Token;
 
     #[derive(Copy, Clone, PartialEq, Debug, ScpiEnum)]
     enum MyEnum {
