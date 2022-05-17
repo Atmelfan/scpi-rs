@@ -225,11 +225,12 @@ impl<'a> TryFrom<Token<'a>> for bool {
     }
 }
 
-/// Convert string data data into a str.
+/// Convert string/block data data into a str.
 ///
 /// # Returns
-/// * `Ok(&str)` - If data is a string.
+/// * `Ok(&str)` - If data is a string or block data.
 /// * `Err(DataTypeError)` - If data is not a string.
+/// * `Err(StringDataError)` - If string is not valid utf8
 /// * `Err(SyntaxError)` - If token is not data
 impl<'a> TryFrom<Token<'a>> for &'a str {
     type Error = Error;
@@ -428,13 +429,20 @@ macro_rules! impl_tryfrom_integer {
                         .or_else(|e| {
                             if matches!(e, lexical_core::Error::InvalidDigit(_)) {
                                 let nrf = lexical_core::parse::<$intermediate>(value)?;
-                                let f = nrf.round();
-                                if f > (<$from>::MAX as $intermediate) {
+
+                                if f.is_infinite() || f.is_nan() {
+                                    Err(lexical_core::Error::Overflow(0).into())
+                                } else if f > (<$from>::MAX as $intermediate) {
                                     Err(lexical_core::Error::Overflow(0).into())
                                 } else if f < (<$from>::MIN as $intermediate) {
                                     Err(lexical_core::Error::Underflow(0).into())
                                 } else {
-                                    Ok(f as $from)
+                                    // <f32|f64>::round() doesn't exist in no_std...
+                                    if f > 0 {
+                                        Ok((f + 0.5) as $from)
+                                    } else {
+                                        Ok((f - 0.5) as $from)
+                                    }
                                 }
                             } else {
                                 Err(e)
