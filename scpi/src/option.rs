@@ -54,4 +54,12 @@ mod tests {
         assert_eq!(MyEnum::from_mnemonic(b"AsCiI"), Some(MyEnum::Ascii));
         assert_eq!(MyEnum::from_mnemonic(b"potato"), None);
     }
+
+    #[test]
+    fn test_enum() {
+        assert_eq!(MyEnum::from_token(Token::CharacterProgramData(b"real")), Ok(MyEnum::Real));
+        assert_eq!(MyEnum::from_token(Token::CharacterProgramData(b"bin")), Ok(MyEnum::Binary));
+        assert_eq!(MyEnum::from_token(Token::CharacterProgramData(b"potato"), Err(ErrorCode::IllegalParameterValue.into())));
+        assert_eq!(MyEnum::from_token(Token::DecimalNumericProgramData(b"3.5"), Err(ErrorCode::DataTypeError.into())));
+    }
 }

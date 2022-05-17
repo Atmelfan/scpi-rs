@@ -428,20 +428,21 @@ macro_rules! impl_tryfrom_integer {
                     Token::DecimalNumericProgramData(value) => lexical_core::parse::<$from>(value)
                         .or_else(|e| {
                             if matches!(e, lexical_core::Error::InvalidDigit(_)) {
-                                let f = lexical_core::parse::<$intermediate>(value)?;
+                                let value = lexical_core::parse::<$intermediate>(value)?;
 
-                                if f.is_infinite() || f.is_nan() {
+                                if !value.is_normal() {
                                     Err(lexical_core::Error::Overflow(0).into())
-                                } else if f > (<$from>::MAX as $intermediate) {
+                                } else if value > (<$from>::MAX as $intermediate) {
                                     Err(lexical_core::Error::Overflow(0).into())
-                                } else if f < (<$from>::MIN as $intermediate) {
+                                } else if value < (<$from>::MIN as $intermediate) {
                                     Err(lexical_core::Error::Underflow(0).into())
                                 } else {
                                     // <f32|f64>::round() doesn't exist in no_std...
-                                    if f > 0 {
-                                        Ok((f + 0.5) as $from)
+                                    // Safe because value is checked to be normal and within bounds earlier
+                                    if value.is_sign_positive() {
+                                        Ok(unsafe { value.to_int_unchecked(f + 0.5) })
                                     } else {
-                                        Ok((f - 0.5) as $from)
+                                        Ok(unsafe { value.to_int_unchecked(f - 0.5) })
                                     }
                                 }
                             } else {
