@@ -56,7 +56,7 @@ mod tests {
     }
 
     #[test]
-    fn test_enum() {
+    fn test_enum_types() {
         assert_eq!(MyEnum::from_token(Token::CharacterProgramData(b"real")), Ok(MyEnum::Real));
         assert_eq!(MyEnum::from_token(Token::CharacterProgramData(b"bin")), Ok(MyEnum::Binary));
         assert_eq!(MyEnum::from_token(Token::CharacterProgramData(b"potato"), Err(ErrorCode::IllegalParameterValue.into())));
