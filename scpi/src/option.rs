@@ -37,6 +37,7 @@ mod tests {
     use super::ScpiEnum;
     use core::convert::TryFrom;
     use crate::tokenizer::Token;
+    use crate::error::ErrorCode;
 
     #[derive(Copy, Clone, PartialEq, Debug, ScpiEnum)]
     enum MyEnum {
