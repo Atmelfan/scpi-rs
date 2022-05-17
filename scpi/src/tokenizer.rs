@@ -428,13 +428,13 @@ macro_rules! impl_tryfrom_integer {
                         .or_else(|e| {
                             if matches!(e, lexical_core::Error::InvalidDigit(_)) {
                                 let nrf = lexical_core::parse::<$intermediate>(value)?;
-                                let f = <$intermediate>::round(nrf);
+                                let f = nrf.round();
                                 if f > (<$from>::MAX as $intermediate) {
                                     Err(lexical_core::Error::Overflow(0).into())
                                 } else if f < (<$from>::MIN as $intermediate) {
                                     Err(lexical_core::Error::Underflow(0).into())
                                 } else {
-                                    Ok(f as $from)
+                                    Ok(f)
                                 }
                             } else {
                                 Err(e)
