@@ -440,9 +440,9 @@ macro_rules! impl_tryfrom_integer {
                                     // <f32|f64>::round() doesn't exist in no_std...
                                     // Safe because value is checked to be normal and within bounds earlier
                                     if value.is_sign_positive() {
-                                        Ok(unsafe { value.to_int_unchecked(f + 0.5) })
+                                        Ok(unsafe { (value + 0.5).to_int_unchecked() })
                                     } else {
-                                        Ok(unsafe { value.to_int_unchecked(f - 0.5) })
+                                        Ok(unsafe { (value - 0.5).to_int_unchecked() })
                                     }
                                 }
                             } else {
