@@ -60,7 +60,7 @@ mod tests {
     fn test_enum_types() {
         assert_eq!(MyEnum::from_token(Token::CharacterProgramData(b"real")), Ok(MyEnum::Real));
         assert_eq!(MyEnum::from_token(Token::CharacterProgramData(b"bin")), Ok(MyEnum::Binary));
-        assert_eq!(MyEnum::from_token(Token::CharacterProgramData(b"potato"), Err(ErrorCode::IllegalParameterValue.into())));
-        assert_eq!(MyEnum::from_token(Token::DecimalNumericProgramData(b"3.5"), Err(ErrorCode::DataTypeError.into())));
+        assert_eq!(MyEnum::from_token(Token::CharacterProgramData(b"potato")), Err(ErrorCode::IllegalParameterValue.into()));
+        assert_eq!(MyEnum::from_token(Token::DecimalNumericProgramData(b"3.5")), Err(ErrorCode::DataTypeError.into()));
     }
 }
