@@ -62,7 +62,9 @@ default = [
 ]
 
 # Use std
-std = ["lexical-core/std"]
+std = ["alloc", "lexical-core/std"]
+
+alloc = []
 
 compact = ["lexical-core/compact"]
 

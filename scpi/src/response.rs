@@ -346,46 +346,95 @@ impl<const CAP: usize> Formatter for ArrayVecFormatter<CAP> {
     }
 }
 
-#[test]
-fn test_vecarray() {
-    let mut array = ArrayVecFormatter::<16>::new();
-    array.message_start().unwrap();
-    // First unit
-    array
-        .response_unit()
-        .unwrap()
-        .data(&b"potato"[..])
-        .data(0u8)
-        .finish()
-        .unwrap();
-    // Second unit
-    array.response_unit().unwrap().data(42i16).finish().unwrap();
-    array.message_end().unwrap();
-    assert_eq!(array.as_slice(), b"\"potato\",0;42\n");
+#[cfg(feature = "alloc")]
+impl Formatter for alloc::vec::Vec<u8> {
+    /// Internal use
+    fn push_str(&mut self, s: &[u8]) -> Result<()> {
+        self.extend_from_slice(s);
+        Ok(())
+    }
+
+    fn push_byte(&mut self, b: u8) -> Result<()> {
+        self.push(b);
+        Ok(())
+    }
+
+    fn as_slice(&self) -> &[u8] {
+        &self[..]
+    }
+
+    fn clear(&mut self) {
+        alloc::vec::Vec::clear(self);
+    }
+
+    fn len(&self) -> usize {
+        alloc::vec::Vec::len(self)
+    }
+
+    fn message_start(&mut self) -> Result<()> {
+        Ok(())
+    }
+
+    fn message_end(&mut self) -> Result<()> {
+        self.push_byte(RESPONSE_MESSAGE_TERMINATOR)
+    }
+
+    fn response_unit(&mut self) -> Result<ResponseUnit> {
+        if !self.is_empty() {
+            self.push_byte(RESPONSE_MESSAGE_UNIT_SEPARATOR)?;
+        }
+        Ok(ResponseUnit {
+            fmt: self,
+            result: Ok(()),
+            has_header: false,
+            has_data: false,
+        })
+    }
 }
 
-#[test]
-fn test_outamemory() {
-    let mut array = ArrayVecFormatter::<1>::new();
-    array.push_byte(b'x').unwrap();
-    assert_eq!(
-        array.push_byte(b'x'),
-        Err(Error::from(ErrorCode::OutOfMemory))
-    );
-    assert_eq!(
-        array.push_str(b"x"),
-        Err(Error::from(ErrorCode::OutOfMemory))
-    );
-}
-
-#[test]
-fn test_f32() {
-    let mut array = ArrayVecFormatter::<32>::new();
-    f32::INFINITY.format_response_data(&mut array).unwrap();
-    array.data_separator().unwrap();
-    f32::NEG_INFINITY.format_response_data(&mut array).unwrap();
-    array.data_separator().unwrap();
-    f32::NAN.format_response_data(&mut array).unwrap();
-    // See SCPI-99 7.2.1.4 and 7.2.1.5
-    assert_eq!(array.as_slice(), b"9.9E+37,-9.9E+37,9.91E+37");
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_vecarray() {
+        let mut array = ArrayVecFormatter::<16>::new();
+        array.message_start().unwrap();
+        // First unit
+        array
+            .response_unit()
+            .unwrap()
+            .data(&b"potato"[..])
+            .data(0u8)
+            .finish()
+            .unwrap();
+        // Second unit
+        array.response_unit().unwrap().data(42i16).finish().unwrap();
+        array.message_end().unwrap();
+        assert_eq!(array.as_slice(), b"\"potato\",0;42\n");
+    }
+    
+    #[test]
+    fn test_outamemory() {
+        let mut array = ArrayVecFormatter::<1>::new();
+        array.push_byte(b'x').unwrap();
+        assert_eq!(
+            array.push_byte(b'x'),
+            Err(Error::from(ErrorCode::OutOfMemory))
+        );
+        assert_eq!(
+            array.push_str(b"x"),
+            Err(Error::from(ErrorCode::OutOfMemory))
+        );
+    }
+    
+    #[test]
+    fn test_f32() {
+        let mut array = ArrayVecFormatter::<32>::new();
+        f32::INFINITY.format_response_data(&mut array).unwrap();
+        array.data_separator().unwrap();
+        f32::NEG_INFINITY.format_response_data(&mut array).unwrap();
+        array.data_separator().unwrap();
+        f32::NAN.format_response_data(&mut array).unwrap();
+        // See SCPI-99 7.2.1.4 and 7.2.1.5
+        assert_eq!(array.as_slice(), b"9.9E+37,-9.9E+37,9.91E+37");
+    }
 }
