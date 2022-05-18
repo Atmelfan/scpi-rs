@@ -1,6 +1,6 @@
 [package]
 name = "scpi"
-version = "0.4.3"
+version = "0.5.0"
 authors = ["Atmelfan <gustavp@gpa-robotics.com>"]
 edition = "2021"
 license = "MIT"
@@ -18,7 +18,7 @@ readme = "README.md"
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-scpi_derive = { path = "../scpi_derive", version= "0.4.3"}
+scpi_derive = { path = "../scpi_derive", version= "0.5.0"}
 lexical-core = { version="0.8.3", features=["parse-floats", "parse-integers", "write-floats", "write-integers", "power-of-two"], default-features=false }
 arrayvec = { version = "0.7", default-features = false }
 
@@ -36,30 +36,7 @@ features = [
 ]
 
 [features]
-default = [
-    # Units
-    "unit-length",
-    "unit-velocity",
-    "unit-acceleration",
-    "unit-electric-potential",
-    "unit-electric-current",
-    "unit-electric-conductance",
-    "unit-electric-resistance",
-    "unit-electric-charge",
-    "unit-electric-capacitance",
-    "unit-electric-inductance",
-    "unit-energy",
-    "unit-power",
-    "unit-angle",
-    "unit-amount-of-substance",
-    "unit-magnetic-flux",
-    "unit-magnetic-flux-density",
-    "unit-ratio",
-    "unit-temperature",
-    "unit-time",
-    "unit-pressure",
-    "unit-volume"
-]
+default = ["std", "extended-error"]
 
 # Use std
 std = ["alloc", "lexical-core/std"]
@@ -95,6 +72,31 @@ unit-time = ["uom"]
 unit-pressure = ["uom"]
 unit-volume = ["uom"]
 unit-frequency = ["uom"]
+
+all-units = [
+    # Units
+    "unit-length",
+    "unit-velocity",
+    "unit-acceleration",
+    "unit-electric-potential",
+    "unit-electric-current",
+    "unit-electric-conductance",
+    "unit-electric-resistance",
+    "unit-electric-charge",
+    "unit-electric-capacitance",
+    "unit-electric-inductance",
+    "unit-energy",
+    "unit-power",
+    "unit-angle",
+    "unit-amount-of-substance",
+    "unit-magnetic-flux",
+    "unit-magnetic-flux-density",
+    "unit-ratio",
+    "unit-temperature",
+    "unit-time",
+    "unit-pressure",
+    "unit-volume"
+]
 
 
 

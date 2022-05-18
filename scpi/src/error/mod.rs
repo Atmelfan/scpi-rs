@@ -6,6 +6,9 @@
 mod arrayqueue;
 pub use arrayqueue::*;
 
+#[cfg(feature = "alloc")]
+mod vecdeque;
+
 /// A SCPI error
 ///
 /// If `extended-error` feature is enabled, an optional extended

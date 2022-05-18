@@ -24,18 +24,21 @@ It does not implement any higher level functions/error handling other than SCPI 
 Add `scpi` to your dependencies:
 ```toml
 [dependencies]
-scpi = "0.x"
+scpi = "0.5.0"
 ```
 The API is still work in progress so the minor version should be specified.
 
 ## Features
-These features are by default turned *OFF*.
+These features are by default turned **ON**.
+- `std` - Use std library (implies `alloc`).
 - `extended-error` - Allows extended error messages of the form `<error code>, "error message;extended message"`.
 Requires more data and program memory.
-- `std` - Use std library, note that libm feature can be disabled with std.
 
-These features are by default turned **ON**.
+These features are by default turned **OFF**.
+- `alloc` - Use alloc library, provides allocating types.
+- `compact` - See [lexical-core/compact](https://github.com/Alexhuszagh/rust-lexical#features). Useful for embedded targets.
 - `unit-*` - Creates conversion from a argument \[and suffix] into corresponding [uom](https://crates.io/crates/uom) unit. Disable the ones you don't need to save space and skip uom.
+- `all-units` - Implies all available units.
 
 ## Getting started
 Look at the [`example`](https://github.com/Atmelfan/scpi-rs/tree/master/example) for how to create a tree and run commands.

@@ -2,9 +2,6 @@ use crate::error::{Error, ErrorCode, ErrorQueue};
 use arrayvec::ArrayVec;
 use core::default::Default;
 
-#[cfg(feature = "alloc")]
-extern crate alloc;
-
 /// Default error queue based on a alloc-less arrayqueue.
 pub struct ArrayErrorQueue<const CAP: usize> {
     vec: ArrayVec<Error, CAP>,
@@ -48,26 +45,7 @@ impl<const CAP: usize> ErrorQueue for ArrayErrorQueue<CAP> {
     }
 }
 
-#[cfg(feature = "alloc")]
-impl ErrorQueue for alloc::collections::vec_deque::VecDeque<Error> {
-    fn push_back_error(&mut self, err: Error) {
-        if 
-        self.push_back(err)
-    }
 
-    fn pop_front_error(&mut self) -> Error {
-        self.pop_front()
-            .unwrap_or_else(|| ErrorCode::NoError.into())
-    }
-
-    fn len(&self) -> usize {
-        alloc::collections::vec_deque::VecDeque::len(self)
-    }
-
-    fn clear(&mut self) {
-        alloc::collections::vec_deque::VecDeque::clear(self)
-    }
-}
 
 #[cfg(test)]
 mod test_error_queue {
@@ -122,29 +100,6 @@ mod test_error_queue {
         assert_eq!(
             errors.pop_front_error(),
             Error::new(ErrorCode::QueueOverflow)
-        );
-    }
-
-    #[cfg(feature = "alloc")]
-    #[test]
-    fn test_vecqueue() {
-        use alloc::collections::vec_deque::VecDeque;
-
-        // Check that errorqueue returns NoError when there are no errors
-        let mut errors: VecDeque<Error> = VecDeque::new();
-        errors.push_back_error(ErrorCode::Custom(1, b"One").into());
-        errors.push_back_error(ErrorCode::Custom(2, b"Two").into());
-        assert_eq!(
-            errors.pop_front_error(),
-            Error::new(ErrorCode::Custom(1, b"One"))
-        );
-        assert_eq!(
-            errors.pop_front_error(),
-            Error::new(ErrorCode::Custom(1, b"Two"))
-        );
-        assert_eq!(
-            errors.pop_front_error(),
-            Error::new(ErrorCode::NoError)
         );
     }
 }
