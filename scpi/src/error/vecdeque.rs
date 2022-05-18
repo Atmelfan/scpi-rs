@@ -1,7 +1,7 @@
 use alloc::collections::vec_deque::VecDeque;
 use crate::error::{Error, ErrorCode, ErrorQueue};
 
-impl ErrorQueue for alloc::collections::vec_deque::VecDeque<Error> {
+impl ErrorQueue for VecDeque<Error> {
     fn push_back_error(&mut self, err: Error) {
         self.push_back(err)
     }
@@ -12,11 +12,11 @@ impl ErrorQueue for alloc::collections::vec_deque::VecDeque<Error> {
     }
 
     fn len(&self) -> usize {
-        alloc::collections::vec_deque::VecDeque::len(self)
+        VecDeque::len(self)
     }
 
     fn clear(&mut self) {
-        alloc::collections::vec_deque::VecDeque::clear(self)
+        VecDeque::clear(self)
     }
 }
 

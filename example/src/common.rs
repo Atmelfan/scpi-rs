@@ -31,6 +31,7 @@ use scpi::{
 use git_version::git_version;
 use scpi::expression::channel_list::ChannelList;
 use scpi::suffix::{Amplitude, Db};
+
 use uom::si::angle::{degree, radian};
 use uom::si::electric_potential::volt;
 use uom::si::power::watt;
