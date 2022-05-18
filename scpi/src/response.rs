@@ -394,6 +394,9 @@ impl Formatter for alloc::vec::Vec<u8> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::error::{Error, ErrorCode};
+
     #[test]
     fn test_vecarray() {
         let mut array = ArrayVecFormatter::<16>::new();
