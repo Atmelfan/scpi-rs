@@ -37,7 +37,7 @@ mod test_error_queue {
         );
         assert_eq!(
             errors.pop_front_error(),
-            Error::new(ErrorCode::Custom(1, b"Two"))
+            Error::new(ErrorCode::Custom(2, b"Two"))
         );
         assert_eq!(
             errors.pop_front_error(),
