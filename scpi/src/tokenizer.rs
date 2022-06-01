@@ -682,10 +682,9 @@ impl<'a> Tokenizer<'a> {
     fn read_suffix_data(&mut self, val: &'a [u8]) -> Result<Token<'a>, ErrorCode> {
         let s = self.chars.as_slice();
         let mut len = 0u8;
-        while self.chars
-            .clone()
-            .next()
-            .map_or(false, |ch| ch.is_ascii_alphanumeric() || *ch == b'-' || *ch == b'/' || *ch == b'.') {
+        while self.chars.clone().next().map_or(false, |ch| {
+            ch.is_ascii_alphanumeric() || *ch == b'-' || *ch == b'/' || *ch == b'.'
+        }) {
             self.chars.next();
             len += 1;
             if len > 12 {

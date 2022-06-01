@@ -35,9 +35,9 @@ where
 mod tests {
     extern crate self as scpi;
     use super::ScpiEnum;
-    use core::convert::TryFrom;
-    use crate::tokenizer::Token;
     use crate::error::ErrorCode;
+    use crate::tokenizer::Token;
+    use core::convert::TryFrom;
 
     #[derive(Copy, Clone, PartialEq, Debug, ScpiEnum)]
     enum MyEnum {
@@ -59,9 +59,21 @@ mod tests {
 
     #[test]
     fn test_enum_types() {
-        assert_eq!(MyEnum::from_token(Token::CharacterProgramData(b"real")), Ok(MyEnum::Real));
-        assert_eq!(MyEnum::from_token(Token::CharacterProgramData(b"bin")), Ok(MyEnum::Binary));
-        assert_eq!(MyEnum::from_token(Token::CharacterProgramData(b"potato")), Err(ErrorCode::IllegalParameterValue.into()));
-        assert_eq!(MyEnum::from_token(Token::DecimalNumericProgramData(b"3.5")), Err(ErrorCode::DataTypeError.into()));
+        assert_eq!(
+            MyEnum::from_token(Token::CharacterProgramData(b"real")),
+            Ok(MyEnum::Real)
+        );
+        assert_eq!(
+            MyEnum::from_token(Token::CharacterProgramData(b"bin")),
+            Ok(MyEnum::Binary)
+        );
+        assert_eq!(
+            MyEnum::from_token(Token::CharacterProgramData(b"potato")),
+            Err(ErrorCode::IllegalParameterValue.into())
+        );
+        assert_eq!(
+            MyEnum::from_token(Token::DecimalNumericProgramData(b"3.5")),
+            Err(ErrorCode::DataTypeError.into())
+        );
     }
 }
