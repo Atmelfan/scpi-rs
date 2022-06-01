@@ -154,27 +154,27 @@ use crate::tree::Node;
 pub mod format {
 
     /// Hexadecimal data
-    #[derive(Debug, PartialEq, Copy, Clone)]
+    #[derive(Debug, PartialEq, Eq, Copy, Clone)]
     pub struct Hex<V>(pub V);
 
     /// Binary data
-    #[derive(Debug, PartialEq, Copy, Clone)]
+    #[derive(Debug, PartialEq, Eq, Copy, Clone)]
     pub struct Binary<V>(pub V);
 
     /// Octal data
-    #[derive(Debug, PartialEq, Copy, Clone)]
+    #[derive(Debug, PartialEq, Eq, Copy, Clone)]
     pub struct Octal<V>(pub V);
 
     /// Arbitrary data
-    #[derive(Debug, PartialEq, Copy, Clone)]
+    #[derive(Debug, PartialEq, Eq, Copy, Clone)]
     pub struct Arbitrary<'a>(pub &'a [u8]);
 
     /// Expression data
-    #[derive(Debug, PartialEq, Copy, Clone)]
+    #[derive(Debug, PartialEq, Eq, Copy, Clone)]
     pub struct Expression<'a>(pub &'a [u8]);
 
     /// Character data
-    #[derive(Debug, PartialEq, Copy, Clone)]
+    #[derive(Debug, PartialEq, Eq, Copy, Clone)]
     pub struct Character<'a>(pub &'a [u8]);
 }
 
@@ -456,7 +456,7 @@ impl<'a> Context<'a> {
 }
 
 /// Numeric values that can be substituted for `<numeric>`
-#[derive(Debug, PartialEq, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum NumericValues<'a> {
     /// `MAXimum`
     Maximum,

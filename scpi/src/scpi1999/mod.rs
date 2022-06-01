@@ -8,7 +8,7 @@ pub mod commands;
 /// (used in OPERation/QUEStionable registers)
 ///
 ///
-#[derive(PartialEq, Copy, Clone)]
+#[derive(PartialEq, Eq, Copy, Clone)]
 pub struct EventRegister {
     pub condition: u16,
     pub event: u16,

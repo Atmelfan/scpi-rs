@@ -21,7 +21,7 @@ pub struct Error(ErrorCode, Option<&'static [u8]>);
 /// message can be added (Example: `-241,"Hardware missing;Extended message"`).
 ///
 #[cfg(not(feature = "extended-error"))]
-#[derive(Debug, PartialEq, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub struct Error(ErrorCode);
 
 /// Useful alias of Result for SCPI operations
@@ -128,7 +128,7 @@ impl From<ErrorCode> for Error {
 ///
 ///
 ///
-#[derive(Debug, PartialEq, Copy, Clone, ScpiError)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone, ScpiError)]
 pub enum ErrorCode {
     ///# Custom error
     /// Used for custom error in the range`[ -399 , -300 ]` or `[ 1 , 32767 ]`.

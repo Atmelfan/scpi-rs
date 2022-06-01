@@ -15,7 +15,7 @@ use crate::error::{Error, ErrorCode};
 use core::convert::TryFrom;
 use core::slice::Iter;
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct ChannelSpec<'a>(&'a [u8], usize);
 
 impl<'a> IntoIterator for ChannelSpec<'a> {
@@ -46,7 +46,7 @@ impl<'a> ChannelSpec<'a> {
 }
 
 /// Channel list token
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub enum Token<'a> {
     /// A channel spec consisting of at least one numeric.
     /// Example: `1!2!3` is a three-dimensional spec

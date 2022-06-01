@@ -12,7 +12,7 @@ use crate::{util, NumericValues};
 /// SCPI tokens
 /// Loosely based on IEEE488.2 Chapter 7
 ///
-#[derive(Debug, PartialEq, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum Token<'a> {
     /// A header mnemonic separator `:`
     HeaderMnemonicSeparator,

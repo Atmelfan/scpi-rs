@@ -8,7 +8,7 @@ use crate::tokenizer;
 
 type Number<'a> = tokenizer::Token<'a>;
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub enum Token<'a> {
     Numeric(Number<'a>),
     NumericRange(Number<'a>, Number<'a>),

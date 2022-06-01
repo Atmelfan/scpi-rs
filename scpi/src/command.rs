@@ -64,7 +64,7 @@ pub trait Command {
     ) -> Result<()>;
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum CommandTypeMeta {
     Unknown,
     NoQuery,
