@@ -116,6 +116,10 @@ pub mod prelude {
     pub use crate::tokenizer::{Token, Tokenizer};
     pub use crate::tree::Node;
     pub use crate::NumericValues;
+    pub use crate::{
+        expression::{channel_list, numeric_list},
+        format,
+    };
     pub use crate::{Context, Device};
     #[cfg(any(
         feature = "unit-length",
