@@ -82,7 +82,8 @@ trait AsyncCommand {
 }
 
 #[cfg(feature = "async")]
-impl AsyncCommand for Command {
+#[async_trait::async_trait]
+impl AsyncCommand for T where T: Command {
     async fn async_event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<()> {
         self.event(context, args)
     }

@@ -209,6 +209,89 @@ pub trait Device {
     }
 }
 
+pub struct TreeTraverser<'a> {
+    /// SCPI command tree root
+    root: &'a Node<'a>,
+    // Current branch
+    branch: &'a Node<'a>,
+}
+
+impl<'a> TreeTraverser<'a> {
+    fn next(&mut self, tokenstream: &mut Tokenizer) -> Result<Option<(Node, bool)>>{
+        // Point the current branch to root
+        let mut is_query = false;
+        let mut is_common = false;
+
+        let mut node: Option<&Node> = None;
+
+        while let Some(token) = tokenstream.next() {
+            let tok = token?;
+            match tok {
+                Token::HeaderCommonPrefix => {
+                    is_common = true;
+                }
+                Token::ProgramMnemonic(_) => {
+                    //Common nodes always use ROOT as base node
+                    let subcommands = if is_common {
+                        // Should be enforced by tokenizer
+                        assert_eq!(node, None, "Common commands cannot have multiple mnemonics");
+                        self.root.sub
+                    } else { 
+                        self.branch.sub 
+                    };
+
+                    // Check for a matching node in branch
+                    for sub in subcommands {
+                        if is_common {
+                            //Common nodes must match mnemonic and start with '*'
+                            if sub.name.starts_with(b"*")
+                                && tok.match_program_header(&sub.name[1..])
+                            {
+                                node = Some(sub);
+                                continue;
+                            }
+                        } else if tok.match_program_header(sub.name) {
+                            //Normal node must match mnemonic
+                            node = Some(sub);
+                            continue;
+                        } else if sub.optional && !sub.sub.is_empty() {
+                            //A optional node may have matching children
+                            for subsub in sub.sub {
+                                if tok.match_program_header(subsub.name) {
+                                    //Normal node must match mnemonic
+                                    node = Some(subsub);
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+
+                    return Err(ErrorCode::UndefinedHeader.into());
+                }
+                Token::HeaderMnemonicSeparator => {
+
+                    if let Some(p) = node {
+                        //This node will be used as branch
+                        self.branch = p;
+                    } else {
+                        self.branch = self.root;
+                    }
+                    //println!("branch={}", String::from_utf8_lossy(branch.name));
+                }
+                Token::HeaderQuerySuffix => {
+                    is_query = true;
+                }
+                Token::ProgramHeaderSeparator | Token::ProgramMessageUnitSeparator => {
+                    return Ok(node.and_then(|n| (n, is_query)));
+                }
+                _ => unreachable!("No other tokens should come before a separator"),
+            }
+        }
+
+        Ok(node.and_then(|n| (n, is_query)))
+    }
+}
+
 /// Context in which to execute a message.
 ///
 /// Contains registers related to the context and reference to the writer to respond with.
@@ -278,23 +361,6 @@ impl<'a> Context<'a> {
         FMT: Formatter,
     {
         let mut tokenizer = Tokenizer::new(s);
-        self.exec(&mut tokenizer, response)
-    }
-
-    /// Executes one SCPI message (terminated by `\n`) and queue any errors.
-    ///
-    /// # Arguments
-    ///  * `tokenizer` - A tokenizer created from `Tokenizer::from_str(...)`. May be re-used
-    ///  if still has valid tokens and Ok() was returned.
-    ///
-    /// # Returns
-    ///  * `Ok(())` - If message (and all units within) was executed successfully
-    ///  * `Err(error)` - If parser detected or a command returned an error
-    ///
-    pub fn exec<FMT>(&mut self, tokenstream: &mut Tokenizer, response: &mut FMT) -> Result<()>
-    where
-        FMT: Formatter,
-    {
         response.clear();
         self.execute(tokenstream, response).map_err(|err| {
             //Set appropriate bits in ESR
@@ -309,102 +375,23 @@ impl<'a> Context<'a> {
     where
         FMT: Formatter,
     {
-        // Point the current branch to root
-        let mut is_query = false;
-        let mut is_common = false;
-
-        let mut branch = self.root; //Node parent
-        let mut node: Option<&Node> = None; //Current active node
+        let traverser = TreeTraverser {
+            root: self.root,
+            branch: self.root,
+        };
 
         //Start response message
         response.message_start()?;
-        'outer: while let Some(token) = tokenstream.next() {
-            let tok = token?;
-            //println!(">>> {:?}", tok);
-            match tok {
-                Token::ProgramMnemonic(_) => {
-                    //Common nodes always use ROOT as base node
-                    let subcommands = if is_common { self.root.sub } else { branch.sub };
-                    if subcommands.is_empty() {
-                        return Err(ErrorCode::UndefinedHeader.into());
-                    }
 
-                    for sub in subcommands {
-                        if is_common {
-                            //Common nodes must match mnemonic and start with '*'
-                            if sub.name.starts_with(b"*")
-                                && tok.match_program_header(&sub.name[1..])
-                            {
-                                node = Some(sub);
-                                continue 'outer;
-                            }
-                        } else if tok.match_program_header(sub.name) {
-                            //Normal node must match mnemonic
-                            node = Some(sub);
-                            continue 'outer;
-                        } else if sub.optional && !sub.sub.is_empty() {
-                            //A optional node may have matching children
-                            for subsub in sub.sub {
-                                if tok.match_program_header(subsub.name) {
-                                    //Normal node must match mnemonic
-                                    node = Some(subsub);
-                                    continue 'outer;
-                                }
-                            }
-                        }
-                    }
+        // Iterate commands
+        while let Some((node, is_query)) = traverser.next(tokenstream)? {
+            node.exec(self, tokenstream, response, is_query)?;
 
-                    return Err(ErrorCode::UndefinedHeader.into());
-                }
-                Token::HeaderMnemonicSeparator => {
-                    //This node will be used as branch
-                    if let Some(p) = node {
-                        branch = p;
-                    } else {
-                        branch = self.root;
-                    }
-                    //println!("branch={}", String::from_utf8_lossy(branch.name));
-                }
-                Token::HeaderCommonPrefix => {
-                    is_common = true;
-                }
-                Token::HeaderQuerySuffix => {
-                    is_query = true;
-                }
-                Token::ProgramHeaderSeparator | Token::ProgramMessageUnitSeparator => {
-                    // Execute header if available
-                    if let Some(n) = node {
-                        if tok == Token::ProgramHeaderSeparator {
-                            //If a header separator was found, pass tokenizer for arguments and
-                            // check that the command consumes them all
-                            n.exec(self, tokenstream, response, is_query)?;
-
-                            // Should have a terminator, unit terminator or END after arguments
-                            // If, not, the handler has not consumed all arguments (error) or an unexpected token appeared.'
-                            // TODO: This should abort above command!
-                            if tokenstream.next_data(true)?.is_some() {
-                                return Err(ErrorCode::ParameterNotAllowed.into());
-                            }
-                        } else {
-                            //No header separator was found = no arguments, pass an empty tokenizer
-                            n.exec(self, &mut Tokenizer::empty(), response, is_query)?;
-                        }
-                    } else {
-                        //return Err(Error::CommandHeaderError);
-                    }
-
-                    // Reset unit state
-                    node = None;
-                    is_query = false;
-                    is_common = false;
-                }
-                _ => (),
+            // Should have a terminator, unit terminator or END after arguments
+            // If, not, the handler has not consumed all arguments (error) or an unexpected token appeared.
+            if tokenstream.next_data(true)?.is_some() {
+                return Err(ErrorCode::ParameterNotAllowed.into());
             }
-        }
-
-        //Execute last command if any (never has arguments or would've been executed earlier)
-        if let Some(n) = node {
-            n.exec(self, &mut Tokenizer::empty(), response, is_query)?;
         }
 
         //End response message if anything has written something
@@ -413,8 +400,8 @@ impl<'a> Context<'a> {
         }
 
         Ok(())
-        //branch.exec(self, tokenstream.clone().borrow_mut(), is_query)?;
     }
+
 
     pub fn get_stb(&self) -> u8 {
         let mut reg = 0u8;
