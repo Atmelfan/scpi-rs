@@ -12,7 +12,7 @@ scpi = {path = "../scpi", version = "0.4.3"}
 git-version = "0.3.4"
 
 [dev-dependencies]
-criterion = "0.3"
+criterion = "0.4"
 
 [[bench]]
 name = "my_benchmark"
