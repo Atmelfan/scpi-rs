@@ -1,3 +1,6 @@
+mod numeric;
+pub use numeric::NumericValues;
+
 use core::str;
 
 use crate::prelude::*;

@@ -23,9 +23,12 @@
 use crate::error::Result;
 use crate::format::Character;
 use crate::prelude::*;
+use crate::tokenizer::Arguments;
 use crate::{nquery, qonly};
 
 use core::convert::TryInto;
+
+use super::IEEE488Device;
 
 ///## 10.3 *CLS, Clear Status Command
 ///> The Clear Status command clears status data structures, see 11.1.2, and forces the device to the Operation Complete
@@ -36,22 +39,15 @@ use core::convert::TryInto;
 ///> TERMINATOR> clears the Output Queue, see 6.3.2.3.
 pub struct ClsCommand;
 
-impl Command for ClsCommand {
+impl<D> Command<D> for ClsCommand
+where
+    D: IEEE488Device,
+{
     nquery!();
 
-    fn event(&self, context: &mut Context, _args: &mut Tokenizer) -> Result<()> {
-        // Clear SESR
-        context.esr = 0;
-        // Clear operation register
-        context.operation.set_condition(0);
-        context.operation.clear_event();
-        // Clear questionable register
-        context.questionable.set_condition(0);
-        context.questionable.clear_event();
-        // Clear error buffer
-        context.errors.clear();
+    fn event(&self, device: &mut D, _context: &mut Context, _args: Arguments) -> Result<()> {
         // Clear any device specific status
-        context.device.cls()
+        device.exec_cls()
     }
 }
 
@@ -62,22 +58,24 @@ impl Command for ClsCommand {
 ///> Event Status Enable Register. See 11.5.1.3.
 pub struct EseCommand;
 
-impl Command for EseCommand {
-    fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<()> {
-        if let Some(ese) = args.next_data(true)? {
-            //Try_into will automatically check min/max for ese datatype (u8)
-            context.ese = ese.try_into()?;
-        }
+impl<D> Command<D> for EseCommand
+where
+    D: IEEE488Device,
+{
+    fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
+        let ese = args.next()?.try_into()?;
+        device.set_ese(ese);
         Ok(())
     }
 
     fn query(
         &self,
-        context: &mut Context,
-        _args: &mut Tokenizer,
-        response: &mut ResponseUnit,
+        device: &mut D,
+        _context: &mut Context,
+        _args: Arguments,
+        mut response: ResponseUnit,
     ) -> Result<()> {
-        response.data(context.ese).finish()
+        response.data(device.ese()).finish()
     }
 }
 
@@ -86,17 +84,23 @@ impl Command for EseCommand {
 ///> Event Status Register. Reading the Standard Event Status Register clears it. See 11.5.1.2.
 pub struct EsrCommand;
 
-impl Command for EsrCommand {
+impl<D> Command<D> for EsrCommand
+where
+    D: IEEE488Device,
+{
     qonly!();
 
     fn query(
         &self,
-        context: &mut Context,
-        _args: &mut Tokenizer,
-        response: &mut ResponseUnit,
+        device: &mut D,
+        _context: &mut Context,
+        _args: Arguments,
+        mut response: ResponseUnit,
     ) -> Result<()> {
+        let esr = device.esr();
+        device.set_esr(0);
         response
-            .data(core::mem::replace(&mut context.esr, 0))
+            .data(esr)
             .finish()
     }
 }
@@ -120,14 +124,18 @@ pub struct IdnCommand<'a> {
     pub firmware: &'a [u8],
 }
 
-impl<'a> Command for IdnCommand<'a> {
+impl<'a, D> Command<D> for IdnCommand<'a>
+where
+    D: IEEE488Device,
+{
     qonly!();
 
     fn query(
         &self,
+        _device: &mut D,
         _context: &mut Context,
-        _args: &mut Tokenizer,
-        response: &mut ResponseUnit,
+        _args: Arguments,
+        mut response: ResponseUnit,
     ) -> Result<()> {
         response
             .data(Character(self.manufacturer))
@@ -147,17 +155,20 @@ impl<'a> Command for IdnCommand<'a> {
 ///> selected device operations have been finished. See 12.5.3 for details of operation.
 ///
 pub struct OpcCommand;
-impl Command for OpcCommand {
-    fn event(&self, context: &mut Context, _args: &mut Tokenizer) -> Result<()> {
-        context.push_error(ErrorCode::OperationComplete.into());
-        Ok(())
+impl<D> Command<D> for OpcCommand
+where
+    D: IEEE488Device,
+{
+    fn event(&self, device: &mut D, _context: &mut Context, _args: Arguments) -> Result<()> {
+        device.exec_opc()
     }
 
     fn query(
         &self,
+        _device: &mut D,
         _context: &mut Context,
-        _args: &mut Tokenizer,
-        response: &mut ResponseUnit,
+        _args: Arguments,
+        mut response: ResponseUnit,
     ) -> Result<()> {
         response.data(true).finish()
     }
@@ -191,11 +202,14 @@ impl Command for OpcCommand {
 ///>  * The memory register(s) associated with *SAV.
 ///> The scope of the *LRN? response and *RCL (if implemented) is the same as *RST. See 10.17.3 and 10.29.3.
 pub struct RstCommand;
-impl Command for RstCommand {
+impl<D> Command<D> for RstCommand
+where
+    D: IEEE488Device,
+{
     nquery!();
 
-    fn event(&self, context: &mut Context, _args: &mut Tokenizer) -> Result<()> {
-        context.device.rst()
+    fn event(&self, device: &mut D, _context: &mut Context, _args: Arguments) -> Result<()> {
+        device.exec_rst()
     }
 }
 
@@ -205,39 +219,49 @@ impl Command for RstCommand {
 ///> The Service Request Enable query allows the programmer to determine the current contents of the Service Request
 ///> Enable Register, see 11.3.2.
 pub struct SreCommand;
-impl Command for SreCommand {
-    fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<()> {
-        if let Some(sre) = args.next_data(true)? {
-            context.sre = sre.try_into()?;
-        }
+impl<D> Command<D> for SreCommand
+where
+    D: IEEE488Device,
+{
+    fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
+        let sre = args.next()?.try_into()?;
+        device.set_sre(sre);
         Ok(())
     }
 
     fn query(
         &self,
-        context: &mut Context,
-        _args: &mut Tokenizer,
-        response: &mut ResponseUnit,
+        device: &mut D,
+        _context: &mut Context,
+        _args: Arguments,
+        mut response: ResponseUnit,
     ) -> Result<()> {
-        response.data(context.sre).finish()
+        response.data(device.sre()).finish()
     }
 }
 
 ///## 10.36 *STB?, Read Status Byte Query
 ///> The Read Status Byte query allows the programmer to read the status byte and Master Summary Status bit.
 pub struct StbCommand;
-impl Command for StbCommand {
+impl<D> Command<D> for StbCommand
+where
+    D: IEEE488Device,
+{
     qonly!();
 
     fn query(
         &self,
+        device: &mut D,
         context: &mut Context,
-        _args: &mut Tokenizer,
-        response: &mut ResponseUnit,
+        _args: Arguments,
+        mut response: ResponseUnit,
     ) -> Result<()> {
-        // Set MAV bit as a message should always exist after
-        // a query even if there's no output buffer.
-        response.data(context.get_stb() | 0x10).finish()
+        // MAV is provided by the context from whatever interface the command was received on
+        let mut  stb = device.read_stb();
+        if context.mav {
+            stb |= 0x10;
+        }
+        response.data(stb).finish()
     }
 }
 
@@ -255,20 +279,23 @@ impl Command for StbCommand {
 ///> fixed, known values that are stated in the device documentation; or set to values deÞned by the user and stored in local
 ///> memory.
 pub struct TstCommand;
-impl Command for TstCommand {
+impl<D> Command<D> for TstCommand
+where
+    D: IEEE488Device,
+{
     qonly!();
 
     fn query(
         &self,
-        context: &mut Context,
-        _args: &mut Tokenizer,
-        response: &mut ResponseUnit,
+        device: &mut D,
+        _context: &mut Context,
+        _args: Arguments,
+        mut response: ResponseUnit,
     ) -> Result<()> {
         response
             .data(
-                context
-                    .device
-                    .tst()
+                device
+                    .exec_tst()
                     .map(|_| 0i16)
                     .unwrap_or_else(|err| err.get_code()),
             )
@@ -282,9 +309,12 @@ impl Command for TstCommand {
 ///>
 ///> NOTE - In a device that implements only sequential commands, the no-operation-pending flag is always TRUE
 pub struct WaiCommand;
-impl Command for WaiCommand {
+impl<D> Command<D> for WaiCommand
+where
+    D: IEEE488Device,
+{
     nquery!();
-    fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<()> {
+    fn event(&self, _device: &mut D, _context: &mut Context, _args: Arguments) -> Result<()> {
         Ok(())
     }
 }
@@ -292,16 +322,15 @@ impl Command for WaiCommand {
 #[macro_export]
 macro_rules! ieee488_idn {
     ($manufacturer:expr, $model:expr, $serial:expr, $firmware:expr) => {
-        Node {
+        $crate::prelude::Leaf {
             name: b"*IDN",
-            optional: false,
-            handler: Some(&IdnCommand {
+            default: false,
+            handler: &IdnCommand {
                 manufacturer: $manufacturer,
                 model: $model,
                 serial: $serial,
                 firmware: $firmware,
-            }),
-            sub: &[],
+            },
         }
     };
 }
@@ -309,11 +338,10 @@ macro_rules! ieee488_idn {
 #[macro_export]
 macro_rules! ieee488_cls {
     () => {
-        Node {
+        $crate::prelude::Leaf {
             name: b"*CLS",
-            optional: false,
-            handler: Some(&ClsCommand {}),
-            sub: &[],
+            default: false,
+            handler: &ClsCommand,
         }
     };
 }
@@ -321,11 +349,10 @@ macro_rules! ieee488_cls {
 #[macro_export]
 macro_rules! ieee488_ese {
     () => {
-        Node {
+        $crate::prelude::Leaf {
             name: b"*ESE",
-            optional: false,
-            handler: Some(&EseCommand {}),
-            sub: &[],
+            default: false,
+            handler: &EseCommand,
         }
     };
 }
@@ -333,11 +360,10 @@ macro_rules! ieee488_ese {
 #[macro_export]
 macro_rules! ieee488_esr {
     () => {
-        Node {
+        $crate::prelude::Leaf {
             name: b"*ESR",
-            optional: false,
-            handler: Some(&EsrCommand {}),
-            sub: &[],
+            default: false,
+            handler: &EsrCommand,
         }
     };
 }
@@ -345,11 +371,10 @@ macro_rules! ieee488_esr {
 #[macro_export]
 macro_rules! ieee488_opc {
     () => {
-        Node {
+        $crate::prelude::Leaf {
             name: b"*OPC",
-            optional: false,
-            handler: Some(&OpcCommand {}),
-            sub: &[],
+            default: false,
+            handler: &OpcCommand,
         }
     };
 }
@@ -357,11 +382,10 @@ macro_rules! ieee488_opc {
 #[macro_export]
 macro_rules! ieee488_rst {
     () => {
-        Node {
+        $crate::prelude::Leaf {
             name: b"*RST",
-            optional: false,
-            handler: Some(&RstCommand {}),
-            sub: &[],
+            default: false,
+            handler: &RstCommand,
         }
     };
 }
@@ -369,11 +393,10 @@ macro_rules! ieee488_rst {
 #[macro_export]
 macro_rules! ieee488_sre {
     () => {
-        Node {
+        $crate::prelude::Leaf {
             name: b"*SRE",
-            optional: false,
-            handler: Some(&SreCommand {}),
-            sub: &[],
+            default: false,
+            handler: &SreCommand,
         }
     };
 }
@@ -381,11 +404,10 @@ macro_rules! ieee488_sre {
 #[macro_export]
 macro_rules! ieee488_stb {
     () => {
-        Node {
+        $crate::prelude::Leaf {
             name: b"*STB",
-            optional: false,
-            handler: Some(&StbCommand {}),
-            sub: &[],
+            default: false,
+            handler: &StbCommand,
         }
     };
 }
@@ -393,11 +415,10 @@ macro_rules! ieee488_stb {
 #[macro_export]
 macro_rules! ieee488_tst {
     () => {
-        Node {
+        $crate::prelude::Leaf {
             name: b"*TST",
-            optional: false,
-            handler: Some(&TstCommand {}),
-            sub: &[],
+            default: false,
+            handler: &TstCommand,
         }
     };
 }
@@ -405,11 +426,10 @@ macro_rules! ieee488_tst {
 #[macro_export]
 macro_rules! ieee488_wai {
     () => {
-        Node {
+        $crate::prelude::Leaf {
             name: b"*WAI",
-            optional: false,
-            handler: Some(&WaiCommand {}),
-            sub: &[],
+            default: false,
+            handler: &WaiCommand,
         }
     };
 }

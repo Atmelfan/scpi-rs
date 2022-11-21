@@ -8,8 +8,6 @@ use crate::util;
 pub enum Token<'a> {
     /// A header mnemonic separator `:`
     HeaderMnemonicSeparator,
-    /// A common header prefix `*`
-    HeaderCommonPrefix,
     /// A header query suffix `?`
     HeaderQuerySuffix,
     /// A message unit separator `;`
@@ -80,74 +78,6 @@ impl<'a> Token<'a> {
                     }
             }
             _ => false,
-        }
-    }
-
-    /// Handle data as a SCPI <numeric> and convert to R datatype
-    ///
-    /// **Note: Decimal data is not compared to the maximum/minimum value and must be done
-    /// seperately (unless equal to max/min of that datatype).
-    ///
-    /// # Example
-    /// ```
-    /// use scpi::tokenizer::Token;
-    /// use scpi::NumericValues;
-    /// use scpi::error::ErrorCode;
-    /// let  s = Token::CharacterProgramData(b"MAXimum");
-    ///
-    /// let mut x = 128u8;
-    /// if let Ok(v) = s.numeric(|special| match special {
-    ///     NumericValues::Maximum => Ok(255u8),
-    ///     NumericValues::Minimum => Ok(0u8),
-    ///     NumericValues::Default => Ok(1u8),
-    ///     NumericValues::Up => Ok(x+1),
-    ///     NumericValues::Down => Ok(x-1),
-    ///     _ => Err(ErrorCode::ParameterError.into())
-    /// }) {
-    ///     //v is resolved to a u8 type
-    ///     x = v;
-    /// }
-    ///
-    /// ```
-    ///
-    ///
-    pub fn numeric<F, R: TryFrom<Token<'a>, Error = Error>>(self, special: F) -> Result<R, Error>
-    where
-        F: FnOnce(NumericValues) -> Result<R, Error>,
-    {
-        match self {
-            Token::CharacterProgramData(s) => match s {
-                x if util::mnemonic_compare(b"MAXimum", x) => special(NumericValues::Maximum),
-                x if util::mnemonic_compare(b"MINimum", x) => special(NumericValues::Minimum),
-                x if util::mnemonic_compare(b"DEFault", x) => special(NumericValues::Default),
-                x if util::mnemonic_compare(b"UP", x) => special(NumericValues::Up),
-                x if util::mnemonic_compare(b"DOWN", x) => special(NumericValues::Down),
-                x if util::mnemonic_compare(b"AUTO", x) => special(NumericValues::Auto),
-                _ => <R>::try_from(self),
-            },
-            _ => <R>::try_from(self),
-        }
-    }
-
-    pub fn numeric_range<F, R: TryFrom<Token<'a>, Error = Error>>(
-        &self,
-        min: R,
-        max: R,
-        special: F,
-    ) -> Result<R, Error>
-    where
-        F: FnOnce(NumericValues) -> Result<R, Error>,
-        R: PartialOrd + Copy,
-    {
-        let value = self.numeric(|choice| match choice {
-            NumericValues::Maximum => Ok(max),
-            NumericValues::Minimum => Ok(min),
-            x => special(x),
-        })?;
-        if value > max || value < min {
-            Err(ErrorCode::DataOutOfRange.into())
-        } else {
-            Ok(value)
         }
     }
 }

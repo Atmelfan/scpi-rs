@@ -35,6 +35,10 @@ features = [
     "try-from"
 ]
 
+[dev-dependencies]
+csv = "1.1"
+serde = { version = "1", features = ["derive"] }
+
 [features]
 default = [
     # Units

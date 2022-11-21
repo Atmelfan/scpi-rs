@@ -4,9 +4,12 @@
 //!
 use crate::error::Result;
 use crate::prelude::*;
+use crate::tokenizer::Arguments;
 use crate::{nquery, qonly};
 
 use core::convert::TryInto;
+
+use super::ScpiDevice;
 
 ///## 21.8.8 \[NEXT\]?
 ///> `SYSTem:ERRor:NEXT?` queries the error/event queue for the next item and removes it
@@ -14,17 +17,21 @@ use core::convert::TryInto;
 ///> as described in the introduction to the SYSTem:ERRor subsystem.
 pub struct SystErrNextCommand;
 
-impl Command for SystErrNextCommand {
+impl<D> Command<D> for SystErrNextCommand
+where
+    D: ScpiDevice,
+{
     qonly!();
 
     fn query(
         &self,
-        context: &mut Context,
-        _args: &mut Tokenizer,
-        response: &mut ResponseUnit,
+        device: &mut D,
+        _context: &mut Context,
+        _args: Arguments,
+        mut response: ResponseUnit,
     ) -> Result<()> {
         //Always return first error (NoError if empty)
-        response.data(context.errors.pop_front_error()).finish()
+        response.data(device.pop_front_error()).finish()
     }
 }
 
@@ -36,17 +43,21 @@ impl Command for SystErrNextCommand {
 ///> Note: If the queue is empty, the response is 0.
 pub struct SystErrCounCommand;
 
-impl Command for SystErrCounCommand {
+impl<D> Command<D> for SystErrCounCommand
+where
+    D: ScpiDevice,
+{
     qonly!();
 
     fn query(
         &self,
-        context: &mut Context,
-        _args: &mut Tokenizer,
-        response: &mut ResponseUnit,
+        device: &mut D,
+        _context: &mut Context,
+        _args: Arguments,
+        mut response: ResponseUnit,
     ) -> Result<()> {
         //Always return first error (NoError if empty)
-        response.data(context.errors.len()).finish()
+        response.data(device.num_errors()).finish()
     }
 }
 
@@ -56,21 +67,25 @@ impl Command for SystErrCounCommand {
 ///> error/event code numbers in FIFO order. If the queue is empty, the response is 0.
 pub struct SystErrAllCommand;
 
-impl Command for SystErrAllCommand {
+impl<D> Command<D> for SystErrAllCommand
+where
+    D: ScpiDevice,
+{
     qonly!();
 
     fn query(
         &self,
-        context: &mut Context,
-        _args: &mut Tokenizer,
-        response: &mut ResponseUnit,
+        device: &mut D,
+        _context: &mut Context,
+        _args: Arguments,
+        mut response: ResponseUnit,
     ) -> Result<()> {
         //Always return first error (NoError if empty)
-        if context.errors.is_empty() {
+        if device.is_empty() {
             response.data(Error::new(ErrorCode::NoError)).finish()
         } else {
             loop {
-                let err = context.errors.pop_front_error();
+                let err = device.pop_front_error();
                 if err == ErrorCode::NoError {
                     break;
                 }
@@ -99,14 +114,18 @@ impl Data for &SystVersCommand {
     }
 }
 
-impl Command for SystVersCommand {
+impl<D> Command<D> for SystVersCommand
+where
+    D: ScpiDevice,
+{
     qonly!();
 
     fn query(
         &self,
+        _device: &mut D,
         _context: &mut Context,
-        _args: &mut Tokenizer,
-        response: &mut ResponseUnit,
+        _args: Arguments,
+        mut response: ResponseUnit,
     ) -> Result<()> {
         response.data(self).finish()
     }
@@ -122,17 +141,21 @@ impl Command for SystVersCommand {
 ///> Note that reading the event register clears it.
 pub struct StatOperEvenCommand;
 
-impl Command for StatOperEvenCommand {
+impl<D> Command<D> for StatOperEvenCommand
+where
+    D: ScpiDevice,
+{
     qonly!();
 
     fn query(
         &self,
-        context: &mut Context,
-        _args: &mut Tokenizer,
-        response: &mut ResponseUnit,
+        device: &mut D,
+        _context: &mut Context,
+        _args: Arguments,
+        mut response: ResponseUnit,
     ) -> Result<()> {
         response
-            .data(core::mem::replace(&mut context.operation.event, 0) & 0x7FFFu16)
+            .data(core::mem::replace(&mut device.operation_mut().event, 0) & 0x7FFFu16)
             .finish()
     }
 }
@@ -143,17 +166,21 @@ impl Command for StatOperEvenCommand {
 ///> the command. Reading the condition register is nondestructive.
 pub struct StatOperCondCommand;
 
-impl Command for StatOperCondCommand {
+impl<D> Command<D> for StatOperCondCommand
+where
+    D: ScpiDevice,
+{
     qonly!();
 
     fn query(
         &self,
-        context: &mut Context,
-        _args: &mut Tokenizer,
-        response: &mut ResponseUnit,
+        device: &mut D,
+        _context: &mut Context,
+        _args: Arguments,
+        mut response: ResponseUnit,
     ) -> Result<()> {
         response
-            .data(context.operation.condition & 0x7FFFu16)
+            .data(device.operation().condition & 0x7FFFu16)
             .finish()
     }
 }
@@ -171,19 +198,23 @@ impl Command for StatOperCondCommand {
 ///> cannot be set true.
 pub struct StatOperEnabCommand;
 
-impl Command for StatOperEnabCommand {
-    fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<()> {
-        context.operation.enable = args.next_data(false)?.unwrap().try_into()?;
+impl<D> Command<D> for StatOperEnabCommand
+where
+    D: ScpiDevice,
+{
+    fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
+        device.operation_mut().enable = args.next()?.try_into()?;
         Ok(())
     }
 
     fn query(
         &self,
-        context: &mut Context,
-        _args: &mut Tokenizer,
-        response: &mut ResponseUnit,
+        device: &mut D,
+        _context: &mut Context,
+        _args: Arguments,
+        mut response: ResponseUnit,
     ) -> Result<()> {
-        response.data(context.operation.enable & 0x7FFFu16).finish()
+        response.data(device.operation().enable & 0x7FFFu16).finish()
     }
 }
 
@@ -200,20 +231,24 @@ impl Command for StatOperEnabCommand {
 ///> cannot be set true.
 pub struct StatOperNtrCommand;
 
-impl Command for StatOperNtrCommand {
-    fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<()> {
-        context.operation.ntr_filter = args.next_data(false)?.unwrap().try_into()?;
+impl<D> Command<D> for StatOperNtrCommand
+where
+    D: ScpiDevice,
+{
+    fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
+        device.operation_mut().ntr_filter = args.next()?.try_into()?;
         Ok(())
     }
 
     fn query(
         &self,
-        context: &mut Context,
-        _args: &mut Tokenizer,
-        response: &mut ResponseUnit,
+        device: &mut D,
+        _context: &mut Context,
+        _args: Arguments,
+        mut response: ResponseUnit,
     ) -> Result<()> {
         response
-            .data(context.operation.ntr_filter & 0x7FFFu16)
+            .data(device.operation().ntr_filter & 0x7FFFu16)
             .finish()
     }
 }
@@ -231,20 +266,24 @@ impl Command for StatOperNtrCommand {
 ///> cannot be set true.
 pub struct StatOperPtrCommand;
 
-impl Command for StatOperPtrCommand {
-    fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<()> {
-        context.operation.ptr_filter = args.next_data(false)?.unwrap().try_into()?;
+impl<D> Command<D> for StatOperPtrCommand
+where
+    D: ScpiDevice,
+{
+    fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
+        device.operation_mut().ptr_filter = args.next()?.try_into()?;
         Ok(())
     }
 
     fn query(
         &self,
-        context: &mut Context,
-        _args: &mut Tokenizer,
-        response: &mut ResponseUnit,
+        device: &mut D,
+        _context: &mut Context,
+        _args: Arguments,
+        mut response: ResponseUnit,
     ) -> Result<()> {
         response
-            .data(context.operation.ptr_filter & 0x7FFFu16)
+            .data(device.operation().ptr_filter & 0x7FFFu16)
             .finish()
     }
 }
@@ -254,17 +293,22 @@ impl Command for StatOperPtrCommand {
 ///> Defined the same as STATus:OPERation:EVENt. See Section 20.1.4 for details.
 pub struct StatQuesEvenCommand;
 
-impl Command for StatQuesEvenCommand {
+impl<D> Command<D> for StatQuesEvenCommand
+where
+    D: ScpiDevice,
+{
     qonly!();
 
     fn query(
         &self,
-        context: &mut Context,
-        _args: &mut Tokenizer,
-        response: &mut ResponseUnit,
+        device: &mut D,
+        _context: &mut Context,
+        _args: Arguments,
+        mut response: ResponseUnit,
     ) -> Result<()> {
+
         response
-            .data(core::mem::replace(&mut context.questionable.event, 0) & 0x7FFFu16)
+            .data(core::mem::replace(&mut device.questionable_mut().event, 0) & 0x7FFFu16)
             .finish()
     }
 }
@@ -274,18 +318,22 @@ impl Command for StatQuesEvenCommand {
 ///> Defined the same as STATus:OPERation:CONDition. See Section 20.1.2 for details.
 pub struct StatQuesCondCommand;
 
-impl Command for StatQuesCondCommand {
+impl<D> Command<D> for StatQuesCondCommand
+where
+    D: ScpiDevice,
+{
     qonly!();
 
     fn query(
         &self,
-        context: &mut Context,
-        _args: &mut Tokenizer,
-        response: &mut ResponseUnit,
+        device: &mut D,
+        _context: &mut Context,
+        _args: Arguments,
+        mut response: ResponseUnit,
     ) -> Result<()> {
         //Always return first error (NoError if empty)
         response
-            .data(context.questionable.condition & 0x7FFFu16)
+            .data(device.questionable().condition & 0x7FFFu16)
             .finish()
     }
 }
@@ -295,20 +343,24 @@ impl Command for StatQuesCondCommand {
 ///Defined the same as STATus:OPERation:ENABle. See Section 20.1.3 for details.
 pub struct StatQuesEnabCommand;
 
-impl Command for StatQuesEnabCommand {
-    fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<()> {
-        context.questionable.enable = args.next_data(false)?.unwrap().try_into()?;
+impl<D> Command<D> for StatQuesEnabCommand
+where
+    D: ScpiDevice,
+{
+    fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
+        device.questionable_mut().enable = args.next()?.try_into()?;
         Ok(())
     }
 
     fn query(
         &self,
-        context: &mut Context,
-        _args: &mut Tokenizer,
-        response: &mut ResponseUnit,
+        device: &mut D,
+        _context: &mut Context,
+        _args: Arguments,
+        mut response: ResponseUnit,
     ) -> Result<()> {
         response
-            .data(context.questionable.enable & 0x7FFFu16)
+            .data(device.questionable().enable & 0x7FFFu16)
             .finish()
     }
 }
@@ -318,20 +370,24 @@ impl Command for StatQuesEnabCommand {
 ///> Defined the same as STATus:OPERation:NTRansition. See Section 20.1.6 for details.
 pub struct StatQuesNtrCommand;
 
-impl Command for StatQuesNtrCommand {
-    fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<()> {
-        context.questionable.ntr_filter = args.next_data(false)?.unwrap().try_into()?;
+impl<D> Command<D> for StatQuesNtrCommand
+where
+    D: ScpiDevice,
+{
+    fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
+        device.questionable_mut().ntr_filter = args.next()?.try_into()?;
         Ok(())
     }
 
     fn query(
         &self,
-        context: &mut Context,
-        _args: &mut Tokenizer,
-        response: &mut ResponseUnit,
+        device: &mut D,
+        _context: &mut Context,
+        _args: Arguments,
+        mut response: ResponseUnit,
     ) -> Result<()> {
         response
-            .data(context.questionable.ntr_filter & 0x7FFFu16)
+            .data(device.questionable().ntr_filter & 0x7FFFu16)
             .finish()
     }
 }
@@ -341,20 +397,24 @@ impl Command for StatQuesNtrCommand {
 ///> Defined the same as STATus:OPERation:PTRansition. See Section 20.1.7 for details.
 pub struct StatQuesPtrCommand;
 
-impl Command for StatQuesPtrCommand {
-    fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<()> {
-        context.questionable.ptr_filter = args.next_data(false)?.unwrap().try_into()?;
+impl<D> Command<D> for StatQuesPtrCommand
+where
+    D: ScpiDevice,
+{
+    fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
+        device.questionable_mut().ptr_filter = args.next()?.try_into()?;
         Ok(())
     }
 
     fn query(
         &self,
-        context: &mut Context,
-        _args: &mut Tokenizer,
-        response: &mut ResponseUnit,
+        device: &mut D,
+        _context: &mut Context,
+        _args: Arguments,
+        mut response: ResponseUnit,
     ) -> Result<()> {
         response
-            .data(context.questionable.ptr_filter & 0x7FFFu16)
+            .data(device.questionable().ptr_filter & 0x7FFFu16)
             .finish()
     }
 }
@@ -370,12 +430,15 @@ impl Command for StatQuesPtrCommand {
 ///> device.
 pub struct StatPresCommand;
 
-impl Command for StatPresCommand {
+impl<D> Command<D> for StatPresCommand
+where
+    D: ScpiDevice,
+{
     nquery!();
-    fn event(&self, context: &mut Context, _args: &mut Tokenizer) -> Result<()> {
-        context.questionable.preset();
-        context.operation.preset();
-        context.device.preset()
+    fn event(&self, device: &mut D, _context: &mut Context, _args: Arguments) -> Result<()> {
+        device.questionable_mut().preset();
+        device.operation_mut().preset();
+        device.exec_preset()
     }
 }
 
@@ -383,90 +446,73 @@ impl Command for StatPresCommand {
 #[macro_export]
 macro_rules! scpi_status {
     ($($node:expr),*) => {
-        Node {
+        $crate::prelude::Branch {
             name: b"STATus",
-            optional: false,
-            handler: None,
             sub: &[
-                Node {
+                $crate::prelude::Branch {
                     name: b"OPERation",
-                    optional: false,
-                    handler: None,
                     sub: &[
-                        Node {
-                            name: b"CONDition",
-                            optional: false,
-                            handler: Some(&StatOperCondCommand {}),
-                            sub: &[],
-                        },
-                        Node {
-                            name: b"ENABle",
-                            optional: false,
-                            handler: Some(&StatOperEnabCommand {}),
-                            sub: &[],
-                        },
-                        Node {
+                        $crate::prelude::Leaf {
                             name: b"EVENt",
-                            optional: true,
-                            handler: Some(&StatOperEvenCommand {}),
-                            sub: &[],
+                            default: true,
+                            handler: &StatOperEvenCommand,
                         },
-                        Node {
+                        $crate::prelude::Leaf {
+                            name: b"CONDition",
+                            default: false,
+                            handler: &StatOperCondCommand,
+                        },
+                        $crate::prelude::Leaf {
+                            name: b"ENABle",
+                            default: false,
+                            handler: &StatOperEnabCommand,
+                        },
+                        $crate::prelude::Leaf {
                             name: b"NTRansition",
-                            optional: false,
-                            handler: Some(&StatOperNtrCommand {}),
-                            sub: &[],
+                            default: false,
+                            handler: &StatOperNtrCommand,
                         },
-                        Node {
+                        $crate::prelude::Leaf {
                             name: b"PTRansition",
-                            optional: false,
-                            handler: Some(&StatOperPtrCommand {}),
-                            sub: &[],
+                            default: false,
+                            handler: &StatOperPtrCommand,
                         },
                     ],
                 },
-                Node {
+                $crate::prelude::Branch {
                     name: b"QUEStionable",
-                    optional: false,
-                    handler: None,
                     sub: &[
-                        Node {
-                            name: b"CONDition",
-                            optional: false,
-                            handler: Some(&StatQuesCondCommand {}),
-                            sub: &[],
-                        },
-                        Node {
-                            name: b"ENABle",
-                            optional: false,
-                            handler: Some(&StatQuesEnabCommand {}),
-                            sub: &[],
-                        },
-                        Node {
+                        $crate::prelude::Leaf {
                             name: b"EVENt",
-                            optional: true,
-                            handler: Some(&StatQuesEvenCommand {}),
-                            sub: &[],
+                            default: true,
+                            handler: &StatQuesEvenCommand,
                         },
-                        Node {
+                        $crate::prelude::Leaf {
+                            name: b"CONDition",
+                            default: false,
+                            handler: &StatQuesCondCommand,
+                        },
+                        $crate::prelude::Leaf {
+                            name: b"ENABle",
+                            default: false,
+                            handler: &StatQuesEnabCommand,
+                        },
+                        $crate::prelude::Leaf {
                             name: b"NTRansition",
-                            optional: false,
-                            handler: Some(&StatQuesNtrCommand {}),
-                            sub: &[],
+                            default: false,
+                            handler: &StatQuesNtrCommand,
                         },
-                        Node {
+                        $crate::prelude::Leaf {
                             name: b"PTRansition",
-                            optional: false,
-                            handler: Some(&StatQuesPtrCommand {}),
-                            sub: &[],
+                            default: false,
+                            handler: &StatQuesPtrCommand,
                         },
                     ],
                 },
-                Node {
+                $crate::prelude::Leaf {
                     name: b"PRESet",
-                    optional: false,
-                    handler: Some(&StatPresCommand {}),
-                    sub: &[],
+                    default: false,
+                    handler: &StatPresCommand,
                 },
                 $(
                     $node
@@ -480,41 +526,33 @@ macro_rules! scpi_status {
 #[macro_export]
 macro_rules! scpi_system {
     ($($node:expr),*) => {
-        Node {
+        $crate::prelude::Branch {
             name: b"SYSTem",
-            optional: false,
-            handler: None,
             sub: &[
-                Node {
+                $crate::prelude::Branch {
                     name: b"ERRor",
-                    optional: false,
-                    handler: None,
                     sub: &[
-                        Node {
-                            name: b"ALL",
-                            optional: false,
-                            handler: Some(&SystErrAllCommand {}),
-                            sub: &[],
-                        },
-                        Node {
+                        $crate::prelude::Leaf {
                             name: b"NEXT",
-                            optional: true,
-                            handler: Some(&SystErrNextCommand {}),
-                            sub: &[],
+                            default: true,
+                            handler: &SystErrNextCommand,
                         },
-                        Node {
+                        $crate::prelude::Leaf {
+                            name: b"ALL",
+                            default: false,
+                            handler: &SystErrAllCommand,
+                        },
+                        $crate::prelude::Leaf {
                             name: b"COUNt",
-                            optional: false,
-                            handler: Some(&SystErrCounCommand {}),
-                            sub: &[],
+                            default: false,
+                            handler: &SystErrCounCommand,
                         },
                     ],
                 },
-                Node {
+                $crate::prelude::Leaf {
                     name: b"VERSion",
-                    optional: false,
-                    handler: Some(&SystVersCommand { year: 1999, rev: 0 }),
-                    sub: &[],
+                    default: false,
+                    handler: &SystVersCommand { year: 1999, rev: 0 }
                 },
                 $(
                     $node

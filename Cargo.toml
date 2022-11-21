@@ -1,2 +1,2 @@
 [workspace]
-members = ["example", "scpi", "scpi_derive"]
+members = ["scpi", "scpi_derive"]

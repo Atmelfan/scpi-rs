@@ -11,45 +11,46 @@ pub use arrayqueue::*;
 /// If `extended-error` feature is enabled, an optional extended
 /// message can be added (Example: `-241,"Hardware missing;Extended message"`).
 ///
-#[cfg(feature = "extended-error")]
-#[derive(Debug, PartialEq, Copy, Clone)]
-pub struct Error(ErrorCode, Option<&'static [u8]>);
-
-/// A SCPI error
-///
-/// If `extended-error` feature is enabled, an optional extended
-/// message can be added (Example: `-241,"Hardware missing;Extended message"`).
-///
-#[cfg(not(feature = "extended-error"))]
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
-pub struct Error(ErrorCode);
+pub struct Error(
+    ErrorCode,
+    #[cfg(feature = "extended-error")] Option<&'static [u8]>,
+);
+
+impl Default for Error {
+    fn default() -> Self {
+        Self::new(ErrorCode::NoError)
+    }
+}
 
 /// Useful alias of Result for SCPI operations
 pub type Result<T> = core::result::Result<T, Error>;
 
 impl Error {
     /// Create new error with specified error code
-    #[cfg(not(feature = "extended-error"))]
     pub fn new(code: ErrorCode) -> Self {
-        Self(code)
+        Self(
+            code,
+            #[cfg(feature = "extended-error")]
+            None,
+        )
     }
 
-    /// Create new error with specified error code
-    #[cfg(feature = "extended-error")]
-    pub fn new(code: ErrorCode) -> Self {
-        Self(code, None)
+    pub fn custom(code: i16, desc: &'static [u8]) -> Self {
+        Self(
+            ErrorCode::Custom(code, desc),
+            #[cfg(feature = "extended-error")]
+            None,
+        )
     }
 
     /// Create new error with specified error code with an extended message
-    #[cfg(not(feature = "extended-error"))]
-    pub fn extended(code: ErrorCode, _msg: &'static [u8]) -> Self {
-        Self(code)
-    }
-
-    /// Create new error with specified error code with an extended message
-    #[cfg(feature = "extended-error")]
     pub fn extended(code: ErrorCode, msg: &'static [u8]) -> Self {
-        Self(code, Some(msg))
+        Self(
+            code,
+            #[cfg(feature = "extended-error")]
+            Some(msg),
+        )
     }
 
     /// Get numeric error code of error
@@ -63,27 +64,22 @@ impl Error {
     }
 
     /// Get extended message of error
-    #[cfg(feature = "extended-error")]
     pub fn get_extended(&self) -> Option<&'static [u8]> {
-        self.1
+        #[cfg(feature = "extended-error")]
+        {
+            self.1
+        }
+        #[cfg(not(feature = "extended-error"))]
+        {
+            None
+        }
     }
 
     /**
      * Returns a bitmask for the appropriate bit in the ESR for this event/error.
      */
     pub fn esr_mask(&self) -> u8 {
-        match self.0.get_code() {
-            -99..=0 => 0u8,        //No bit
-            -199..=-100 => 0x20u8, //bit 5
-            -299..=-200 => 0x10u8, //bit 4
-            -399..=-300 => 0x08u8, //bit 3
-            -499..=-400 => 0x04u8, //bit 2
-            -599..=-500 => 0x80u8, //bit 7
-            -699..=-600 => 0x40u8, //bit 6
-            -799..=-700 => 0x02u8, //bit 1
-            -899..=-800 => 0x01u8, //bit 0
-            _ => 0x08u8,           //bit 3
-        }
+        self.0.esr_mask()
     }
 }
 
@@ -100,15 +96,11 @@ impl PartialEq<Error> for ErrorCode {
 }
 
 impl From<ErrorCode> for Error {
-    #[cfg(feature = "extended-error")]
+    
     fn from(err: ErrorCode) -> Self {
-        Error(err, None)
+        Error::new(err)
     }
 
-    #[cfg(not(feature = "extended-error"))]
-    fn from(err: ErrorCode) -> Self {
-        Error(err)
-    }
 }
 
 /// The Error type contains error definitions detected by the parser or commands
@@ -1005,6 +997,26 @@ pub enum ErrorCode {
     OperationComplete,
 }
 
+impl ErrorCode {
+    /**
+     * Returns a bitmask for the appropriate bit in the ESR for this event/error.
+     */
+    pub fn esr_mask(&self) -> u8 {
+        match self.get_code() {
+            -99..=0 => 0u8,        //No bit
+            -199..=-100 => 0x20u8, //bit 5
+            -299..=-200 => 0x10u8, //bit 4
+            -399..=-300 => 0x08u8, //bit 3
+            -499..=-400 => 0x04u8, //bit 2
+            -599..=-500 => 0x80u8, //bit 7
+            -699..=-600 => 0x40u8, //bit 6
+            -799..=-700 => 0x02u8, //bit 1
+            -899..=-800 => 0x01u8, //bit 0
+            _ => 0x08u8,           //bit 3
+        }
+    }
+}
+
 /// Generic error queue trait
 pub trait ErrorQueue {
     /// Add a error to the queue.
@@ -1016,13 +1028,28 @@ pub trait ErrorQueue {
     fn pop_front_error(&mut self) -> Error;
 
     /// Current length of queue
-    fn len(&self) -> usize;
+    fn num_errors(&self) -> usize;
 
     /// Clear queue
-    fn clear(&mut self);
+    fn clear_errors(&mut self);
 
     /// Is queue empty?
     fn is_empty(&self) -> bool {
-        self.len() == 0
+        self.num_errors() == 0
     }
+}
+
+/// No-op error queue
+impl ErrorQueue for () {
+    fn push_back_error(&mut self, _err: Error) {}
+
+    fn pop_front_error(&mut self) -> Error {
+        ErrorCode::NoError.into()
+    }
+
+    fn num_errors(&self) -> usize {
+        0
+    }
+
+    fn clear_errors(&mut self) {}
 }

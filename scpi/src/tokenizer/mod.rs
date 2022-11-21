@@ -1,64 +1,70 @@
 use crate::error::{Error, ErrorCode};
 
-use core::slice::Iter;
+use core::{slice::Iter, iter::Peekable};
 
 use crate::util;
 
 pub use self::token::Token;
 
 mod token;
-mod tryfrom;
 
 #[cfg(test)]
 mod tests;
+
+/// Alias
+pub struct Arguments<'a, 'b>(&'a mut Peekable<Tokenizer<'b>>);
+
+impl<'a, 'b> Arguments<'a, 'b> {
+    pub fn with(toka: &'a mut Peekable<Tokenizer<'b>>) -> Self {
+        Self(toka)
+    }
+}
+
+impl<'a, 'b> Arguments<'a, 'b> {
+    /// Attempts to consume a data object.
+    /// If no data is found, none if returned if optional=true else Error:MissingParam.
+    ///
+    /// Note! Does not skip
+    pub fn next_optional(&mut self) -> Result<Option<Token<'a>>, Error> {
+        //Try to read a data object
+        
+        if let Some(item) = self.0.peek() {
+            //Check if next item is a data object
+            let token = item.clone()?;
+            match token {
+                //Data object
+                t if t.is_data() => {
+                    //Valid data object, consume and return
+                    self.0.next();
+                    Ok(Some(token))
+                }
+                //Data separator, next token must be a data object
+                Token::ProgramDataSeparator => {
+                    self.0.next();
+                    self.next().map(|v| Some(v))
+                }
+                // Something else
+                _ => Ok(None)
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn next(&mut self) -> Result<Token<'a>, Error> {
+        match self.next_optional() {
+            Ok(Some(tok)) => Ok(tok),
+            Ok(None) => Err(ErrorCode::MissingParameter.into()),
+            Err(err) => Err(err),
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct Tokenizer<'a> {
     pub(crate) chars: Iter<'a, u8>,
     in_header: bool,
     in_common: bool,
-}
-
-impl<'a> Tokenizer<'a> {
-    /// Attempts to consume a data object.
-    /// If no data is found, none if returned if optional=true else Error:MissingParam.
-    ///
-    /// Note! Does not skip
-    pub fn next_data(&mut self, optional: bool) -> Result<Option<Token<'a>>, Error> {
-        //Try to read a data object
-        if let Some(item) = self.clone().next() {
-            //Check if next item is a data object
-            let token = item?;
-            match token {
-                //Data object
-                t if t.is_data() => {
-                    //Valid data object, consume and return
-                    self.next();
-                    Ok(Some(token))
-                }
-                //Data separator, next token must be a data object
-                Token::ProgramDataSeparator => {
-                    self.next();
-                    self.next_data(false)
-                }
-                _ => {
-                    //Not a data object, return nothing
-                    if optional {
-                        Ok(None)
-                    } else {
-                        Err(ErrorCode::MissingParameter.into())
-                    }
-                }
-            }
-        } else {
-            //No more tokens, return nothing
-            if optional {
-                Ok(None)
-            } else {
-                Err(ErrorCode::MissingParameter.into())
-            }
-        }
-    }
 }
 
 impl<'a> Tokenizer<'a> {
@@ -84,15 +90,16 @@ impl<'a> Tokenizer<'a> {
     ///
     /// Returned errors:
     /// * ProgramMnemonicTooLong if suffix is longer than 12 characters
-    fn read_mnemonic(&mut self) -> Result<Token<'a>, ErrorCode> {
+    fn read_mnemonic(&mut self, mut common: bool) -> Result<Token<'a>, ErrorCode> {
         let s = self.chars.as_slice();
         let mut len = 0u8;
         while self
             .chars
             .clone()
             .next()
-            .map_or(false, |ch| ch.is_ascii_alphanumeric() || *ch == b'_')
+            .map_or(false, |ch| ch.is_ascii_alphanumeric() || *ch == b'_' || (*ch == b'*' && common))
         {
+            common = false;
             self.chars.next();
             len += 1;
             if len > 12 {
@@ -398,19 +405,11 @@ impl<'a> Iterator for Tokenizer<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let x = self.chars.clone().next()?;
-        match x {
+        let ret = match x {
             /* Common command prefix */
             b'*' => {
                 self.in_common = true;
-                self.chars.next();
-                if let Some(x) = self.chars.clone().next() {
-                    if !x.is_ascii_alphabetic() {
-                        return Some(Err(ErrorCode::CommandHeaderError));
-                    }
-                }
-
-                /* Not allowed outside header and strings */
-                Some(Ok(Token::HeaderCommonPrefix))
+                Some(self.read_mnemonic(true))
             }
             /* Header mnemonic separator/prefix */
             b':' => {
@@ -434,11 +433,11 @@ impl<'a> Iterator for Tokenizer<'a> {
                 //Next character after query must be a space, unit separator or <END>
                 if let Some(x) = self.chars.clone().next() {
                     if !x.is_ascii_whitespace() && *x != b';' {
-                        return Some(Err(ErrorCode::InvalidSeparator));
+                        return Some(Err(ErrorCode::SyntaxError));
                     }
                 }
                 if !self.in_header {
-                    Some(Err(ErrorCode::InvalidSeparator))
+                    Some(Err(ErrorCode::SyntaxError))
                 } else {
                     self.in_header = false;
                     Some(Ok(Token::HeaderQuerySuffix))
@@ -490,7 +489,7 @@ impl<'a> Iterator for Tokenizer<'a> {
             x if x.is_ascii_alphabetic() => {
                 /* If still parsing header, it's an mnemonic, else character data */
                 if self.in_header {
-                    Some(self.read_mnemonic())
+                    Some(self.read_mnemonic(false))
                 } else {
                     Some(self.read_character_data())
                 }
@@ -537,6 +536,9 @@ impl<'a> Iterator for Tokenizer<'a> {
                     Some(Err(ErrorCode::InvalidCharacter))
                 }
             }
-        }
+        };
+        //extern crate std;
+        //std::dbg!(ret);
+        ret
     }
 }

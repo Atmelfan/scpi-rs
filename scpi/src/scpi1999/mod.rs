@@ -2,7 +2,153 @@
 //!
 //!
 
+use crate::error::{Error, Result};
+use crate::prelude::ErrorCode;
+use crate::{ieee488::IEEE488Device, prelude::ErrorQueue, Device};
+
 pub mod commands;
+
+pub trait ScpiDevice: Device + ErrorQueue {
+    /// Get device status
+    ///
+    fn status(&self) -> u8 {
+        0x00
+    }
+
+    /// See [crate::ieee488::IEEE488Device::sre]
+    fn sre(&self) -> u8;
+
+    /// See [crate::ieee488::IEEE488Device::set_sre]
+    fn set_sre(&mut self, value: u8);
+
+    /// See [crate::ieee488::IEEE488Device::esr]
+    fn esr(&self) -> u8;
+
+    /// See [crate::ieee488::IEEE488Device::set_esr]
+    fn set_esr(&mut self, value: u8);
+
+    /// See [crate::ieee488::IEEE488Device::ese]
+    fn ese(&self) -> u8;
+
+    /// See [crate::ieee488::IEEE488Device::set_ese]
+    fn set_ese(&mut self, value: u8);
+
+    ///
+    fn questionable(&self) -> &EventRegister;
+    fn questionable_mut(&mut self) -> &mut EventRegister;
+
+    fn operation(&self) -> &EventRegister;
+    fn operation_mut(&mut self) -> &mut EventRegister;
+
+    /// 
+    fn exec_preset(&mut self) -> Result<()> {
+        // Clear operation register
+        Ok(())
+    }
+
+    /// See [crate::ieee488::IEEE488Device::exec_tst]
+    fn exec_tst(&mut self) -> crate::error::Result<()> {
+        Ok(())
+    }
+
+    /// See [crate::ieee488::IEEE488Device::exec_rst]
+    fn exec_rst(&mut self) -> crate::error::Result<()> {
+        Ok(())
+    }
+
+    /// See [crate::ieee488::IEEE488Device::exec_opc]
+    fn exec_opc(&mut self) -> Result<()> {
+        let esr = self.esr() | ErrorCode::OperationComplete.esr_mask();
+        self.push_back_error(ErrorCode::OperationComplete.into());
+        self.set_esr(esr);
+        Ok(())
+    }
+
+    /// See [crate::ieee488::IEEE488Device::exec_cls]
+    fn exec_cls(&mut self) -> crate::error::Result<()> {
+        // Clear ESR
+        self.set_esr(0);
+        // Clear event registers
+        self.operation_mut().clear_event();
+        self.questionable_mut().clear_event();
+        Ok(())
+    }
+
+    fn _handle_error(&mut self, err: Error) {
+        // Set ESR mask
+        let esr = self.esr() | err.esr_mask();
+        self.set_esr(esr);
+        // Add error to error/event queue
+        self.push_back_error(err);
+    }
+}
+
+/// SCPI device must implment
+impl<T> IEEE488Device for T
+where
+    T: ScpiDevice,
+{
+    fn status(&self) -> u8 {
+        let mut reg = <Self as ScpiDevice>::status(self);
+        //Set OPERation status bits
+        if self.operation().get_summary() {
+            reg |= 0x80;
+        }
+        //Set QUEStionable status bit
+        if self.questionable().get_summary() {
+            reg |= 0x08;
+        }
+        //Set error queue empty bit
+        if !self.is_empty() {
+            reg |= 0x04;
+        }
+        reg
+    }
+
+    fn sre(&self) -> u8 {
+        <Self as ScpiDevice>::sre(self)
+    }
+
+    fn set_sre(&mut self, value: u8) {
+        <Self as ScpiDevice>::set_sre(self, value)
+    }
+
+    fn esr(&self) -> u8 {
+        <Self as ScpiDevice>::esr(self)
+    }
+
+    fn set_esr(&mut self, value: u8) {
+        <Self as ScpiDevice>::set_esr(self, value)
+    }
+
+    fn ese(&self) -> u8 {
+        <Self as ScpiDevice>::ese(self)
+    }
+
+    fn set_ese(&mut self, value: u8) {
+        <Self as ScpiDevice>::set_ese(self, value)
+    }
+
+    fn exec_tst(&mut self) -> crate::error::Result<()> {
+        <Self as ScpiDevice>::exec_tst(self)
+    }
+
+    fn exec_rst(&mut self) -> crate::error::Result<()> {
+        <Self as ScpiDevice>::exec_rst(self)
+    }
+
+    fn exec_cls(&mut self) -> crate::error::Result<()> {
+        <Self as ScpiDevice>::exec_cls(self)
+    }
+
+    fn exec_opc(&mut self) -> Result<()> {
+        <Self as ScpiDevice>::exec_opc(self)
+    }
+
+    fn _handle_error(&mut self, err: Error) {
+        <Self as ScpiDevice>::_handle_error(self, err)
+    }
+}
 
 /// This struct contains a register with event/enable functionality
 /// (used in OPERation/QUEStionable registers)

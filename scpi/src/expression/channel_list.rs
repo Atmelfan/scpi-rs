@@ -12,6 +12,7 @@
 //! Reference,” 15.1.
 
 use crate::error::{Error, ErrorCode};
+use crate::response::{Data, Formatter};
 use core::convert::TryFrom;
 use core::slice::Iter;
 
@@ -58,8 +59,6 @@ pub enum Token<'a> {
     ModuleChannel(&'a [u8], &'a [u8]),
     /// A character pathname (can be a file, resource etc...)
     PathName(&'a [u8]),
-    /// A channel separator i.e. comma
-    Separator,
 }
 
 /// Iterates over a channel spec, returning a result for each dimension.
@@ -108,6 +107,16 @@ impl<'a> TryFrom<ChannelSpec<'a>> for isize {
     }
 }
 
+impl<'a> TryFrom<ChannelSpec<'a>> for usize {
+    type Error = Error;
+
+    fn try_from(value: ChannelSpec) -> Result<Self, Self::Error> {
+        let i: isize = value.try_into()?;
+        i.try_into()
+            .map_err(|_| ErrorCode::IllegalParameterValue.into())
+    }
+}
+
 impl<'a> TryFrom<ChannelSpec<'a>> for (isize, isize) {
     type Error = Error;
 
@@ -128,6 +137,20 @@ impl<'a> TryFrom<ChannelSpec<'a>> for (isize, isize) {
                 b"Unexpected channel dimension",
             ))
         }
+    }
+}
+
+impl<'a> TryFrom<ChannelSpec<'a>> for (usize, usize) {
+    type Error = Error;
+
+    fn try_from(value: ChannelSpec) -> Result<Self, Self::Error> {
+        let (i1, i2): (isize, isize) = value.try_into()?;
+        Ok((
+            i1.try_into()
+                .map_err(|_| Error::new(ErrorCode::IllegalParameterValue))?,
+            i2.try_into()
+                .map_err(|_| Error::new(ErrorCode::IllegalParameterValue))?,
+        ))
     }
 }
 
@@ -155,6 +178,22 @@ impl<'a> TryFrom<ChannelSpec<'a>> for (isize, isize, isize) {
                 b"Unexpected channel dimension",
             ))
         }
+    }
+}
+
+impl<'a> TryFrom<ChannelSpec<'a>> for (usize, usize, usize) {
+    type Error = Error;
+
+    fn try_from(value: ChannelSpec) -> Result<Self, Self::Error> {
+        let (i1, i2, i3): (isize, isize, isize) = value.try_into()?;
+        Ok((
+            i1.try_into()
+                .map_err(|_| Error::new(ErrorCode::IllegalParameterValue))?,
+            i2.try_into()
+                .map_err(|_| Error::new(ErrorCode::IllegalParameterValue))?,
+            i3.try_into()
+                .map_err(|_| Error::new(ErrorCode::IllegalParameterValue))?,
+        ))
     }
 }
 

@@ -36,11 +36,11 @@ impl<const CAP: usize> ErrorQueue for ArrayErrorQueue<CAP> {
             .unwrap_or_else(|| ErrorCode::NoError.into())
     }
 
-    fn len(&self) -> usize {
+    fn num_errors(&self) -> usize {
         self.vec.len()
     }
 
-    fn clear(&mut self) {
+    fn clear_errors(&mut self) {
         self.vec.clear()
     }
 }

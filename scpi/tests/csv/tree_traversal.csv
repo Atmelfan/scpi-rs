@@ -1,0 +1,7 @@
+command,error,response
+"syst:version?;err:next?;count?",0,"1999.0;0,""No error"";0\n"
+"syst:version?;:syst:err:next?;count?",0,"1999.0;0,""No error"";0\n"
+"syst:version?;*ese?;err:next?",0,"1999.0;0;0,""No error""\n"
+"syst:version?;err?;version?",0,"1999.0;0,""No error"";1999.0\n"
+"stat:preset;:stat:ques:enable?;ptr?;ntr?",0,"0;32767;0\n"
+"stat:preset;:syst:err?",0,"0,""No error""\n"

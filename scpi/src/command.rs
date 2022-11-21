@@ -2,10 +2,11 @@
 //!
 //!
 
-use crate::error::Result;
+use crate::error::{Error, Result};
+use crate::prelude::ErrorCode;
 use crate::response::ResponseUnit;
-use crate::tokenizer::Tokenizer;
-use crate::Context;
+use crate::tokenizer::Arguments;
+use crate::{Context, Device};
 
 /// This trait implements a command with optional event/query operations.
 ///
@@ -45,64 +46,77 @@ use crate::Context;
 ///
 /// ```
 ///
-pub trait Command {
-    fn help(&self, _response: &mut ResponseUnit) {}
-
+pub trait Command<D: Device> {
     fn meta(&self) -> CommandTypeMeta {
         CommandTypeMeta::Unknown
     }
 
     /// Called when the event form is used
-    fn event(&self, context: &mut Context, args: &mut Tokenizer) -> Result<()>;
+    fn event(&self, _device: &mut D, _context: &mut Context, _args: Arguments) -> Result<()> {
+        Err(ErrorCode::UndefinedHeader.into())
+    }
 
     ///Called when the query form is used
     fn query(
         &self,
-        context: &mut Context,
-        args: &mut Tokenizer,
-        response: &mut ResponseUnit,
-    ) -> Result<()>;
+        _device: &mut D,
+        _context: &mut Context,
+        _args: Arguments,
+        _response: ResponseUnit,
+    ) -> Result<()> {
+        Err(ErrorCode::UndefinedHeader.into())
+    }
 }
 
+pub struct Todo;
+impl<D> Command<D> for Todo
+where
+    D: Device,
+{
+    fn event(&self, _device: &mut D, _context: &mut Context, _args: Arguments) -> Result<()> {
+        todo!()
+    }
+
+    fn query(
+        &self,
+        _device: &mut D,
+        _context: &mut Context,
+        _args: Arguments,
+        _response: ResponseUnit,
+    ) -> Result<()> {
+        todo!()
+    }
+}
+
+/// Hint about the command forms
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum CommandTypeMeta {
+    // Not known
     Unknown,
+    // Query not allowed
     NoQuery,
+    /// Only query allowed
     QueryOnly,
-    None,
+    /// Both query and event are allowed
+    Both,
 }
 
-/// Creates a stub for event()
-///
+/// Marks the command as query only
 #[macro_export]
 macro_rules! qonly {
     () => {
         fn meta(&self) -> CommandTypeMeta {
             CommandTypeMeta::QueryOnly
         }
-
-        fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<()> {
-            Err(ErrorCode::UndefinedHeader.into())
-        }
     };
 }
 
-/// Creates a stub for query()
-///
+/// Marks the command as no query
 #[macro_export]
 macro_rules! nquery {
     () => {
         fn meta(&self) -> CommandTypeMeta {
             CommandTypeMeta::NoQuery
-        }
-
-        fn query(
-            &self,
-            _context: &mut Context,
-            _args: &mut Tokenizer,
-            _response: &mut ResponseUnit,
-        ) -> Result<()> {
-            Err(ErrorCode::UndefinedHeader.into())
         }
     };
 }
@@ -111,16 +125,22 @@ macro_rules! nquery {
 mod test_command {
     use crate::error::Result;
     use crate::prelude::*;
+    use crate::tokenizer::Arguments;
 
-    struct Query {}
-    impl Command for Query {
+    impl Device for () {
+        fn handle_error(&mut self, _err: Error) {}
+    }
+
+    struct Query;
+    impl Command<()> for Query {
         qonly!();
 
         fn query(
             &self,
+            _device: &mut (),
             _context: &mut Context,
-            _args: &mut Tokenizer,
-            _response: &mut ResponseUnit,
+            _args: Arguments,
+            _response: ResponseUnit,
         ) -> Result<()> {
             Ok(())
         }
@@ -131,11 +151,11 @@ mod test_command {
         assert_eq!(Query {}.meta(), CommandTypeMeta::QueryOnly);
     }
 
-    struct Event {}
-    impl Command for Event {
+    struct Event;
+    impl Command<()> for Event {
         nquery!();
 
-        fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<()> {
+        fn event(&self, device: &mut (), _context: &mut Context, _args: Arguments) -> Result<()> {
             Ok(())
         }
     }
@@ -145,17 +165,18 @@ mod test_command {
         assert_eq!(Event {}.meta(), CommandTypeMeta::NoQuery);
     }
 
-    struct Default {}
-    impl Command for Default {
-        fn event(&self, _context: &mut Context, _args: &mut Tokenizer) -> Result<()> {
+    struct Default;
+    impl Command<()> for Default {
+        fn event(&self, device: &mut (), _context: &mut Context, _args: Arguments) -> Result<()> {
             Ok(())
         }
 
         fn query(
             &self,
+            device: &mut (),
             _context: &mut Context,
-            _args: &mut Tokenizer,
-            _response: &mut ResponseUnit,
+            _args: Arguments,
+            _response: ResponseUnit,
         ) -> Result<()> {
             Ok(())
         }
