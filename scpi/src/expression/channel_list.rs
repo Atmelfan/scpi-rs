@@ -12,7 +12,6 @@
 //! Reference,” 15.1.
 
 use crate::error::{Error, ErrorCode};
-use crate::response::{Data, Formatter};
 use core::convert::TryFrom;
 use core::slice::Iter;
 

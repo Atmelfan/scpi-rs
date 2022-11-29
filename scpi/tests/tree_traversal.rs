@@ -1,8 +1,8 @@
 mod util;
 use scpi::{
-    ieee488::commands::*, ieee488_cls, ieee488_ese, ieee488_esr, ieee488_idn, ieee488_opc,
+    ieee488::mandatory::*, ieee488_cls, ieee488_ese, ieee488_esr, ieee488_idn, ieee488_opc,
     ieee488_rst, ieee488_sre, ieee488_stb, ieee488_tst, ieee488_wai, prelude::*,
-    scpi1999::commands::*, scpi_status, scpi_system,
+    scpi1999::mandatory::*, scpi_status, scpi_system,
 };
 
 const IEEE488_TREE: Node<util::TestDevice> = Branch {

@@ -2,7 +2,7 @@
 //!
 //!
 
-use crate::error::{Error, Result};
+use crate::error::Result;
 use crate::prelude::ErrorCode;
 use crate::response::ResponseUnit;
 use crate::tokenizer::Arguments;
@@ -14,36 +14,7 @@ use crate::{Context, Device};
 /// # Example
 ///
 /// ```rust
-/// use scpi::prelude::*;
-/// use scpi::error::Result;
-///
-/// struct MyCommand {
-///    //...
-/// }
-///
-/// // Implement Command for MyCommand
-/// impl Command for MyCommand {
-///     fn event(&self,context: &mut Context, args: &mut Tokenizer) -> Result<()> {
-///         //Read a optional argument x
-///         if let Some(x) = args.next_data(true)? {
-///             // Non-optional argument y if x is present
-///             let y = args.next_data(false)?.unwrap();
-///
-///             // Do stuff with x and y...
-///         }else{
-///             // Do stuff with neither x or y...
-///         }
-///
-///         //I'm good thank you
-///         Ok(())
-///     }
-///
-///     fn query(&self,context: &mut Context, args: &mut Tokenizer, response: &mut ResponseUnit) -> Result<()> {
-///         Err(ErrorCode::UndefinedHeader.into())//Query not allowed
-///     }
-///
-/// }
-///
+/// //TODO
 /// ```
 ///
 pub trait Command<D: Device> {
@@ -155,7 +126,7 @@ mod test_command {
     impl Command<()> for Event {
         nquery!();
 
-        fn event(&self, device: &mut (), _context: &mut Context, _args: Arguments) -> Result<()> {
+        fn event(&self, _device: &mut (), _context: &mut Context, _args: Arguments) -> Result<()> {
             Ok(())
         }
     }
@@ -167,13 +138,13 @@ mod test_command {
 
     struct Default;
     impl Command<()> for Default {
-        fn event(&self, device: &mut (), _context: &mut Context, _args: Arguments) -> Result<()> {
+        fn event(&self, _device: &mut (), _context: &mut Context, _args: Arguments) -> Result<()> {
             Ok(())
         }
 
         fn query(
             &self,
-            device: &mut (),
+            _device: &mut (),
             _context: &mut Context,
             _args: Arguments,
             _response: ResponseUnit,

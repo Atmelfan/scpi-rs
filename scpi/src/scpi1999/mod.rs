@@ -6,9 +6,19 @@ use crate::error::{Error, Result};
 use crate::prelude::ErrorCode;
 use crate::{ieee488::IEEE488Device, prelude::ErrorQueue, Device};
 
-pub mod commands;
+pub use self::status::{GetEventRegister, Operation, Questionable};
 
-pub trait ScpiDevice: Device + ErrorQueue {
+pub mod mandatory;
+pub mod status;
+pub mod system;
+
+// Measurement instructions
+pub mod measurement;
+pub mod trigger;
+
+pub trait ScpiDevice:
+    Device + ErrorQueue + GetEventRegister<Operation> + GetEventRegister<Questionable>
+{
     /// Get device status
     ///
     fn status(&self) -> u8 {
@@ -34,15 +44,10 @@ pub trait ScpiDevice: Device + ErrorQueue {
     fn set_ese(&mut self, value: u8);
 
     ///
-    fn questionable(&self) -> &EventRegister;
-    fn questionable_mut(&mut self) -> &mut EventRegister;
-
-    fn operation(&self) -> &EventRegister;
-    fn operation_mut(&mut self) -> &mut EventRegister;
-
-    /// 
     fn exec_preset(&mut self) -> Result<()> {
         // Clear operation register
+        <Self as GetEventRegister<Operation>>::register_mut(self).preset();
+        <Self as GetEventRegister<Questionable>>::register_mut(self).preset();
         Ok(())
     }
 
@@ -69,8 +74,8 @@ pub trait ScpiDevice: Device + ErrorQueue {
         // Clear ESR
         self.set_esr(0);
         // Clear event registers
-        self.operation_mut().clear_event();
-        self.questionable_mut().clear_event();
+        <Self as GetEventRegister<Operation>>::register_mut(self).clear_event();
+        <Self as GetEventRegister<Questionable>>::register_mut(self).clear_event();
         Ok(())
     }
 
@@ -83,7 +88,8 @@ pub trait ScpiDevice: Device + ErrorQueue {
     }
 }
 
-/// SCPI device must implment
+/// SCPI devices are a superset of IEEE488 devices
+/// and must implement all mandatory IEEE488 functions.
 impl<T> IEEE488Device for T
 where
     T: ScpiDevice,
@@ -91,11 +97,12 @@ where
     fn status(&self) -> u8 {
         let mut reg = <Self as ScpiDevice>::status(self);
         //Set OPERation status bits
-        if self.operation().get_summary() {
+
+        if <Self as GetEventRegister<Operation>>::register(self).get_summary() {
             reg |= 0x80;
         }
         //Set QUEStionable status bit
-        if self.questionable().get_summary() {
+        if <Self as GetEventRegister<Questionable>>::register(self).get_summary() {
             reg |= 0x08;
         }
         //Set error queue empty bit

@@ -2,6 +2,8 @@ use crate::error::{Error, ErrorCode, Result};
 use crate::format::{Arbitrary, Binary, Character, Expression, Hex, Octal};
 
 pub mod arrayformatter;
+#[cfg(feature="alloc")]
+pub mod vecformatter;
 
 use lexical_core::FormattedSize;
 use lexical_core::NumberFormatBuilder;
@@ -168,14 +170,6 @@ impl Data for Error {
 }
 
 /// Formats a SCPI response
-///
-///
-///```
-/// use scpi::response::ArrayVecFormatter;
-/// let mut array = ArrayVecFormatter::<128>::new();
-///
-///
-///```
 ///
 pub trait Formatter {
     /* I/O */

@@ -45,6 +45,7 @@ impl Error {
     }
 
     /// Create new error with specified error code with an extended message
+    #[allow(unused_variables)]
     pub fn extended(code: ErrorCode, msg: &'static [u8]) -> Self {
         Self(
             code,

@@ -5,7 +5,6 @@ use core::iter::Peekable;
 
 use crate::command::Command;
 use crate::error::{Error, ErrorCode, Result};
-use crate::prelude::ErrorQueue;
 use crate::response::Formatter;
 use crate::tokenizer::{Arguments, Token, Tokenizer};
 use crate::{Context, Device};
@@ -16,19 +15,7 @@ use crate::{Context, Device};
 /// # Example
 ///
 /// ```
-/// use scpi::tree::Node;
-/// use scpi::scpi_tree;
-/// use scpi::ieee488::commands::*;
-///
-/// let root = scpi_tree![
-///     Node{name: b"*IDN?", optional: false,  handler: Some(&IdnCommand{
-///         manufacturer: b"GPA-Robotics",
-///         model: b"Potato",
-///         serial: b"42",
-///         firmware: b"0"
-///     }), sub: &[]}
-///     //...
-/// ];
+/// //TODO
 /// ```
 /// Note that all strings are ascii-/bytestrings, this is because only ASCII is defined in SCPI thus
 /// the normal UTF8 &str in rust would be improper. To send a unicode string you can use Arbitrary Block Data
@@ -36,12 +23,19 @@ use crate::{Context, Device};
 ///
 pub enum Node<'a, D> {
     Leaf {
+        /// Name of this leaf node
         name: &'static [u8],
+        /// Default node, will be executed if the branch immediately below is executed.
+        /// Only one default node is allowed in each branch.
         default: bool,
+        /// Command handler
         handler: &'a dyn Command<D>,
     },
     Branch {
+        /// Name of this branch node
         name: &'static [u8],
+        /// Child nodes
+        /// **Note:** Default child must be first!
         sub: &'a [Node<'a, D>],
     },
 }

@@ -3,8 +3,8 @@ use scpi::error::Result;
 use scpi::prelude::*;
 
 //Default commands
-use scpi::ieee488::commands::*;
-use scpi::scpi::commands::*;
+use scpi::ieee488::mandatory::*;
+use scpi::scpi1999::mandatory::*;
 use scpi::{
     ieee488_cls, ieee488_ese, ieee488_esr, ieee488_idn, ieee488_opc, ieee488_rst, ieee488_sre,
     ieee488_stb, ieee488_tst, ieee488_wai, qonly, scpi_status, scpi_system,

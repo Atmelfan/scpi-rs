@@ -5,7 +5,8 @@ use crate::error::{Error, Result};
 use crate::Device;
 use crate::prelude::ErrorCode;
 
-pub mod commands;
+pub mod mandatory;
+pub mod trg;
 
 pub trait IEEE488Device: Device {
     fn read_stb(&self) -> u8 {

@@ -41,6 +41,8 @@ serde = { version = "1", features = ["derive"] }
 
 [features]
 default = [
+    "extended-error",
+    "alloc",
     # Units
     "unit-length",
     "unit-velocity",
@@ -66,7 +68,8 @@ default = [
 ]
 
 # Use std
-std = ["lexical-core/std"]
+std = ["lexical-core/std", "alloc"]
+alloc = []
 
 compact = ["lexical-core/compact"]
 

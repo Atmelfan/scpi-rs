@@ -86,6 +86,12 @@
 #[macro_use]
 extern crate scpi_derive;
 
+#[cfg(feature = "std")]
+extern crate std as alloc;
+
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+extern crate alloc;
+
 /* Used to create responses */
 extern crate arrayvec;
 extern crate lexical_core;
@@ -104,11 +110,6 @@ pub mod suffix;
 pub mod tokenizer;
 pub mod tree;
 pub mod util;
-
-use prelude::Node;
-use response::Formatter;
-// For compatibility
-pub use scpi1999 as scpi;
 
 /// Prelude containing the most useful stuff
 ///
@@ -150,8 +151,7 @@ pub mod prelude {
     pub use uom;
 }
 
-use crate::error::{Error, ErrorQueue, Result};
-use crate::scpi::EventRegister;
+use crate::error::Error;
 use crate::tokenizer::Token;
 
 /// Wrappers to format and discriminate SCPI types

@@ -3,15 +3,13 @@ use scpi::error::Result;
 use scpi::prelude::*;
 
 //Default commands
-use scpi::ieee488::{commands::*, IEEE488Device};
-use scpi::response::arrayformatter::ArrayVecFormatter;
-use scpi::scpi::{commands::*, ScpiDevice};
+use scpi::ieee488::mandatory::*;
+use scpi::scpi1999::mandatory::*;
 use scpi::tree::Node;
 use scpi::{
     ieee488_cls, ieee488_ese, ieee488_esr, ieee488_idn, ieee488_opc, ieee488_rst, ieee488_sre,
     ieee488_stb, ieee488_tst, ieee488_wai, nquery, qonly, scpi_status, scpi_system,
 };
-use std::collections::VecDeque;
 use std::convert::TryInto;
 
 mod util;
@@ -96,7 +94,7 @@ impl Command<TestDevice> for OperCommand {
         mut args: scpi::tokenizer::Arguments,
     ) -> Result<()> {
         let condition: u16 = args.next()?.try_into()?;
-        device.operation_mut().set_condition(condition);
+        <TestDevice as GetEventRegister<Operation>>::register_mut(device).set_condition(condition);
         Ok(())
     }
 }
@@ -113,7 +111,9 @@ impl Command<TestDevice> for QuesCommand {
         mut args: Arguments,
     ) -> Result<()> {
         let condition: u16 = args.next()?.try_into()?;
-        device.questionable_mut().set_condition(condition);
+        <TestDevice as GetEventRegister<Questionable>>::register_mut(device)
+            .set_condition(condition);
+
         Ok(())
     }
 }
@@ -324,12 +324,19 @@ fn test_syst_err() {
     let res = util::test_execute_str(&IEEE488_TREE, b"*err -100;syst:err?", &mut dev).unwrap();
     assert_eq!(res.as_slice(), b"-100,\"Command error\"\n");
 
-    let res = util::test_execute_str(&IEEE488_TREE, b"*err -100;*err -200;syst:err:count?;all?", &mut dev).unwrap();
-    assert_eq!(res.as_slice(), b"2;-100,\"Command error\",-200,\"Execution error\"\n");
+    let res = util::test_execute_str(
+        &IEEE488_TREE,
+        b"*err -100;*err -200;syst:err:count?;all?",
+        &mut dev,
+    )
+    .unwrap();
+    assert_eq!(
+        res.as_slice(),
+        b"2;-100,\"Command error\",-200,\"Execution error\"\n"
+    );
 
     let res = util::test_execute_str(&IEEE488_TREE, b"syst:err:next?", &mut dev).unwrap();
     assert_eq!(res.as_slice(), b"0,\"No error\"\n");
-
 }
 
 #[test]
@@ -344,27 +351,48 @@ fn test_syst_version() {
 fn test_stat_operation() {
     let mut dev = TestDevice::new();
 
-    let res = util::test_execute_str(&IEEE488_TREE, b"stat:oper:cond?;ptr #H00FF;ntr #HFF00", &mut dev).unwrap();
+    let res = util::test_execute_str(
+        &IEEE488_TREE,
+        b"stat:oper:cond?;ptr #H00FF;ntr #HFF00",
+        &mut dev,
+    )
+    .unwrap();
     assert_eq!(res.as_slice(), b"0\n");
 
-    let res = util::test_execute_str(&IEEE488_TREE, b"*oper #HFFFF;stat:oper:cond?;event?", &mut dev).unwrap();
+    let res = util::test_execute_str(
+        &IEEE488_TREE,
+        b"*oper #HFFFF;stat:oper:cond?;event?",
+        &mut dev,
+    )
+    .unwrap();
     assert_eq!(res.as_slice(), b"32767;255\n");
-    
-    let res = util::test_execute_str(&IEEE488_TREE, b"*oper #H0000;stat:oper:cond?;event?", &mut dev).unwrap();
+
+    let res = util::test_execute_str(
+        &IEEE488_TREE,
+        b"*oper #H0000;stat:oper:cond?;event?",
+        &mut dev,
+    )
+    .unwrap();
     assert_eq!(res.as_slice(), b"0;32512\n");
 
     let res = util::test_execute_str(&IEEE488_TREE, b"stat:oper:cond?;event?", &mut dev).unwrap();
     assert_eq!(res.as_slice(), b"0;0\n");
 
     //Check enable/enable?
-    let res = util::test_execute_str(&IEEE488_TREE, b"stat:oper:enable 65535;enable?", &mut dev).unwrap();
+    let res =
+        util::test_execute_str(&IEEE488_TREE, b"stat:oper:enable 65535;enable?", &mut dev).unwrap();
     assert_eq!(res.as_slice(), b"32767\n");
 
     //Check that operation summary bit is set in STB
     let res = util::test_execute_str(&IEEE488_TREE, b"*stb?;*oper #HFFFF;*stb?", &mut dev).unwrap();
     assert_eq!(res.as_slice(), b"0;128\n");
 
-    let res = util::test_execute_str(&IEEE488_TREE, b"stat:preset;:stat:oper:enable?;ptr?;ntr?", &mut dev).unwrap();
+    let res = util::test_execute_str(
+        &IEEE488_TREE,
+        b"stat:preset;:stat:oper:enable?;ptr?;ntr?",
+        &mut dev,
+    )
+    .unwrap();
     println!("{:?}", std::str::from_utf8(res.as_slice()).unwrap());
     assert_eq!(res.as_slice(), b"0;32767;0\n");
 }
@@ -373,26 +401,47 @@ fn test_stat_operation() {
 fn test_stat_questionable() {
     let mut dev = TestDevice::new();
 
-    let res = util::test_execute_str(&IEEE488_TREE, b"stat:ques:cond?;ptr #H00FF;ntr #HFF00", &mut dev).unwrap();
+    let res = util::test_execute_str(
+        &IEEE488_TREE,
+        b"stat:ques:cond?;ptr #H00FF;ntr #HFF00",
+        &mut dev,
+    )
+    .unwrap();
     assert_eq!(res.as_slice(), b"0\n");
 
-    let res = util::test_execute_str(&IEEE488_TREE, b"*ques #HFFFF;stat:ques:cond?;event?", &mut dev).unwrap();
+    let res = util::test_execute_str(
+        &IEEE488_TREE,
+        b"*ques #HFFFF;stat:ques:cond?;event?",
+        &mut dev,
+    )
+    .unwrap();
     assert_eq!(res.as_slice(), b"32767;255\n");
-    
-    let res = util::test_execute_str(&IEEE488_TREE, b"*ques #H0000;stat:ques:cond?;event?", &mut dev).unwrap();
+
+    let res = util::test_execute_str(
+        &IEEE488_TREE,
+        b"*ques #H0000;stat:ques:cond?;event?",
+        &mut dev,
+    )
+    .unwrap();
     assert_eq!(res.as_slice(), b"0;32512\n");
 
     let res = util::test_execute_str(&IEEE488_TREE, b"stat:ques:cond?;event?", &mut dev).unwrap();
     assert_eq!(res.as_slice(), b"0;0\n");
 
     //Check enable/enable?
-    let res = util::test_execute_str(&IEEE488_TREE, b"stat:ques:enable 65535;enable?", &mut dev).unwrap();
+    let res =
+        util::test_execute_str(&IEEE488_TREE, b"stat:ques:enable 65535;enable?", &mut dev).unwrap();
     assert_eq!(res.as_slice(), b"32767\n");
 
     //Check that operation summary bit is set in STB
     let res = util::test_execute_str(&IEEE488_TREE, b"*stb?;*ques #HFFFF;*stb?", &mut dev).unwrap();
     assert_eq!(res.as_slice(), b"0;8\n");
 
-    let res = util::test_execute_str(&IEEE488_TREE, b"stat:preset;:stat:ques:enable?;ptr?;ntr?", &mut dev).unwrap();
+    let res = util::test_execute_str(
+        &IEEE488_TREE,
+        b"stat:preset;:stat:ques:enable?;ptr?;ntr?",
+        &mut dev,
+    )
+    .unwrap();
     assert_eq!(res.as_slice(), b"0;32767;0\n");
 }

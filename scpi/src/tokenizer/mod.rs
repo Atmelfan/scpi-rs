@@ -72,6 +72,12 @@ impl<'a> Tokenizer<'a> {
         Tokenizer::from_byte_iter(buf.iter())
     }
 
+    pub fn new_args(buf: &'a [u8]) -> Self {
+        let mut toks = Tokenizer::from_byte_iter(buf.iter());
+        toks.in_header = false;
+        toks
+    }
+
     pub(crate) fn empty() -> Self {
         Tokenizer::from_byte_iter(b"".iter())
     }

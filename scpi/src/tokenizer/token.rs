@@ -1,4 +1,3 @@
-use crate::prelude::*;
 use crate::util;
 
 /// SCPI tokens
@@ -59,7 +58,7 @@ impl<'a> Token<'a> {
     /// - `head[er]<N>` == `HEADer<N>`
     /// Where `[]` marks optional, `<>` required.
     ///
-    pub fn match_program_header(&self, mnemonic: &'a [u8]) -> bool {
+    pub fn match_program_header(&self, mnemonic: &'a [u8]) -> bool {//Option<usize>
         match self {
             Token::ProgramMnemonic(s) | Token::CharacterProgramData(s) => {
                 util::mnemonic_compare(mnemonic, s)
