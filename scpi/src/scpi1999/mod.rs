@@ -295,7 +295,7 @@ mod util {
             match value {
                 Token::CharacterProgramData(s) => match s {
                     //Check for special float values
-                    ref x if util::mnemonic_compare(b"ONCE", x) => Ok(Self::Once),
+                    x if util::mnemonic_compare(b"ONCE", x) => Ok(Self::Once),
                     _ => Ok(Self::Bool(bool::try_from(value)?)),
                 },
                 t => Ok(Self::Bool(bool::try_from(t)?)),

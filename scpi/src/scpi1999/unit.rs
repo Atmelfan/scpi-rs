@@ -48,7 +48,7 @@ where
         _context: &mut Context,
         mut args: Arguments,
     ) -> scpi::error::Result<()> {
-        let unit: UNIT = args.next()?;
+        let unit: UNIT = args.data()?;
         device.set_unit(unit)?;
         Ok(())
     }
@@ -207,9 +207,9 @@ impl<'a> TryFrom<Token<'a>> for TemperatureUnit {
     fn try_from(value: Token<'a>) -> Result<Self> {
         match value {
             Token::CharacterProgramData(s) => match s {
-                ref x if crate::util::mnemonic_compare(b"Cel", x) => Ok(Self::Celsius),
-                ref x if crate::util::mnemonic_compare(b"Far", x) => Ok(Self::Fahrenheit),
-                ref x if crate::util::mnemonic_compare(b"K", x) => Ok(Self::Kelvin),
+                x if crate::util::mnemonic_compare(b"Cel", x) => Ok(Self::Celsius),
+                x if crate::util::mnemonic_compare(b"Far", x) => Ok(Self::Fahrenheit),
+                x if crate::util::mnemonic_compare(b"K", x) => Ok(Self::Kelvin),
                 _ => Err(ErrorCode::IllegalParameterValue.into()),
             },
             _ => Err(ErrorCode::IllegalParameterValue.into()),

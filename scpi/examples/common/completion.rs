@@ -2,7 +2,6 @@ use std::iter::Peekable;
 
 use rustyline::{
     completion::{Completer, Pair},
-    error::ReadlineError,
     highlight::Highlighter,
     hint::{Hinter, HistoryHinter},
     validate::Validator,
@@ -88,8 +87,8 @@ where
                         //
                         let suggestions = match handler.meta() {
                             CommandTypeMeta::NoQuery => vec![Pair {
-                                display: format!("{}", name),
-                                replacement: format!("{}", name.to_lowercase()),
+                                display: name.to_string(),
+                                replacement: name.to_lowercase().to_string(),
                             }],
                             CommandTypeMeta::QueryOnly => vec![Pair {
                                 display: format!("{}?", name),
@@ -97,8 +96,8 @@ where
                             }],
                             CommandTypeMeta::Both | CommandTypeMeta::Unknown => vec![
                                 Pair {
-                                    display: format!("{}", name),
-                                    replacement: format!("{}", name.to_lowercase()),
+                                    display: name.to_string(),
+                                    replacement: name.to_lowercase().to_string(),
                                 },
                                 Pair {
                                     display: format!("{}?", name),
@@ -106,16 +105,21 @@ where
                                 },
                             ],
                         };
-                        return Ok(Some((pos - name.len(), suggestions)));
+                        Ok(Some((pos - name.len(), suggestions)))
                     }
                     // "Leaf .." | "Leaf;.."
                     Some(Token::ProgramHeaderSeparator | Token::ProgramMessageUnitSeparator) => {
                         // Consume the header seperator and any data
-                        while let Some(_) = tokens.next_if(|t| match t {
-                            Ok(Token::ProgramDataSeparator | Token::ProgramHeaderSeparator) => true,
-                            Ok(tok) => tok.is_data(),
-                            _ => false,
-                        }) {}
+                        while tokens
+                            .next_if(|t| match t {
+                                Ok(Token::ProgramDataSeparator | Token::ProgramHeaderSeparator) => {
+                                    true
+                                }
+                                Ok(tok) => tok.is_data(),
+                                _ => false,
+                            })
+                            .is_some()
+                        {}
 
                         Ok(None)
                     }
@@ -125,11 +129,16 @@ where
                         tokens.next();
 
                         // Consume the header seperator and any data
-                        while let Some(_) = tokens.next_if(|t| match t {
-                            Ok(Token::ProgramDataSeparator | Token::ProgramHeaderSeparator) => true,
-                            Ok(tok) => tok.is_data(),
-                            _ => false,
-                        }) {}
+                        while tokens
+                            .next_if(|t| match t {
+                                Ok(Token::ProgramDataSeparator | Token::ProgramHeaderSeparator) => {
+                                    true
+                                }
+                                Ok(tok) => tok.is_data(),
+                                _ => false,
+                            })
+                            .is_some()
+                        {}
 
                         Ok(None)
                     }
@@ -143,7 +152,7 @@ where
                     //Branch\EOM
                     None => {
                         // Special case for root/'':
-                        if name == "" {
+                        if name.is_empty() {
                             let mut suggestions = vec![];
 
                             for child in *sub {
@@ -177,7 +186,7 @@ where
                         let suggestions = match handler.meta() {
                             CommandTypeMeta::NoQuery => vec![Pair {
                                 display: format!("[{}]", child_name),
-                                replacement: format!("{}", name.to_lowercase()),
+                                replacement: name.to_lowercase().to_string(),
                             }],
                             CommandTypeMeta::QueryOnly => vec![Pair {
                                 display: format!("[{}]?", child_name),
@@ -186,7 +195,7 @@ where
                             CommandTypeMeta::Both | CommandTypeMeta::Unknown => vec![
                                 Pair {
                                     display: format!("[{}]", child_name),
-                                    replacement: format!("{}", name.to_lowercase()),
+                                    replacement: name.to_lowercase().to_string(),
                                 },
                                 Pair {
                                     display: format!("[{}]?", child_name),
@@ -194,10 +203,10 @@ where
                                 },
                             ],
                         };
-                        return Ok(Some((pos, suggestions)));
+                        Ok(Some((pos, suggestions)))
                     }
                     // Branch[:]<partial>..
-                    t @ Some(Token::HeaderMnemonicSeparator | Token::ProgramMnemonic(..)) => {
+                    _t @ Some(Token::HeaderMnemonicSeparator | Token::ProgramMnemonic(..)) => {
                         // Consume seperator
                         tokens.next_if(|t| matches!(t, Ok(Token::HeaderMnemonicSeparator)));
 
@@ -234,7 +243,7 @@ where
                             } else {
                                 pos
                             };
-                            return Ok(Some((edit_pos, suggestions)));
+                            Ok(Some((edit_pos, suggestions)))
                         } else {
                             *leaf = self;
                             for child in *sub {
@@ -254,11 +263,14 @@ where
                         match sub.first() {
                             Some(Node::Leaf { default: true, .. }) => {
                                 // Consume any data
-                                while let Some(_) = tokens.next_if(|t| match t {
-                                    Ok(Token::ProgramDataSeparator) => true,
-                                    Ok(tok) => tok.is_data(),
-                                    _ => false,
-                                }) {}
+                                while tokens
+                                    .next_if(|t| match t {
+                                        Ok(Token::ProgramDataSeparator) => true,
+                                        Ok(tok) => tok.is_data(),
+                                        _ => false,
+                                    })
+                                    .is_some()
+                                {}
 
                                 Ok(None)
                             }
@@ -276,11 +288,14 @@ where
                         match sub.first() {
                             Some(Node::Leaf { default: true, .. }) => {
                                 // Consume any data
-                                while let Some(_) = tokens.next_if(|t| match t {
-                                    Ok(Token::ProgramDataSeparator) => true,
-                                    Ok(tok) => tok.is_data(),
-                                    _ => false,
-                                }) {}
+                                while tokens
+                                    .next_if(|t| match t {
+                                        Ok(Token::ProgramDataSeparator) => true,
+                                        Ok(tok) => tok.is_data(),
+                                        _ => false,
+                                    })
+                                    .is_some()
+                                {}
 
                                 Ok(None)
                             }
@@ -304,17 +319,17 @@ where
             Leaf { handler, .. } => match handler.meta() {
                 CommandTypeMeta::Unknown | CommandTypeMeta::Both => vec![
                     Pair {
-                        display: format!("{name}"),
-                        replacement: format!("{}", name.to_ascii_lowercase()),
+                        display: name.to_string(),
+                        replacement: name.to_ascii_lowercase().to_string(),
                     },
                     Pair {
                         display: format!("{name}?"),
-                        replacement: format!("{}", name.to_ascii_lowercase()),
+                        replacement: name.to_ascii_lowercase().to_string(),
                     },
                 ],
                 CommandTypeMeta::NoQuery => vec![Pair {
-                    display: format!("{name}"),
-                    replacement: format!("{}", name.to_ascii_lowercase()),
+                    display: name.to_string(),
+                    replacement: name.to_ascii_lowercase().to_string(),
                 }],
                 CommandTypeMeta::QueryOnly => vec![Pair {
                     display: format!("{name}?"),
@@ -334,7 +349,7 @@ where
                     ..
                 }) = sub.first()
                 {
-                    suggestions.extend(match std::str::from_utf8(&child_name) {
+                    suggestions.extend(match std::str::from_utf8(child_name) {
                         Ok(child_name) => {
                             if !child_name.is_empty() {
                                 // Named default child
@@ -342,16 +357,16 @@ where
                                     CommandTypeMeta::Unknown | CommandTypeMeta::Both => vec![
                                         Pair {
                                             display: format!("{name}[:{child_name}]"),
-                                            replacement: format!("{}", name.to_ascii_lowercase()),
+                                            replacement: name.to_ascii_lowercase().to_string(),
                                         },
                                         Pair {
                                             display: format!("{name}[:{child_name}]?"),
-                                            replacement: format!("{}", name.to_ascii_lowercase()),
+                                            replacement: name.to_ascii_lowercase().to_string(),
                                         },
                                     ],
                                     CommandTypeMeta::NoQuery => vec![Pair {
                                         display: format!("{name}[:{child_name}]"),
-                                        replacement: format!("{}", name.to_ascii_lowercase()),
+                                        replacement: name.to_ascii_lowercase().to_string(),
                                     }],
                                     CommandTypeMeta::QueryOnly => vec![Pair {
                                         display: format!("{name}[:{child_name}]?"),
@@ -363,8 +378,8 @@ where
                                 match handler.meta() {
                                     CommandTypeMeta::Unknown | CommandTypeMeta::Both => vec![
                                         Pair {
-                                            display: format!("{name}"),
-                                            replacement: format!("{}", name.to_ascii_lowercase()),
+                                            display: name.to_string(),
+                                            replacement: name.to_ascii_lowercase().to_string(),
                                         },
                                         Pair {
                                             display: format!("{name}?"),
@@ -372,8 +387,8 @@ where
                                         },
                                     ],
                                     CommandTypeMeta::NoQuery => vec![Pair {
-                                        display: format!("{name}"),
-                                        replacement: format!("{}", name.to_ascii_lowercase()),
+                                        display: name.to_string(),
+                                        replacement: name.to_ascii_lowercase().to_string(),
                                     }],
                                     CommandTypeMeta::QueryOnly => vec![Pair {
                                         display: format!("{name}?"),
@@ -401,7 +416,7 @@ where
         &self,
         line: &str,
         pos: usize,
-        ctx: &rustyline::Context<'_>,
+        _ctx: &rustyline::Context<'_>,
     ) -> rustyline::Result<(usize, Vec<Self::Candidate>)> {
         // Tokenize line up until edit position
         let mut tokens = Tokenizer::new(line[..pos].as_bytes()).peekable();
@@ -459,7 +474,7 @@ where
                     break Ok((pos, suggestions)); // Er?
                 }
                 //
-                Some(Err(err)) => break Ok((pos, vec![])), //?
+                Some(Err(_err)) => break Ok((pos, vec![])), //?
                 // idk?
                 Some(_) => break Ok((pos, vec![])), //?
             }
@@ -474,11 +489,11 @@ where
                 // New unit
                 Some(Ok(Token::ProgramMessageUnitSeparator)) => continue,
                 // More tokens...
-                Some(Ok(tok)) => {
+                Some(Ok(_tok)) => {
                     break Ok((pos, vec![])); //?
                 }
                 // Error
-                Some(Err(err)) => break Ok((pos, vec![])), //?
+                Some(Err(_err)) => break Ok((pos, vec![])), //?
             }
         }
     }

@@ -1,5 +1,3 @@
-use std::io::Read;
-
 use common::{completion::ScpiHelper, TestDevice};
 use rustyline::{error::ReadlineError, CompletionType, Config, Editor};
 use scpi::{

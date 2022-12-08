@@ -77,7 +77,7 @@ where
         let mut tokenizer = Tokenizer::new(s).peekable();
         let res = self.run_tokens(device, context, &mut tokenizer, response);
         if let Err(err) = &res {
-            device.handle_error(err.clone());
+            device.handle_error(*err);
         }
         res
     }

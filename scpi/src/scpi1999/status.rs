@@ -300,7 +300,7 @@ where
     D: Device + GetEventRegister<T>,
 {
     fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
-        device.register_mut().enable = args.next()?;
+        device.register_mut().enable = args.data()?;
         Ok(())
     }
 
@@ -331,7 +331,7 @@ where
     D: Device + GetEventRegister<T>,
 {
     fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
-        device.register_mut().ntr_filter = args.next()?;
+        device.register_mut().ntr_filter = args.data()?;
         Ok(())
     }
 
@@ -364,7 +364,7 @@ where
     D: Device + GetEventRegister<T>,
 {
     fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
-        device.register_mut().ptr_filter = args.next()?;
+        device.register_mut().ptr_filter = args.data()?;
         Ok(())
     }
 

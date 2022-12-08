@@ -26,7 +26,7 @@ impl<'a, 'b> Arguments<'a, 'b> {
 
         if let Some(item) = self.0.peek() {
             //Check if next item is a data object
-            let token = item.clone()?;
+            let token = (*item)?;
             match token {
                 //Data object
                 t if t.is_data() => {
@@ -37,7 +37,7 @@ impl<'a, 'b> Arguments<'a, 'b> {
                 //Data separator, next token must be a data object
                 Token::ProgramDataSeparator => {
                     self.0.next();
-                    self.next_token().map(|v| Some(v))
+                    self.next_token().map(Some)
                 }
                 // Something else
                 _ => Ok(None),
@@ -55,14 +55,14 @@ impl<'a, 'b> Arguments<'a, 'b> {
         }
     }
 
-    pub fn next<T>(&mut self) -> Result<T, Error>
+    pub fn data<T>(&mut self) -> Result<T, Error>
     where
         T: TryFrom<Token<'a>, Error = Error>,
     {
         self.next_token()?.try_into()
     }
 
-    pub fn next_optional<T>(&mut self) -> Result<Option<T>, Error>
+    pub fn optional_data<T>(&mut self) -> Result<Option<T>, Error>
     where
         T: TryFrom<Token<'a>, Error = Error>,
     {

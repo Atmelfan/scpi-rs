@@ -118,7 +118,7 @@ pub fn derive_scpi_enum(input: proc_macro::TokenStream) -> proc_macro::TokenStre
                     || last_upper != shortform_len - 1
                     || mnemonic.value().len() > 12
                 {
-                    panic!("{}::{} Invalid mnemonic, must follow \"SHORTlong\" format and <= 12 characters", name.to_string(), variant_name.to_string());
+                    panic!("{}::{} Invalid mnemonic, must follow \"SHORTlong\" format and <= 12 characters", name, variant_name);
                 }
                 let x = match &variant.fields {
                     syn::Fields::Unnamed(x) if x.unnamed.len() == 1 => quote! {
@@ -149,11 +149,7 @@ pub fn derive_scpi_enum(input: proc_macro::TokenStream) -> proc_macro::TokenStre
                 //println!("{}", x2);
                 to_mnemonic_matches.push(x2);
             } else {
-                panic!(
-                    "{}::{} Missing mnemonic",
-                    name.to_string(),
-                    variant_name.to_string()
-                );
+                panic!("{}::{} Missing mnemonic", name, variant_name);
             }
         }
     }
@@ -197,6 +193,7 @@ pub fn derive_scpi_enum(input: proc_macro::TokenStream) -> proc_macro::TokenStre
     proc_macro::TokenStream::from(expanded)
 }
 
+#[cfg(feature = "__private")]
 #[proc_macro_derive(ScpiError, attributes(error))]
 pub fn derive_error_messages(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // Parse the input tokens into a syntax tree.

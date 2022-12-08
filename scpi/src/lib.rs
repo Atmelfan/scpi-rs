@@ -198,6 +198,12 @@ pub struct Context {
     pub mav: bool,
 }
 
+impl Default for Context {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Context {
     /// Create a new context
     ///

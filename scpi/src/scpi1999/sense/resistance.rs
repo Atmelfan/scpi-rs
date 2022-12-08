@@ -1,4 +1,4 @@
-use super::{common::*, *};
+use super::*;
 
 pub struct Resistance;
 impl SenseFunction for Resistance {

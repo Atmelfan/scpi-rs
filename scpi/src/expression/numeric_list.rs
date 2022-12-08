@@ -93,7 +93,7 @@ mod tests {
             ))
         );
         let specfail = NumericList::new(b"2::5").read_numeric_data();
-        assert_eq!(specfail, Err(ErrorCode::NumericDataError.into()));
+        assert_eq!(specfail, Err(ErrorCode::NumericDataError));
     }
 
     #[test]

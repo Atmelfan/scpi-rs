@@ -49,10 +49,10 @@
 //! would cause an error to be generated as the data was invalidated by the CONFigure
 //! command. Reconfiguring the display or format blocks shall not have this effect.
 //!
-//! | KEYWORD                	| PARAMETER FORM                 	| NOTES          	|
-//! |------------------------	|--------------------------------	|----------------	|
-//! | `CONFigure:<function>` 	| `<parameters>[,<source_list>]` 	|                	|
-//! | `FETCh[:<function>]?`  	| `<parameters>[,<source_list>]` 	| `[query only]` 	|
-//! | `READ[:<function>]`    	| `<parameters>[,<source_list>]` 	| `[query only]` 	|
-//! | `MEASure:<function>?`  	| `<parameters>[,<source_list>]` 	| `[query only]` 	|
+//! | KEYWORD                | PARAMETER FORM                 | NOTES          |
+//! |------------------------|--------------------------------|----------------|
+//! | `CONFigure:<function>` | `<parameters>[,<source_list>]` |                |
+//! | `FETCh[:<function>]?`  | `<parameters>[,<source_list>]` | `[query only]` |
+//! | `READ[:<function>]`    | `<parameters>[,<source_list>]` | `[query only]` |
+//! | `MEASure:<function>?`  | `<parameters>[,<source_list>]` | `[query only]` |
 //!

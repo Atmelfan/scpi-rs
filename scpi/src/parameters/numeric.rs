@@ -89,7 +89,9 @@ where
         match self.value {
             NumericValue::Maximum => Ok(self.max),
             NumericValue::Minimum => Ok(self.min),
-            NumericValue::Default => self.default.ok_or(ErrorCode::IllegalParameterValue.into()),
+            NumericValue::Default => self
+                .default
+                .ok_or_else(|| ErrorCode::IllegalParameterValue.into()),
             NumericValue::Up => Err(ErrorCode::IllegalParameterValue.into()),
             NumericValue::Down => Err(ErrorCode::IllegalParameterValue.into()),
             NumericValue::Auto => Err(ErrorCode::IllegalParameterValue.into()),
@@ -124,22 +126,15 @@ where
         match value {
             Token::CharacterProgramData(s) => match s {
                 //Check for special float values
-                ref x if util::mnemonic_compare(b"MAXimum", x) => Ok(Self::Maximum),
-                ref x if util::mnemonic_compare(b"MINimum", x) => Ok(Self::Minimum),
-                ref x if util::mnemonic_compare(b"DEFault", x) => Ok(Self::Default),
-                ref x if util::mnemonic_compare(b"UP", x) => Ok(Self::Up),
-                ref x if util::mnemonic_compare(b"DOWN", x) => Ok(Self::Down),
-                ref x if util::mnemonic_compare(b"AUTO", x) => Ok(Self::Auto),
+                x if util::mnemonic_compare(b"MAXimum", x) => Ok(Self::Maximum),
+                x if util::mnemonic_compare(b"MINimum", x) => Ok(Self::Minimum),
+                x if util::mnemonic_compare(b"DEFault", x) => Ok(Self::Default),
+                x if util::mnemonic_compare(b"UP", x) => Ok(Self::Up),
+                x if util::mnemonic_compare(b"DOWN", x) => Ok(Self::Down),
+                x if util::mnemonic_compare(b"AUTO", x) => Ok(Self::Auto),
                 _ => Ok(Self::Value(T::try_from(value)?)),
             },
             t => Ok(Self::Value(T::try_from(t)?)),
         }
     }
-}
-
-#[cfg(test)]
-mod tests {
-
-    #[cfg(test)]
-    fn test_numeric() {}
 }

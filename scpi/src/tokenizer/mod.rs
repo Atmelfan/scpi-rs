@@ -1,6 +1,6 @@
-use crate::error::{Error, ErrorCode};
+use crate::error::ErrorCode;
 
-use core::{iter::Peekable, slice::Iter};
+use core::slice::Iter;
 
 pub use self::token::Token;
 

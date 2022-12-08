@@ -3,7 +3,7 @@ use scpi::error::Result;
 use scpi::prelude::*;
 
 //Default commands
-use scpi::ieee488::mandatory::*;
+
 use scpi::scpi1999::{mandatory::*, ScpiDevice};
 use scpi::tree::Node;
 use scpi::{
@@ -71,7 +71,7 @@ impl Command<TestDevice> for ErrorCommand {
         _context: &mut Context,
         mut args: Arguments,
     ) -> Result<()> {
-        let errcode: i16 = args.next()?;
+        let errcode: i16 = args.data()?;
         device.handle_error(
             ErrorCode::get_error(errcode)
                 .unwrap_or(ErrorCode::Custom(errcode, b"Custom Error"))
@@ -92,7 +92,7 @@ impl Command<TestDevice> for OperCommand {
         _context: &mut Context,
         mut args: Arguments,
     ) -> Result<()> {
-        let condition: u16 = args.next()?;
+        let condition: u16 = args.data()?;
         device
             .get_register_mut::<Operation>()
             .set_condition(condition);
@@ -111,7 +111,7 @@ impl Command<TestDevice> for QuesCommand {
         _context: &mut Context,
         mut args: Arguments,
     ) -> Result<()> {
-        let condition: u16 = args.next()?;
+        let condition: u16 = args.data()?;
         device
             .get_register_mut::<Questionable>()
             .set_condition(condition);

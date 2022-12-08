@@ -45,7 +45,7 @@ where
         _context: &mut scpi::Context,
         mut args: scpi::parameters::Arguments,
     ) -> scpi::error::Result<()> {
-        let upper = args.next::<NumericValue<FUNC::Unit>>()?;
+        let upper = args.data::<NumericValue<FUNC::Unit>>()?;
         device.range_upper(upper)
     }
 
@@ -80,7 +80,7 @@ where
         _context: &mut scpi::Context,
         mut args: scpi::parameters::Arguments,
     ) -> scpi::error::Result<()> {
-        let upper = args.next::<NumericValue<FUNC::Unit>>()?;
+        let upper = args.data::<NumericValue<FUNC::Unit>>()?;
         device.range_lower(upper)
     }
 
@@ -115,7 +115,7 @@ where
         _context: &mut scpi::Context,
         mut args: Arguments,
     ) -> Result<()> {
-        let auto = args.next::<Auto>()?;
+        let auto = args.data::<Auto>()?;
         device.auto(auto)
     }
 
@@ -158,7 +158,7 @@ where
         _context: &mut scpi::Context,
         mut args: scpi::parameters::Arguments,
     ) -> scpi::error::Result<()> {
-        let resolution = args.next::<NumericValue<FUNC::Unit>>()?;
+        let resolution = args.data::<NumericValue<FUNC::Unit>>()?;
         device.resolution(resolution)
     }
 
@@ -202,7 +202,7 @@ where
         _context: &mut scpi::Context,
         mut args: scpi::parameters::Arguments,
     ) -> scpi::error::Result<()> {
-        let aperture: NumericValue<uom::si::f32::Time> = args.next()?;
+        let aperture: NumericValue<uom::si::f32::Time> = args.data()?;
         device.aperture(aperture)
     }
 
@@ -238,7 +238,7 @@ where
         mut args: scpi::parameters::Arguments,
     ) -> scpi::error::Result<()> {
         let aperture: NumericValue<uom::si::f32::Time> = args
-            .next::<NumericValue<f32>>()?
+            .data::<NumericValue<f32>>()?
             .map(|npl| npl / device.get_line_frequency());
         device.aperture(aperture)
     }

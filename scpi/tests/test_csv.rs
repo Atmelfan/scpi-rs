@@ -2,9 +2,9 @@ mod util;
 use std::fs;
 
 use scpi::{
-    command::Todo, error::Result, ieee488::mandatory::*, ieee488_cls, ieee488_ese, ieee488_esr,
-    ieee488_idn, ieee488_opc, ieee488_rst, ieee488_sre, ieee488_stb, ieee488_tst, ieee488_wai,
-    prelude::*, qonly, scpi1999::mandatory::*, scpi_status, scpi_system,
+    command::Todo, error::Result, ieee488_cls, ieee488_ese, ieee488_esr, ieee488_idn, ieee488_opc,
+    ieee488_rst, ieee488_sre, ieee488_stb, ieee488_tst, ieee488_wai, prelude::*, qonly,
+    scpi_status, scpi_system,
 };
 
 struct NumCommand;
@@ -19,11 +19,10 @@ impl Command<util::TestDevice> for NumCommand {
         mut response: ResponseUnit,
     ) -> Result<()> {
         // Parse a <numeric>
-        let x: NumericValue<f32> = args.next()?;
+        let x: NumericValue<f32> = args.data()?;
 
         // Use builder to resolve special values
         let value = x
-            .clone()
             // Specify required max,min values
             .with(100.0, -100.0)
             // Specify the default value
@@ -58,7 +57,7 @@ impl Command<util::TestDevice> for ChannelListCommand {
         mut args: Arguments,
         mut response: ResponseUnit,
     ) -> Result<()> {
-        let numbers: channel_list::ChannelList = args.next()?;
+        let numbers: channel_list::ChannelList = args.data()?;
         for item in numbers {
             match item? {
                 channel_list::Token::ChannelSpec(t) => {
@@ -94,7 +93,7 @@ impl Command<util::TestDevice> for NumericListCommand {
         mut args: Arguments,
         mut response: ResponseUnit,
     ) -> Result<()> {
-        let numbers: numeric_list::NumericList = args.next()?;
+        let numbers: numeric_list::NumericList = args.data()?;
         for item in numbers {
             match item? {
                 numeric_list::Token::Numeric(a) => {

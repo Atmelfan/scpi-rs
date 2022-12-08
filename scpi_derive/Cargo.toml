@@ -24,3 +24,6 @@ syn = "1.0"
 
 [lib]
 proc-macro = true
+
+[features]
+__private = []

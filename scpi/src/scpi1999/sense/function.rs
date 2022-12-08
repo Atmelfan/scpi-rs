@@ -1,6 +1,6 @@
 use super::*;
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, ScpiEnum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, ScpiEnum)]
 #[non_exhaustive]
 pub enum Presentation {
     #[scpi(mnemonic = b"XNONe")]
@@ -24,7 +24,7 @@ impl Default for Presentation {
 }
 
 /// A subset of SCPI 18.13.2.8
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, ScpiEnum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, ScpiEnum)]
 #[non_exhaustive]
 pub enum Function {
     #[scpi(mnemonic = b"CURRent")]
@@ -43,7 +43,7 @@ pub enum Function {
     Voltage(VoltageFunction),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, ScpiEnum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, ScpiEnum)]
 pub enum CurrentFunction {
     #[scpi(mnemonic = b"AC")]
     Ac,
@@ -57,7 +57,7 @@ impl Default for CurrentFunction {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, ScpiEnum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, ScpiEnum)]
 pub enum PowerFunction {
     #[scpi(mnemonic = b"AC")]
     Ac,
@@ -81,7 +81,7 @@ impl Default for PowerFunction {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, ScpiEnum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, ScpiEnum)]
 pub enum VoltageFunction {
     #[scpi(mnemonic = b"AC")]
     Ac,
@@ -95,7 +95,7 @@ impl Default for VoltageFunction {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, ScpiEnum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, ScpiEnum)]
 #[non_exhaustive]
 pub enum Suffix {
     #[scpi(mnemonic = b"RATio")]
@@ -104,7 +104,7 @@ pub enum Suffix {
     Sum,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd)]
 pub struct SensorFunction {
     pub presentation: Presentation,
     pub function: Function,
@@ -300,7 +300,7 @@ where
         _context: &mut scpi::Context,
         mut args: scpi::parameters::Arguments,
     ) -> scpi::error::Result<()> {
-        let sensor_func = args.next::<SensorFunction>()?;
+        let sensor_func = args.data::<SensorFunction>()?;
         device.function_on(sensor_func)?;
         Ok(())
     }

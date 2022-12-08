@@ -18,7 +18,7 @@ readme = "README.md"
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-scpi_derive = { path = "../scpi_derive", version= "0.4.3"}
+scpi_derive = { path = "../scpi_derive", version= "0.4.3", features = ["__private"]}
 lexical-core = { version="0.8.3", features=["parse-floats", "parse-integers", "write-floats", "write-integers", "power-of-two"], default-features=false }
 arrayvec = { version = "0.7", default-features = false }
 

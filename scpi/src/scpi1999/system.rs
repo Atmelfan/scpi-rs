@@ -149,7 +149,7 @@ where
     }
 
     fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
-        let freq: NumericValue<uom::si::f32::Frequency> = args.next()?;
+        let freq: NumericValue<uom::si::f32::Frequency> = args.data()?;
         match freq {
             NumericValue::Auto => device.auto(Auto::Bool(true)),
             freq => device.line_frequency(freq),

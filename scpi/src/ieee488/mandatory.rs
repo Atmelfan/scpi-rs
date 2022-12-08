@@ -63,7 +63,7 @@ where
     both!();
 
     fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
-        let ese = args.next()?;
+        let ese = args.data()?;
         device.set_ese(ese);
         Ok(())
     }
@@ -226,7 +226,7 @@ where
     both!();
 
     fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
-        let sre = args.next()?;
+        let sre = args.data()?;
         device.set_sre(sre);
         Ok(())
     }
