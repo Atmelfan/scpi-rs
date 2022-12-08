@@ -1,7 +1,7 @@
 use crate::error::Result;
-use crate::prelude::*;
-use crate::tokenizer::Arguments;
 use crate::nquery;
+use crate::parameters::Arguments;
+use crate::prelude::*;
 
 use super::IEEE488Device;
 
@@ -9,7 +9,6 @@ use super::IEEE488Device;
 trait IEEE488Trg {
     fn exec_trg(&mut self) -> Result<()>;
 }
-
 
 pub struct TrgCommand;
 

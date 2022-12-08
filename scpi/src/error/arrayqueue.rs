@@ -30,10 +30,8 @@ impl<const CAP: usize> ErrorQueue for ArrayErrorQueue<CAP> {
         }
     }
 
-    fn pop_front_error(&mut self) -> Error {
-        self.vec
-            .pop_at(0)
-            .unwrap_or_else(|| ErrorCode::NoError.into())
+    fn pop_front_error(&mut self) -> Option<Error> {
+        self.vec.pop_at(0)
     }
 
     fn num_errors(&self) -> usize {
@@ -58,12 +56,12 @@ mod test_error_queue {
         #[cfg(feature = "extended-error")]
         assert_eq!(
             errors.pop_front_error(),
-            Error(ErrorCode::Custom(1, b"Error"), Some(b"Extended"))
+            Some(Error(ErrorCode::Custom(1, b"Error"), Some(b"Extended")))
         );
         #[cfg(not(feature = "extended-error"))]
         assert_eq!(
             errors.pop_front_error(),
-            Error(ErrorCode::Custom(1, b"Error"))
+            Some(Error(ErrorCode::Custom(1, b"Error")))
         );
     }
 
@@ -75,13 +73,13 @@ mod test_error_queue {
         errors.push_back_error(ErrorCode::Custom(2, b"Two").into());
         assert_eq!(
             errors.pop_front_error(),
-            Error::new(ErrorCode::Custom(1, b"One"))
+            Some(Error::new(ErrorCode::Custom(1, b"One")))
         );
         assert_eq!(
             errors.pop_front_error(),
-            Error::new(ErrorCode::Custom(2, b"Two"))
+            Some(Error::new(ErrorCode::Custom(2, b"Two")))
         );
-        assert_eq!(errors.pop_front_error(), Error::new(ErrorCode::NoError));
+        assert_eq!(errors.pop_front_error(), None);
     }
 
     #[test]
@@ -93,11 +91,11 @@ mod test_error_queue {
         errors.push_back_error(ErrorCode::Custom(3, b"Three").into());
         assert_eq!(
             errors.pop_front_error(),
-            Error::new(ErrorCode::Custom(1, b"One"))
+            Some(Error::new(ErrorCode::Custom(1, b"One")))
         );
         assert_eq!(
             errors.pop_front_error(),
-            Error::new(ErrorCode::QueueOverflow)
+            Some(Error::new(ErrorCode::QueueOverflow))
         );
     }
 }

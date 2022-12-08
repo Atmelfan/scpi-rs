@@ -1,68 +1,18 @@
 use crate::error::{Error, ErrorCode};
 
-use core::{slice::Iter, iter::Peekable};
-
-use crate::util;
+use core::{iter::Peekable, slice::Iter};
 
 pub use self::token::Token;
 
 mod token;
+pub mod util;
 
 #[cfg(test)]
 mod tests;
 
-/// Alias
-pub struct Arguments<'a, 'b>(&'a mut Peekable<Tokenizer<'b>>);
-
-impl<'a, 'b> Arguments<'a, 'b> {
-    pub fn with(toka: &'a mut Peekable<Tokenizer<'b>>) -> Self {
-        Self(toka)
-    }
-}
-
-impl<'a, 'b> Arguments<'a, 'b> {
-    /// Attempts to consume a data object.
-    /// If no data is found, none if returned if optional=true else Error:MissingParam.
-    ///
-    /// Note! Does not skip
-    pub fn next_optional(&mut self) -> Result<Option<Token<'a>>, Error> {
-        //Try to read a data object
-        
-        if let Some(item) = self.0.peek() {
-            //Check if next item is a data object
-            let token = item.clone()?;
-            match token {
-                //Data object
-                t if t.is_data() => {
-                    //Valid data object, consume and return
-                    self.0.next();
-                    Ok(Some(token))
-                }
-                //Data separator, next token must be a data object
-                Token::ProgramDataSeparator => {
-                    self.0.next();
-                    self.next().map(|v| Some(v))
-                }
-                // Something else
-                _ => Ok(None)
-            }
-        } else {
-            Ok(None)
-        }
-    }
-
-    pub fn next(&mut self) -> Result<Token<'a>, Error> {
-        match self.next_optional() {
-            Ok(Some(tok)) => Ok(tok),
-            Ok(None) => Err(ErrorCode::MissingParameter.into()),
-            Err(err) => Err(err),
-        }
-    }
-}
-
 #[derive(Clone)]
 pub struct Tokenizer<'a> {
-    pub(crate) chars: Iter<'a, u8>,
+    pub chars: Iter<'a, u8>,
     in_header: bool,
     in_common: bool,
 }
@@ -76,10 +26,6 @@ impl<'a> Tokenizer<'a> {
         let mut toks = Tokenizer::from_byte_iter(buf.iter());
         toks.in_header = false;
         toks
-    }
-
-    pub(crate) fn empty() -> Self {
-        Tokenizer::from_byte_iter(b"".iter())
     }
 
     pub(crate) fn from_byte_iter(iter: Iter<'a, u8>) -> Self {
@@ -99,12 +45,9 @@ impl<'a> Tokenizer<'a> {
     fn read_mnemonic(&mut self, mut common: bool) -> Result<Token<'a>, ErrorCode> {
         let s = self.chars.as_slice();
         let mut len = 0u8;
-        while self
-            .chars
-            .clone()
-            .next()
-            .map_or(false, |ch| ch.is_ascii_alphanumeric() || *ch == b'_' || (*ch == b'*' && common))
-        {
+        while self.chars.clone().next().map_or(false, |ch| {
+            ch.is_ascii_alphanumeric() || *ch == b'_' || (*ch == b'*' && common)
+        }) {
             common = false;
             self.chars.next();
             len += 1;

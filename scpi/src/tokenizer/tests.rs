@@ -1,6 +1,6 @@
+use super::util;
 use crate::error::ErrorCode;
 use crate::tokenizer::{Token, Tokenizer};
-use crate::util;
 
 extern crate std;
 

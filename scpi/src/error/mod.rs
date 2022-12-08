@@ -4,6 +4,8 @@
 //!
 
 mod arrayqueue;
+use core::fmt::Display;
+
 pub use arrayqueue::*;
 
 /// A SCPI error
@@ -16,6 +18,20 @@ pub struct Error(
     ErrorCode,
     #[cfg(feature = "extended-error")] Option<&'static [u8]>,
 );
+
+impl Display for Error {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let code = self.get_code();
+        let msg = core::str::from_utf8(self.get_message()).unwrap_or("<invalid utf8>");
+
+        if let Some(ext) = self.get_extended() {
+            let ext = core::str::from_utf8(ext).unwrap_or("<invalid utf8>");
+            write!(f, "{code},\"{msg};{ext}\"")
+        } else {
+            write!(f, "{code},\"{msg}\"")
+        }
+    }
+}
 
 impl Default for Error {
     fn default() -> Self {
@@ -97,11 +113,9 @@ impl PartialEq<Error> for ErrorCode {
 }
 
 impl From<ErrorCode> for Error {
-    
     fn from(err: ErrorCode) -> Self {
         Error::new(err)
     }
-
 }
 
 /// The Error type contains error definitions detected by the parser or commands
@@ -1026,7 +1040,7 @@ pub trait ErrorQueue {
 
     /// Get a error to the queue
     /// Shall return NoError if empty.
-    fn pop_front_error(&mut self) -> Error;
+    fn pop_front_error(&mut self) -> Option<Error>;
 
     /// Current length of queue
     fn num_errors(&self) -> usize;
@@ -1044,8 +1058,8 @@ pub trait ErrorQueue {
 impl ErrorQueue for () {
     fn push_back_error(&mut self, _err: Error) {}
 
-    fn pop_front_error(&mut self) -> Error {
-        ErrorCode::NoError.into()
+    fn pop_front_error(&mut self) -> Option<Error> {
+        None
     }
 
     fn num_errors(&self) -> usize {

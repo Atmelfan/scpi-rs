@@ -1,4 +1,4 @@
-use crate::util;
+use super::util;
 
 /// SCPI tokens
 /// Loosely based on IEEE488.2 Chapter 7
@@ -58,7 +58,8 @@ impl<'a> Token<'a> {
     /// - `head[er]<N>` == `HEADer<N>`
     /// Where `[]` marks optional, `<>` required.
     ///
-    pub fn match_program_header(&self, mnemonic: &'a [u8]) -> bool {//Option<usize>
+    pub fn match_program_header(&self, mnemonic: &'a [u8]) -> bool {
+        //Option<usize>
         match self {
             Token::ProgramMnemonic(s) | Token::CharacterProgramData(s) => {
                 util::mnemonic_compare(mnemonic, s)

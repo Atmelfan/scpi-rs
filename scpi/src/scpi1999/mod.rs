@@ -6,15 +6,18 @@ use crate::error::{Error, Result};
 use crate::prelude::ErrorCode;
 use crate::{ieee488::IEEE488Device, prelude::ErrorQueue, Device};
 
-pub use self::status::{GetEventRegister, Operation, Questionable};
+pub use self::status::{Operation, Questionable};
 
 pub mod mandatory;
 pub mod status;
 pub mod system;
 
 // Measurement instructions
+pub mod input;
 pub mod measurement;
+pub mod sense;
 pub mod trigger;
+pub mod unit;
 
 pub trait ScpiDevice:
     Device + ErrorQueue + GetEventRegister<Operation> + GetEventRegister<Questionable>
@@ -74,8 +77,8 @@ pub trait ScpiDevice:
         // Clear ESR
         self.set_esr(0);
         // Clear event registers
-        <Self as GetEventRegister<Operation>>::register_mut(self).clear_event();
-        <Self as GetEventRegister<Questionable>>::register_mut(self).clear_event();
+        self.get_register_mut::<Operation>().clear_event();
+        self.get_register_mut::<Questionable>().clear_event();
         Ok(())
     }
 
@@ -85,6 +88,22 @@ pub trait ScpiDevice:
         self.set_esr(esr);
         // Add error to error/event queue
         self.push_back_error(err);
+    }
+
+    fn get_register<REG>(&self) -> &EventRegister
+    where
+        Self: GetEventRegister<REG>,
+        REG: EventRegisterName,
+    {
+        <Self as GetEventRegister<REG>>::register(self)
+    }
+
+    fn get_register_mut<REG>(&mut self) -> &mut EventRegister
+    where
+        Self: GetEventRegister<REG>,
+        REG: EventRegisterName,
+    {
+        <Self as GetEventRegister<REG>>::register_mut(self)
     }
 }
 
@@ -98,11 +117,11 @@ where
         let mut reg = <Self as ScpiDevice>::status(self);
         //Set OPERation status bits
 
-        if <Self as GetEventRegister<Operation>>::register(self).get_summary() {
+        if self.get_register::<Operation>().get_summary() {
             reg |= 0x80;
         }
         //Set QUEStionable status bit
-        if <Self as GetEventRegister<Questionable>>::register(self).get_summary() {
+        if self.get_register::<Questionable>().get_summary() {
             reg |= 0x08;
         }
         //Set error queue empty bit
@@ -170,6 +189,18 @@ pub struct EventRegister {
     pub ptr_filter: u16,
 }
 
+pub trait EventRegisterName {
+    type BitFlags;
+}
+
+pub trait GetEventRegister<X>
+where
+    X: EventRegisterName,
+{
+    fn register(&self) -> &EventRegister;
+    fn register_mut(&mut self) -> &mut EventRegister;
+}
+
 /// Utility trait
 pub trait BitFlags<T> {
     /// Return a bitmask with the relevant bits set and others cleared
@@ -177,95 +208,6 @@ pub trait BitFlags<T> {
     fn get_mask(self) -> T;
     /// Return the position/offset of the relevant bit(s)
     fn get_pos(self) -> T;
-}
-
-/// The OPERation status register contains conditions which are part of the instrument’s normal
-/// operation.
-pub enum OperationBits {
-    /// The instrument is currently performing a calibration.
-    Calibrating = 0,
-    /// The instrument is waiting for signals it controls to stabilize
-    /// enough to begin measurements.
-    Settling = 1,
-    /// The instrument is currently changing its range.
-    Ranging = 2,
-    /// A sweep is in progress.
-    Sweeping = 3,
-    /// The instrument is actively measuring.
-    Measuring = 4,
-    /// The instrument is in a “wait for trigger” state of the
-    /// trigger model.
-    WaitingForTrig = 5,
-    /// The instrument is in a “wait for arm” state of the trigger
-    /// model.
-    WaitingForArm = 6,
-    /// The instrument is currently performing a correction.
-    Correcting = 7,
-    /// Available to designer.
-    Designer1 = 8,
-    /// Available to designer.
-    Designer2 = 9,
-    /// Available to designer.
-    Designer3 = 10,
-    /// Available to designer.
-    Designer4 = 11,
-    /// Available to designer.
-    Designer5 = 12,
-    /// One of n multiple logical instruments is
-    /// reporting OPERational status.
-    InstrumentSummary = 13,
-    /// A user-defined programming is currently in the run
-    /// state.
-    ProgramRunning = 14,
-}
-
-impl BitFlags<u16> for OperationBits {
-    fn get_mask(self) -> u16 {
-        1 << (self as u16)
-    }
-
-    fn get_pos(self) -> u16 {
-        self as u16
-    }
-}
-
-/// The QUEStionable status register set contains bits which give an indication of the quality of
-/// various aspects of the signal.
-pub enum QuestionableBits {
-    /// Indicates that the data is currently being acquired or generated
-    SummaryVoltage = 0,
-    SummaryCurrent = 1,
-    SummaryTime = 2,
-    SummaryPower = 3,
-    SummaryTemperature = 4,
-    SummaryFrequency = 5,
-    SummaryPhase = 6,
-    SummaryModulation = 7,
-    SummaryCalibration = 8,
-    Designer1 = 9,
-    Designer2 = 10,
-    Designer3 = 11,
-    Designer4 = 12,
-    InstrumentSummary = 13,
-    /// Bit 14 is defined as the Command Warning bit. This bit indicates a non-fatal warning that
-    /// relates to the instrument’s interpretation of a command, query, or one or more parameters of
-    /// a specific command or query. Setting this bit is a warning to the application that the resultant
-    /// instrument state or action is probably what was expected but may deviate in some manner.
-    ///
-    /// For example, the Command Warning bit is set whenever a parameter in one of the
-    /// Measurement Instruction commands or queries is ignored during execution. Such a
-    /// parameter may be ignored because it cannot be specified by a particular instrument.
-    CommandWarning = 14,
-}
-
-impl BitFlags<u16> for QuestionableBits {
-    fn get_mask(self) -> u16 {
-        1 << (self as u16)
-    }
-
-    fn get_pos(self) -> u16 {
-        self as u16
-    }
 }
 
 impl Default for EventRegister {
@@ -306,8 +248,8 @@ impl EventRegister {
     }
 
     /// Get the state of relevant bit in status register. Returns true if bit is set, false otherwise.
-    pub fn get_condition_bit(&self, bit: OperationBits) -> bool {
-        self.condition & (bit as u16) != 0
+    pub fn get_condition_bit(&self, bitmask: u16) -> bool {
+        self.condition & bitmask != 0
     }
 
     /// Update condition register and event register based on pos-/neg-transition filters
@@ -331,5 +273,65 @@ impl EventRegister {
     }
 }
 
-#[cfg(test)]
-mod tests {}
+mod util {
+    use crate::{
+        error::{Error, Result},
+        prelude::Token,
+        response::{Formatter, ResponseData},
+        util,
+    };
+
+    /// `AUTO <Boolean>|ONCE`
+    #[derive(Debug, Clone, Copy)]
+    pub enum Auto {
+        Once,
+        Bool(bool),
+    }
+
+    impl<'a> TryFrom<Token<'a>> for Auto {
+        type Error = Error;
+
+        fn try_from(value: Token<'a>) -> Result<Self> {
+            match value {
+                Token::CharacterProgramData(s) => match s {
+                    //Check for special float values
+                    ref x if util::mnemonic_compare(b"ONCE", x) => Ok(Self::Once),
+                    _ => Ok(Self::Bool(bool::try_from(value)?)),
+                },
+                t => Ok(Self::Bool(bool::try_from(t)?)),
+            }
+        }
+    }
+
+    impl ResponseData for Auto {
+        fn format_response_data(&self, formatter: &mut dyn Formatter) -> Result<()> {
+            match self {
+                Auto::Once => formatter.push_ascii(b"ONCE"),
+                Auto::Bool(value) => value.format_response_data(formatter),
+            }
+        }
+    }
+
+    impl From<bool> for Auto {
+        fn from(value: bool) -> Self {
+            Self::Bool(value)
+        }
+    }
+
+    impl Auto {
+        /// Autorange has been run. If self is [Auto::Once] it will be set to `false`.
+        pub fn auto_once(&mut self) {
+            *self = match &self {
+                Auto::Once => Self::Bool(false),
+                Auto::Bool(value) => Self::Bool(*value),
+            };
+        }
+
+        /// Returns true if autorange should be used
+        ///
+        /// **Note:** Call [Auto::run_once] when autorange has been executed to handle [Auto::Once] logic
+        pub fn auto_enabled(&self) -> bool {
+            matches!(self, Self::Once | Self::Bool(true))
+        }
+    }
+}

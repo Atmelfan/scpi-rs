@@ -1,6 +1,6 @@
 extern crate proc_macro;
 
-use quote::quote;
+use quote::{quote, quote_spanned};
 use syn::{
     parse_macro_input, Data, DeriveInput, Lit, LitByteStr, LitInt, Meta, MetaList, MetaNameValue,
     NestedMeta,
@@ -78,6 +78,7 @@ fn find_prop_path<'a>(meta: &'a Meta, attr: &str, property: &str) -> bool {
     false
 }
 
+/// Derive the necessary logic to convert a enum to and from a mnemonic.
 #[proc_macro_derive(ScpiEnum, attributes(scpi))]
 pub fn derive_scpi_enum(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // Parse the input tokens into a syntax tree.
@@ -100,26 +101,65 @@ pub fn derive_scpi_enum(input: proc_macro::TokenStream) -> proc_macro::TokenStre
         for attr in variant.attrs.iter() {
             let meta = attr.parse_meta().unwrap();
             if let Some(mnemonic) = find_prop_bstr(&meta, "scpi", "mnemonic") {
-                let x = quote! {
-                    x if scpi::util::mnemonic_compare(#mnemonic, x) => Some(#name::#variant_name)
+                // Check that mnemonic is not empty and start with a uppercase character
+                let shortform_len = mnemonic
+                    .value()
+                    .iter()
+                    .take_while(|c| c.is_ascii_uppercase() || c.is_ascii_digit())
+                    .count();
+                let (last_upper, _) = mnemonic
+                    .value()
+                    .iter()
+                    .enumerate()
+                    .rfind(|(_, c)| c.is_ascii_uppercase() || c.is_ascii_digit())
+                    .expect("Mnemonic cannot be empty");
+
+                if shortform_len < 1
+                    || last_upper != shortform_len - 1
+                    || mnemonic.value().len() > 12
+                {
+                    panic!("{}::{} Invalid mnemonic, must follow \"SHORTlong\" format and <= 12 characters", name.to_string(), variant_name.to_string());
+                }
+                let x = match &variant.fields {
+                    syn::Fields::Unnamed(x) if x.unnamed.len() == 1 => quote! {
+                        x if scpi::util::mnemonic_compare(#mnemonic, x) => Some(#name::#variant_name(Default::default()))
+                    },
+                    syn::Fields::Unit => quote! {
+                        x if scpi::util::mnemonic_compare(#mnemonic, x) => Some(#name::#variant_name)
+                    },
+                    _ => quote_spanned! {
+                        variant_name.span() => compile_error!("Variant must be unit or single unnamed field implementing default")
+                    },
                 };
                 from_mnemonic_matches.push(x);
 
-                let mnemonic_return =
-                    LitByteStr::new(&mnemonic.value().to_ascii_uppercase(), name.span());
+                let mnemonic_return = LitByteStr::new(&mnemonic.value(), variant_name.span());
 
-                let x2 = quote! {
-                    #name::#variant_name => #mnemonic_return
+                let x2 = match &variant.fields {
+                    syn::Fields::Unnamed(x) if x.unnamed.len() == 1 => quote! {
+                        #name::#variant_name(..) => #mnemonic_return
+                    },
+                    syn::Fields::Unit => quote! {
+                        #name::#variant_name => #mnemonic_return
+                    },
+                    _ => quote_spanned! {
+                        variant_name.span() => compile_error!("Variant must be unit or single unnamed field implementing default")
+                    },
                 };
-                println!("{}", x2);
+                //println!("{}", x2);
                 to_mnemonic_matches.push(x2);
+            } else {
+                panic!(
+                    "{}::{} Missing mnemonic",
+                    name.to_string(),
+                    variant_name.to_string()
+                );
             }
         }
     }
-    let match_none = quote! {
+    from_mnemonic_matches.push(quote! {
         _ => None
-    };
-    from_mnemonic_matches.push(match_none);
+    });
 
     let expanded = quote! {
         // The generated impl.
@@ -130,7 +170,7 @@ pub fn derive_scpi_enum(input: proc_macro::TokenStream) -> proc_macro::TokenStre
                 }
             }
 
-            fn to_mnemonic(&self) -> &'static [u8] {
+            fn mnemonic(&self) -> &'static [u8] {
                 match self {
                     #(#to_mnemonic_matches),*
                 }

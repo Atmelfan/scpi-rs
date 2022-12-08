@@ -28,8 +28,6 @@ default-features = false
 optional = true
 features = [
     "autoconvert",
-    "usize", "u8", "u16", "u32", "u64",
-    "isize", "i8", "i16", "i32", "i64",
     "f32", "f64",
     "si",
     "try-from"
@@ -38,15 +36,13 @@ features = [
 [dev-dependencies]
 csv = "1.1"
 serde = { version = "1", features = ["derive"] }
+rustyline = "10.0"
 
 [features]
 default = [
     "extended-error",
     "alloc",
     # Units
-    "unit-length",
-    "unit-velocity",
-    "unit-acceleration",
     "unit-electric-potential",
     "unit-electric-current",
     "unit-electric-conductance",
@@ -57,14 +53,10 @@ default = [
     "unit-energy",
     "unit-power",
     "unit-angle",
-    "unit-amount-of-substance",
-    "unit-magnetic-flux",
-    "unit-magnetic-flux-density",
     "unit-ratio",
     "unit-temperature",
     "unit-time",
-    "unit-pressure",
-    "unit-volume"
+    "unit-frequency",
 ]
 
 # Use std

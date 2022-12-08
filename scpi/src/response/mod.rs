@@ -2,7 +2,7 @@ use crate::error::{Error, ErrorCode, Result};
 use crate::format::{Arbitrary, Binary, Character, Expression, Hex, Octal};
 
 pub mod arrayformatter;
-#[cfg(feature="alloc")]
+#[cfg(feature = "alloc")]
 pub mod vecformatter;
 
 use lexical_core::FormattedSize;
@@ -13,13 +13,13 @@ const RESPONSE_HEADER_SEPARATOR: u8 = b' ';
 const RESPONSE_MESSAGE_UNIT_SEPARATOR: u8 = b';';
 const RESPONSE_MESSAGE_TERMINATOR: u8 = b'\n';
 
-pub trait Data {
+pub trait ResponseData {
     fn format_response_data(&self, formatter: &mut dyn Formatter) -> Result<()>;
 }
 
 macro_rules! impl_non_decimal_data {
     ($prefix:literal, $name:ident, $radix:literal; $typ:ty) => {
-        impl Data for $name<$typ> {
+        impl ResponseData for $name<$typ> {
             fn format_response_data(&self, formatter: &mut dyn Formatter) -> Result<()> {
                 let mut buf = [b'0'; <$typ>::FORMATTED_SIZE];
                 const FORMAT: u128 = NumberFormatBuilder::from_radix($radix);
@@ -35,7 +35,7 @@ macro_rules! impl_non_decimal_data {
 // Create decimal/non-decimal formatters for integers
 macro_rules! impl_integer {
     ($typ:ty) => {
-        impl Data for $typ {
+        impl ResponseData for $typ {
             fn format_response_data(&self, formatter: &mut dyn Formatter) -> Result<()> {
                 let mut buf = [b'0'; <$typ>::FORMATTED_SIZE_DECIMAL];
                 let slc = lexical_core::write::<$typ>(*self, &mut buf);
@@ -63,7 +63,7 @@ impl_integer!(usize);
 // Create formatters for floating point
 macro_rules! impl_real {
     ($typ:ty) => {
-        impl Data for $typ {
+        impl ResponseData for $typ {
             fn format_response_data(&self, formatter: &mut dyn Formatter) -> Result<()> {
                 if self.is_nan() {
                     // NaN is represented by 9.91E+37
@@ -88,7 +88,7 @@ macro_rules! impl_real {
 impl_real!(f32);
 impl_real!(f64);
 
-impl Data for bool {
+impl ResponseData for bool {
     fn format_response_data(&self, formatter: &mut dyn Formatter) -> Result<()> {
         if *self {
             formatter.push_byte(b'1')
@@ -98,7 +98,7 @@ impl Data for bool {
     }
 }
 
-impl<'a> Data for Arbitrary<'a> {
+impl<'a> ResponseData for Arbitrary<'a> {
     fn format_response_data(&self, formatter: &mut dyn Formatter) -> Result<()> {
         let mut buf = [0u8; usize::FORMATTED_SIZE_DECIMAL];
         let slc = lexical_core::write::<usize>(self.0.len(), &mut buf);
@@ -113,13 +113,13 @@ impl<'a> Data for Arbitrary<'a> {
     }
 }
 
-impl<'a> Data for Character<'a> {
+impl<'a> ResponseData for Character<'a> {
     fn format_response_data(&self, formatter: &mut dyn Formatter) -> Result<()> {
         formatter.push_ascii(self.0)
     }
 }
 
-impl<'a> Data for Expression<'a> {
+impl<'a> ResponseData for Expression<'a> {
     fn format_response_data(&self, formatter: &mut dyn Formatter) -> Result<()> {
         formatter.push_byte(b'(')?;
         formatter.push_ascii(self.0)?;
@@ -127,13 +127,13 @@ impl<'a> Data for Expression<'a> {
     }
 }
 
-impl<'a> Data for &'a str {
+impl<'a> ResponseData for &'a str {
     fn format_response_data(&self, formatter: &mut dyn Formatter) -> Result<()> {
         Arbitrary(self.as_bytes()).format_response_data(formatter)
     }
 }
 
-impl<'a> Data for &'a [u8] {
+impl<'a> ResponseData for &'a [u8] {
     fn format_response_data(&self, formatter: &mut dyn Formatter) -> Result<()> {
         if !self.is_ascii() {
             Err(ErrorCode::ExecutionError.into())
@@ -152,7 +152,7 @@ impl<'a> Data for &'a [u8] {
     }
 }
 
-impl Data for Error {
+impl ResponseData for Error {
     fn format_response_data(&self, formatter: &mut dyn Formatter) -> Result<()> {
         self.get_code().format_response_data(formatter)?;
         formatter.data_separator()?;
@@ -166,6 +166,17 @@ impl Data for Error {
         } else {
             self.get_message().format_response_data(formatter)
         }
+    }
+}
+
+impl<T> ResponseData for T
+where
+    T: crate::option::ScpiEnum,
+{
+    fn format_response_data(&self, formatter: &mut dyn Formatter) -> Result<()> {
+        let mnemonic = self.mnemonic();
+        let short_form = mnemonic.split(|c| !c.is_ascii_uppercase()).next().unwrap();
+        formatter.push_str(short_form)
     }
 }
 
@@ -244,7 +255,7 @@ impl<'a> ResponseUnit<'a> {
 
     pub fn data<U>(&mut self, data: U) -> &mut Self
     where
-        U: Data,
+        U: ResponseData,
     {
         self.result = self.result.and_then(|_| {
             if self.has_data {

@@ -1,29 +1,82 @@
 //! # STATus Subsystem
 //! This subsystem controls the SCPI-defined status-reporting structures. SCPI defines, in
 //! addition to those in IEEE 488.2, QUEStionable, OPERation, Instrument SUMmary and
-//! INSTrument registers. 
-//! 
+//! INSTrument registers.
+//!
 //! These registers conform to the IEEE 488.2 specification and each
 //! may be comprised of a condition register, an event register, an enable register, and negative
 //! and positive transition filters. The purpose and definition of the SCPI-defined registers is
 //! described in “Volume 1: Syntax and Style”.
-//! 
+//!
 //! SCPI also defines an IEEE 488.2 queue for status. The queue provides a human readable
 //! record of instrument events. The application programmer may individually enable events
 //! into the queue. STATus:PRESet enables errors and disables all other events. If the summary
 //! of the queue is reported, it shall be reported in bit 2 of the status byte register. A subset of
 //! error/event numbers is defined by SCPI. Additional error/event numbers will be defined at a
 //! later date.
-//! 
+//!
 use crate::error::Result;
 use crate::prelude::*;
-use crate::tokenizer::Arguments;
 use crate::{nquery, qonly};
 
-use core::convert::TryInto;
 use core::marker::PhantomData;
 
-use super::{ScpiDevice, EventRegister, OperationBits, QuestionableBits};
+use super::{BitFlags, EventRegisterName, GetEventRegister, ScpiDevice};
+
+pub struct Operation;
+impl EventRegisterName for Operation {
+    type BitFlags = OperationBits;
+}
+
+/// The OPERation status register contains conditions which are part of the instrument’s normal
+/// operation.
+pub enum OperationBits {
+    /// The instrument is currently performing a calibration.
+    Calibrating = 0,
+    /// The instrument is waiting for signals it controls to stabilize
+    /// enough to begin measurements.
+    Settling = 1,
+    /// The instrument is currently changing its range.
+    Ranging = 2,
+    /// A sweep is in progress.
+    Sweeping = 3,
+    /// The instrument is actively measuring.
+    Measuring = 4,
+    /// The instrument is in a “wait for trigger” state of the
+    /// trigger model.
+    WaitingForTrig = 5,
+    /// The instrument is in a “wait for arm” state of the trigger
+    /// model.
+    WaitingForArm = 6,
+    /// The instrument is currently performing a correction.
+    Correcting = 7,
+    /// Available to designer.
+    Designer1 = 8,
+    /// Available to designer.
+    Designer2 = 9,
+    /// Available to designer.
+    Designer3 = 10,
+    /// Available to designer.
+    Designer4 = 11,
+    /// Available to designer.
+    Designer5 = 12,
+    /// One of n multiple logical instruments is
+    /// reporting OPERational status.
+    InstrumentSummary = 13,
+    /// A user-defined programming is currently in the run
+    /// state.
+    ProgramRunning = 14,
+}
+
+impl BitFlags<u16> for OperationBits {
+    fn get_mask(self) -> u16 {
+        1 << (self as u16)
+    }
+
+    fn get_pos(self) -> u16 {
+        self as u16
+    }
+}
 
 ///## 20.1.4 \[:EVENt\]?
 ///> `STATus:OPERation:EVENt?`
@@ -53,6 +106,50 @@ pub type StatOperCondCommand = CondCommand<Operation>;
 ///> Note that 32767 is the maximum value returned as the most-significant bit of the register
 ///> cannot be set true.
 pub type StatOperEnabCommand = EnabCommand<Operation>;
+
+pub struct Questionable;
+impl EventRegisterName for Questionable {
+    type BitFlags = QuestionableBits;
+}
+
+/// The QUEStionable status register set contains bits which give an indication of the quality of
+/// various aspects of the signal.
+pub enum QuestionableBits {
+    /// Indicates that the data is currently being acquired or generated
+    SummaryVoltage = 0,
+    SummaryCurrent = 1,
+    SummaryTime = 2,
+    SummaryPower = 3,
+    SummaryTemperature = 4,
+    SummaryFrequency = 5,
+    SummaryPhase = 6,
+    SummaryModulation = 7,
+    SummaryCalibration = 8,
+    Designer1 = 9,
+    Designer2 = 10,
+    Designer3 = 11,
+    Designer4 = 12,
+    InstrumentSummary = 13,
+    /// Bit 14 is defined as the Command Warning bit. This bit indicates a non-fatal warning that
+    /// relates to the instrument’s interpretation of a command, query, or one or more parameters of
+    /// a specific command or query. Setting this bit is a warning to the application that the resultant
+    /// instrument state or action is probably what was expected but may deviate in some manner.
+    ///
+    /// For example, the Command Warning bit is set whenever a parameter in one of the
+    /// Measurement Instruction commands or queries is ignored during execution. Such a
+    /// parameter may be ignored because it cannot be specified by a particular instrument.
+    CommandWarning = 14,
+}
+
+impl BitFlags<u16> for QuestionableBits {
+    fn get_mask(self) -> u16 {
+        1 << (self as u16)
+    }
+
+    fn get_pos(self) -> u16 {
+        self as u16
+    }
+}
 
 ///# 20.1.6 :NTRansition \<NRf\> | \<non-decimal numeric\>
 ///> `STATus:OPERation:NTRansition`
@@ -126,31 +223,12 @@ where
     }
 }
 
-pub trait EventRegisterName {
-    type BitFlags;
-}
-
-pub struct Questionable;
-impl EventRegisterName for Questionable {
-    type BitFlags = QuestionableBits;
-}
-
-pub struct Operation;
-impl EventRegisterName for Operation {
-    type BitFlags = OperationBits;
-}
-
-pub trait GetEventRegister<X> where X: EventRegisterName {
-    fn register(&self) -> &EventRegister;
-    fn register_mut(&mut self) -> &mut EventRegister;
-}
-
 ///> `EVENt?`
 ///> Defined the same as STATus:OPERation:EVENt. See Section 20.1.4 for details.
 pub struct EventCommand<T>(PhantomData<T>);
 
-impl<T> EventCommand<T>  {
-    pub const fn new()-> Self {
+impl<T> EventCommand<T> {
+    pub const fn new() -> Self {
         Self(PhantomData)
     }
 }
@@ -169,7 +247,6 @@ where
         _args: Arguments,
         mut response: ResponseUnit,
     ) -> Result<()> {
-
         response
             .data(core::mem::replace(&mut device.register_mut().event, 0) & 0x7FFFu16)
             .finish()
@@ -180,8 +257,8 @@ where
 ///> Defined the same as STATus:OPERation:CONDition. See Section 20.1.2 for details.
 pub struct CondCommand<T>(PhantomData<T>);
 
-impl<T> CondCommand<T>  {
-    pub const fn new()-> Self {
+impl<T> CondCommand<T> {
+    pub const fn new() -> Self {
         Self(PhantomData)
     }
 }
@@ -211,8 +288,8 @@ where
 ///Defined the same as STATus:OPERation:ENABle. See Section 20.1.3 for details.
 pub struct EnabCommand<T>(PhantomData<T>);
 
-impl<T> EnabCommand<T>  {
-    pub const fn new()-> Self {
+impl<T> EnabCommand<T> {
+    pub const fn new() -> Self {
         Self(PhantomData)
     }
 }
@@ -223,7 +300,7 @@ where
     D: Device + GetEventRegister<T>,
 {
     fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
-        device.register_mut().enable = args.next()?.try_into()?;
+        device.register_mut().enable = args.next()?;
         Ok(())
     }
 
@@ -234,9 +311,7 @@ where
         _args: Arguments,
         mut response: ResponseUnit,
     ) -> Result<()> {
-        response
-            .data(device.register().enable & 0x7FFFu16)
-            .finish()
+        response.data(device.register().enable & 0x7FFFu16).finish()
     }
 }
 
@@ -244,8 +319,8 @@ where
 ///> Defined the same as STATus:OPERation:NTRansition. See Section 20.1.6 for details.
 pub struct NtrCommand<T>(PhantomData<T>);
 
-impl<T> NtrCommand<T>  {
-    pub const fn new()-> Self {
+impl<T> NtrCommand<T> {
+    pub const fn new() -> Self {
         Self(PhantomData)
     }
 }
@@ -256,7 +331,7 @@ where
     D: Device + GetEventRegister<T>,
 {
     fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
-        device.register_mut().ntr_filter = args.next()?.try_into()?;
+        device.register_mut().ntr_filter = args.next()?;
         Ok(())
     }
 
@@ -277,8 +352,8 @@ where
 ///> Defined the same as STATus:OPERation:PTRansition. See Section 20.1.7 for details.
 pub struct PtrCommand<T>(PhantomData<T>);
 
-impl<T> PtrCommand<T>  {
-    pub const fn new()-> Self {
+impl<T> PtrCommand<T> {
+    pub const fn new() -> Self {
         Self(PhantomData)
     }
 }
@@ -289,38 +364,7 @@ where
     D: Device + GetEventRegister<T>,
 {
     fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
-        device.register_mut().ptr_filter = args.next()?.try_into()?;
-        Ok(())
-    }
-
-    fn query(
-        &self,
-        device: &mut D,
-        _context: &mut Context,
-        _args: Arguments,
-        mut response: ResponseUnit,
-    ) -> Result<()> {
-        response
-            .data(device.register().ptr_filter & 0x7FFFu16)
-            .finish()
-    }
-}
-
-pub struct BitCommand<const BIT: usize, T>(PhantomData<T>);
-
-impl<const BIT: usize, T> BitCommand<BIT, T>  {
-    pub const fn new()-> Self {
-        Self(PhantomData)
-    }
-}
-
-impl<const BIT: usize, D, T> Command<D> for BitCommand<BIT, T>
-where
-    T: EventRegisterName,
-    D: Device + GetEventRegister<T>,
-{
-    fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
-        device.register_mut().ptr_filter = args.next()?.try_into()?;
+        device.register_mut().ptr_filter = args.next()?;
         Ok(())
     }
 

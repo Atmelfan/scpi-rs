@@ -4,8 +4,6 @@ use super::{
     Formatter, ResponseUnit, RESPONSE_MESSAGE_TERMINATOR, RESPONSE_MESSAGE_UNIT_SEPARATOR,
 };
 
-
-
 impl Formatter for alloc::vec::Vec<u8> {
     /// Internal use
     fn push_str(&mut self, s: &[u8]) -> Result<()> {

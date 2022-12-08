@@ -9,7 +9,7 @@ use scpi::{
     ieee488_cls, ieee488_ese, ieee488_esr, ieee488_idn, ieee488_opc, ieee488_rst, ieee488_sre,
     ieee488_stb, ieee488_tst, ieee488_wai, qonly, scpi_status, scpi_system,
 };
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryFrom;
 use std::marker::PhantomData;
 
 mod util;
@@ -30,7 +30,7 @@ impl<T> EchoCommand<T> {
 
 impl<T> Command<TestDevice> for EchoCommand<T>
 where
-    T: for<'a> TryFrom<Token<'a>, Error = Error> + Data,
+    T: for<'a> TryFrom<Token<'a>, Error = Error> + ResponseData,
 {
     qonly!();
 
@@ -41,7 +41,7 @@ where
         mut args: Arguments,
         mut response: ResponseUnit,
     ) -> Result<()> {
-        let x: T = args.next()?.try_into()?;
+        let x: T = args.next()?;
         response.data(x).finish()
     }
 }
@@ -58,7 +58,7 @@ impl Command<TestDevice> for StrEchoCommand {
         mut args: Arguments,
         mut response: ResponseUnit,
     ) -> Result<()> {
-        let x: &[u8] = args.next()?.try_into()?;
+        let x: &[u8] = args.next()?;
         response.data(x).finish()
     }
 }
@@ -75,7 +75,7 @@ impl Command<TestDevice> for ArbEchoCommand {
         mut args: Arguments,
         mut response: ResponseUnit,
     ) -> Result<()> {
-        let x: Arbitrary = args.next()?.try_into()?;
+        let x: Arbitrary = args.next()?;
         response.data(x).finish()
     }
 }
@@ -92,7 +92,7 @@ impl Command<TestDevice> for ChrEchoCommand {
         mut args: Arguments,
         mut response: ResponseUnit,
     ) -> Result<()> {
-        let x: Character = args.next()?.try_into()?;
+        let x: Character = args.next()?;
         response.data(x).finish()
     }
 }
@@ -133,7 +133,7 @@ impl<T> IsInf<T> {
 
 impl<T> Command<TestDevice> for IsInf<T>
 where
-    T: for<'a> TryFrom<Token<'a>, Error = Error> + Data + InfOrNan,
+    T: for<'a> TryFrom<Token<'a>, Error = Error> + ResponseData + InfOrNan,
 {
     qonly!();
 
@@ -144,7 +144,7 @@ where
         mut args: Arguments,
         mut response: ResponseUnit,
     ) -> Result<()> {
-        let x: T = args.next()?.try_into()?;
+        let x: T = args.next()?;
         response.data(x.is_t_inf()).finish()
     }
 }
@@ -160,7 +160,7 @@ impl<T> IsNan<T> {
 
 impl<T> Command<TestDevice> for IsNan<T>
 where
-    T: for<'a> TryFrom<Token<'a>, Error = Error> + Data + InfOrNan,
+    T: for<'a> TryFrom<Token<'a>, Error = Error> + ResponseData + InfOrNan,
 {
     qonly!();
 
@@ -171,7 +171,7 @@ where
         mut args: Arguments,
         mut response: ResponseUnit,
     ) -> Result<()> {
-        let x: T = args.next()?.try_into()?;
+        let x: T = args.next()?;
         response.data(x.is_t_nan()).finish()
     }
 }
@@ -282,13 +282,18 @@ macro_rules! test_real {
             fn test_decimal() {
                 let mut dev = TestDevice::new();
 
-                let valid = [("1.0", "1.0\n"), ("+1", "1.0\n"), ("-1", "-1.0\n"), ("1e10", "1.0e10\n"), ("+1.3E-1", "0.13\n")];
+                let valid = [
+                    ("1.0", "1.0\n"),
+                    ("+1", "1.0\n"),
+                    ("-1", "-1.0\n"),
+                    ("1e10", "1.0e10\n"),
+                    ("+1.3E-1", "0.13\n"),
+                ];
                 for s in &valid {
-                    
                     let cmd = format!("{cmd} {value}", cmd = $cmd, value = s.0);
                     let res =
                         util::test_execute_str(&IEEE488_TREE, cmd.as_bytes(), &mut dev).unwrap();
-                        println!("{}=>{}", s.0, std::str::from_utf8(res.as_slice()).unwrap());
+                    println!("{}=>{}", s.0, std::str::from_utf8(res.as_slice()).unwrap());
                     assert_eq!(res.as_slice(), s.1.as_bytes());
                 }
             }
@@ -479,7 +484,7 @@ impl Command<TestDevice> for Utf8Command {
         mut args: Arguments,
         mut response: ResponseUnit,
     ) -> Result<()> {
-        let x: &str = args.next()?.try_into()?;
+        let x: &str = args.next()?;
         response.data(Arbitrary(x.as_bytes())).finish()
     }
 }

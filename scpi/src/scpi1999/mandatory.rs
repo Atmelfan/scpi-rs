@@ -16,27 +16,27 @@ macro_rules! scpi_status {
                         $crate::prelude::Leaf {
                             name: b"EVENt",
                             default: true,
-                            handler: &StatOperEvenCommand::new(),
+                            handler: &$crate::scpi1999::status::StatOperEvenCommand::new(),
                         },
                         $crate::prelude::Leaf {
                             name: b"CONDition",
                             default: false,
-                            handler: &StatOperCondCommand::new(),
+                            handler: &$crate::scpi1999::status::StatOperCondCommand::new(),
                         },
                         $crate::prelude::Leaf {
                             name: b"ENABle",
                             default: false,
-                            handler: &StatOperEnabCommand::new(),
+                            handler: &$crate::scpi1999::status::StatOperEnabCommand::new(),
                         },
                         $crate::prelude::Leaf {
                             name: b"NTRansition",
                             default: false,
-                            handler: &StatOperNtrCommand::new(),
+                            handler: &$crate::scpi1999::status::StatOperNtrCommand::new(),
                         },
                         $crate::prelude::Leaf {
                             name: b"PTRansition",
                             default: false,
-                            handler: &StatOperPtrCommand::new(),
+                            handler: &$crate::scpi1999::status::StatOperPtrCommand::new(),
                         },
                     ],
                 },
@@ -46,34 +46,34 @@ macro_rules! scpi_status {
                         $crate::prelude::Leaf {
                             name: b"EVENt",
                             default: true,
-                            handler: &StatQuesEvenCommand::new(),
+                            handler: &$crate::scpi1999::status::StatQuesEvenCommand::new(),
                         },
                         $crate::prelude::Leaf {
                             name: b"CONDition",
                             default: false,
-                            handler: &StatQuesCondCommand::new(),
+                            handler: &$crate::scpi1999::status::StatQuesCondCommand::new(),
                         },
                         $crate::prelude::Leaf {
                             name: b"ENABle",
                             default: false,
-                            handler: &StatQuesEnabCommand::new(),
+                            handler: &$crate::scpi1999::status::StatQuesEnabCommand::new(),
                         },
                         $crate::prelude::Leaf {
                             name: b"NTRansition",
                             default: false,
-                            handler: &StatQuesNtrCommand::new(),
+                            handler: &$crate::scpi1999::status::StatQuesNtrCommand::new(),
                         },
                         $crate::prelude::Leaf {
                             name: b"PTRansition",
                             default: false,
-                            handler: &StatQuesPtrCommand::new(),
+                            handler: &$crate::scpi1999::status::StatQuesPtrCommand::new(),
                         },
                     ],
                 },
                 $crate::prelude::Leaf {
                     name: b"PRESet",
                     default: false,
-                    handler: &StatPresCommand,
+                    handler: &$crate::scpi1999::status::StatPresCommand,
                 },
                 $(
                     $node
@@ -96,24 +96,24 @@ macro_rules! scpi_system {
                         $crate::prelude::Leaf {
                             name: b"NEXT",
                             default: true,
-                            handler: &SystErrNextCommand,
+                            handler: &$crate::scpi1999::system::SystErrNextCommand,
                         },
                         $crate::prelude::Leaf {
                             name: b"ALL",
                             default: false,
-                            handler: &SystErrAllCommand,
+                            handler: &$crate::scpi1999::system::SystErrAllCommand,
                         },
                         $crate::prelude::Leaf {
                             name: b"COUNt",
                             default: false,
-                            handler: &SystErrCounCommand,
+                            handler: &$crate::scpi1999::system::SystErrCounCommand,
                         },
                     ],
                 },
                 $crate::prelude::Leaf {
                     name: b"VERSion",
                     default: false,
-                    handler: &SystVersCommand { year: 1999, rev: 0 }
+                    handler: &$crate::scpi1999::system::SystVersCommand { year: 1999, rev: 0 }
                 },
                 $(
                     $node

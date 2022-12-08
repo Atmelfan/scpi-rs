@@ -40,6 +40,8 @@
 //! # Getting started
 //! Look at the [`example`](https://github.com/Atmelfan/scpi-rs/tree/master/example) for how to create a tree and run commands.
 //!
+//! Here's a good resource general SCPI style and good practices: https://www.keysight.com/us/en/assets/9921-01873/miscellaneous/SCPITrainingSlides.pdf
+//!
 //! # Character coding
 //! SCPI is strictly ASCII and will throw a error InvalidCharacter if any non-ascii `(>127)` characters are encountered (Exception: Arbitrary data blocks).
 //! This library uses ASCII `[u8]` and not Rust UTF-8 `str`, use `to/from_bytes()` to convert in between them.
@@ -109,15 +111,17 @@ pub mod scpi1999;
 pub mod suffix;
 pub mod tokenizer;
 pub mod tree;
-pub mod util;
+
+pub use tokenizer::util;
 
 /// Prelude containing the most useful stuff
 ///
 pub mod prelude {
     pub use crate::command::{Command, CommandTypeMeta};
     pub use crate::error::{ArrayErrorQueue, Error, ErrorCode, ErrorQueue};
-    pub use crate::response::{Data, Formatter, ResponseUnit};
-    pub use crate::tokenizer::{Token, Tokenizer, Arguments};
+    pub use crate::parameters::{Arguments, NumericValue};
+    pub use crate::response::{Formatter, ResponseData, ResponseUnit};
+    pub use crate::tokenizer::{Token, Tokenizer};
     pub use crate::tree::Node::{self, Branch, Leaf};
     pub use crate::{
         expression::{channel_list, numeric_list},
@@ -182,7 +186,7 @@ pub mod format {
     pub struct Character<'a>(pub &'a [u8]);
 }
 
-/// A basic device capable of executing commands and not much else 
+/// A basic device capable of executing commands and not much else
 pub trait Device {
     fn handle_error(&mut self, err: Error);
 }
@@ -190,7 +194,7 @@ pub trait Device {
 /// Context in which to execute a message.
 ///
 pub struct Context {
-    /// Does output buffer contain data? 
+    /// Does output buffer contain data?
     pub mav: bool,
 }
 
@@ -202,8 +206,6 @@ impl Context {
     ///  * `writer` - Writer used to write back response messages
     ///  * `root` - SCPI command tree to use
     pub fn new() -> Self {
-        Context {
-            mav: false,
-        }
+        Context { mav: false }
     }
 }

@@ -3,10 +3,7 @@
 //!
 
 use crate::error::Result;
-use crate::prelude::ErrorCode;
-use crate::response::ResponseUnit;
-use crate::tokenizer::Arguments;
-use crate::{Context, Device};
+use crate::prelude::*;
 
 /// This trait implements a command with optional event/query operations.
 ///
@@ -76,8 +73,8 @@ pub enum CommandTypeMeta {
 #[macro_export]
 macro_rules! qonly {
     () => {
-        fn meta(&self) -> CommandTypeMeta {
-            CommandTypeMeta::QueryOnly
+        fn meta(&self) -> $crate::prelude::CommandTypeMeta {
+            $crate::prelude::CommandTypeMeta::QueryOnly
         }
     };
 }
@@ -86,8 +83,18 @@ macro_rules! qonly {
 #[macro_export]
 macro_rules! nquery {
     () => {
-        fn meta(&self) -> CommandTypeMeta {
-            CommandTypeMeta::NoQuery
+        fn meta(&self) -> $crate::prelude::CommandTypeMeta {
+            $crate::prelude::CommandTypeMeta::NoQuery
+        }
+    };
+}
+
+/// Marks the command as no query
+#[macro_export]
+macro_rules! both {
+    () => {
+        fn meta(&self) -> $crate::prelude::CommandTypeMeta {
+            $crate::prelude::CommandTypeMeta::Both
         }
     };
 }
@@ -96,7 +103,6 @@ macro_rules! nquery {
 mod test_command {
     use crate::error::Result;
     use crate::prelude::*;
-    use crate::tokenizer::Arguments;
 
     impl Device for () {
         fn handle_error(&mut self, _err: Error) {}

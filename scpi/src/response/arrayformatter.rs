@@ -10,15 +10,12 @@ use super::{
 impl<const CAP: usize> Formatter for ArrayVec<u8, CAP> {
     /// Internal use
     fn push_str(&mut self, s: &[u8]) -> Result<()> {
-        self
-            .try_extend_from_slice(s)
+        self.try_extend_from_slice(s)
             .map_err(|_| ErrorCode::OutOfMemory.into())
     }
 
     fn push_byte(&mut self, b: u8) -> Result<()> {
-        self
-            .try_push(b)
-            .map_err(|_| ErrorCode::OutOfMemory.into())
+        self.try_push(b).map_err(|_| ErrorCode::OutOfMemory.into())
     }
 
     fn as_slice(&self) -> &[u8] {

@@ -1,10 +1,78 @@
 mod numeric;
-pub use numeric::NumericValues;
+pub use numeric::NumericValue;
 
+use core::iter::Peekable;
 use core::str;
 
 use crate::prelude::*;
 use crate::util;
+
+/// Alias
+pub struct Arguments<'a, 'b>(&'a mut Peekable<Tokenizer<'b>>);
+
+impl<'a, 'b> Arguments<'a, 'b> {
+    pub fn with(toka: &'a mut Peekable<Tokenizer<'b>>) -> Self {
+        Self(toka)
+    }
+}
+
+impl<'a, 'b> Arguments<'a, 'b> {
+    /// Attempts to consume a data object.
+    /// If no data is found, none if returned if optional=true else Error:MissingParam.
+    ///
+    /// Note! Does not skip
+    pub fn next_optional_token(&mut self) -> Result<Option<Token<'a>>, Error> {
+        //Try to read a data object
+
+        if let Some(item) = self.0.peek() {
+            //Check if next item is a data object
+            let token = item.clone()?;
+            match token {
+                //Data object
+                t if t.is_data() => {
+                    //Valid data object, consume and return
+                    self.0.next();
+                    Ok(Some(token))
+                }
+                //Data separator, next token must be a data object
+                Token::ProgramDataSeparator => {
+                    self.0.next();
+                    self.next_token().map(|v| Some(v))
+                }
+                // Something else
+                _ => Ok(None),
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn next_token(&mut self) -> Result<Token<'a>, Error> {
+        match self.next_optional_token() {
+            Ok(Some(tok)) => Ok(tok),
+            Ok(None) => Err(ErrorCode::MissingParameter.into()),
+            Err(err) => Err(err),
+        }
+    }
+
+    pub fn next<T>(&mut self) -> Result<T, Error>
+    where
+        T: TryFrom<Token<'a>, Error = Error>,
+    {
+        self.next_token()?.try_into()
+    }
+
+    pub fn next_optional<T>(&mut self) -> Result<Option<T>, Error>
+    where
+        T: TryFrom<Token<'a>, Error = Error>,
+    {
+        let tok = self.next_optional_token()?;
+        match tok {
+            Some(tok) => Ok(Some(tok.try_into()?)),
+            None => Ok(None),
+        }
+    }
+}
 
 /// Convert string data data into a slice (&\[u8\]).
 ///

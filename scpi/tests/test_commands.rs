@@ -4,13 +4,12 @@ use scpi::prelude::*;
 
 //Default commands
 use scpi::ieee488::mandatory::*;
-use scpi::scpi1999::mandatory::*;
+use scpi::scpi1999::{mandatory::*, ScpiDevice};
 use scpi::tree::Node;
 use scpi::{
     ieee488_cls, ieee488_ese, ieee488_esr, ieee488_idn, ieee488_opc, ieee488_rst, ieee488_sre,
     ieee488_stb, ieee488_tst, ieee488_wai, nquery, qonly, scpi_status, scpi_system,
 };
-use std::convert::TryInto;
 
 mod util;
 use util::TestDevice;
@@ -70,9 +69,9 @@ impl Command<TestDevice> for ErrorCommand {
         &self,
         device: &mut TestDevice,
         _context: &mut Context,
-        mut args: scpi::tokenizer::Arguments,
+        mut args: Arguments,
     ) -> Result<()> {
-        let errcode: i16 = args.next()?.try_into()?;
+        let errcode: i16 = args.next()?;
         device.handle_error(
             ErrorCode::get_error(errcode)
                 .unwrap_or(ErrorCode::Custom(errcode, b"Custom Error"))
@@ -91,10 +90,12 @@ impl Command<TestDevice> for OperCommand {
         &self,
         device: &mut TestDevice,
         _context: &mut Context,
-        mut args: scpi::tokenizer::Arguments,
+        mut args: Arguments,
     ) -> Result<()> {
-        let condition: u16 = args.next()?.try_into()?;
-        <TestDevice as GetEventRegister<Operation>>::register_mut(device).set_condition(condition);
+        let condition: u16 = args.next()?;
+        device
+            .get_register_mut::<Operation>()
+            .set_condition(condition);
         Ok(())
     }
 }
@@ -110,8 +111,9 @@ impl Command<TestDevice> for QuesCommand {
         _context: &mut Context,
         mut args: Arguments,
     ) -> Result<()> {
-        let condition: u16 = args.next()?.try_into()?;
-        <TestDevice as GetEventRegister<Questionable>>::register_mut(device)
+        let condition: u16 = args.next()?;
+        device
+            .get_register_mut::<Questionable>()
             .set_condition(condition);
 
         Ok(())
@@ -127,7 +129,7 @@ impl Command<TestDevice> for QueryCommand {
         &self,
         _device: &mut TestDevice,
         _context: &mut Context,
-        _args: scpi::tokenizer::Arguments,
+        _args: Arguments,
         mut response: ResponseUnit,
     ) -> Result<()> {
         response.data(0i32).finish()
@@ -143,7 +145,7 @@ impl Command<TestDevice> for EventCommand {
         &self,
         _device: &mut TestDevice,
         _context: &mut Context,
-        _args: scpi::tokenizer::Arguments,
+        _args: Arguments,
     ) -> Result<()> {
         Ok(())
     }

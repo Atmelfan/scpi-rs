@@ -5,8 +5,9 @@ use core::iter::Peekable;
 
 use crate::command::Command;
 use crate::error::{Error, ErrorCode, Result};
+use crate::parameters::Arguments;
 use crate::response::Formatter;
-use crate::tokenizer::{Arguments, Token, Tokenizer};
+use crate::tokenizer::{Token, Tokenizer};
 use crate::{Context, Device};
 
 /// A SCPI command node
@@ -116,12 +117,12 @@ where
                 }
                 // Empty input
                 None => break Ok(()),
-                // 
-                Some(Err(err)) => break  Err(Error::new(*err)),
+                //
+                Some(Err(err)) => break Err(Error::new(*err)),
                 // idk?
                 Some(_) => break Err(ErrorCode::SyntaxError.into()),
             }
-            // SHould've consumed up to unit seperator
+            // Should've consumed up to unit seperator
 
             // What's next?
             match tokens.next() {
@@ -174,7 +175,8 @@ where
                 //std::println!("Leaf {}", std::str::from_utf8(name).unwrap());
                 match next {
                     // "Leaf .." | "Leaf\EOM"
-                    Some(Token::ProgramHeaderSeparator | Token::ProgramMessageUnitSeparator) | None => {
+                    Some(Token::ProgramHeaderSeparator | Token::ProgramMessageUnitSeparator)
+                    | None => {
                         // Consume the header seperator
                         tokens.next_if(|t| matches!(t, Ok(Token::ProgramHeaderSeparator)));
 
@@ -185,7 +187,7 @@ where
                     Some(Token::HeaderQuerySuffix) => {
                         // Consume query suffix
                         tokens.next();
-                        
+
                         // Consume header seperator
                         tokens.next_if(|t| matches!(t, Ok(Token::ProgramHeaderSeparator)));
 
@@ -201,9 +203,7 @@ where
                 //std::println!("Branch {}", std::str::from_utf8(name).unwrap());
                 match next {
                     // Branch[:]<mnemonic>..
-                    Some(
-                        Token::HeaderMnemonicSeparator | Token::ProgramMnemonic(..), 
-                    ) => {
+                    Some(Token::HeaderMnemonicSeparator | Token::ProgramMnemonic(..)) => {
                         // Consume seperator
                         tokens.next_if(|t| matches!(t, Ok(Token::HeaderMnemonicSeparator)));
 

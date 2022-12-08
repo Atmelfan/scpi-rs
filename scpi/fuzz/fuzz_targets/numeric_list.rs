@@ -3,9 +3,6 @@ use libfuzzer_sys::fuzz_target;
 
 extern crate scpi;
 
-mod fuzz_common;
-use fuzz_common::*;
-
 use scpi::expression::numeric_list::{NumericList};
 
 

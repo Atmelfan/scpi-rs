@@ -5,9 +5,9 @@
 
 use crate::error::Result;
 use crate::prelude::*;
-use crate::tokenizer::Arguments;
 use crate::qonly;
 
+use super::util::Auto;
 use super::ScpiDevice;
 
 ///## 21.8.8 \[NEXT\]?
@@ -30,7 +30,9 @@ where
         mut response: ResponseUnit,
     ) -> Result<()> {
         //Always return first error (NoError if empty)
-        response.data(device.pop_front_error()).finish()
+        response
+            .data(device.pop_front_error().unwrap_or_default())
+            .finish()
     }
 }
 
@@ -83,11 +85,7 @@ where
         if device.is_empty() {
             response.data(Error::new(ErrorCode::NoError)).finish()
         } else {
-            loop {
-                let err = device.pop_front_error();
-                if err == ErrorCode::NoError {
-                    break;
-                }
+            while let Some(err) = device.pop_front_error() {
                 response.data(err);
             }
             response.finish()
@@ -105,7 +103,7 @@ pub struct SystVersCommand {
     pub rev: u8,
 }
 
-impl Data for &SystVersCommand {
+impl ResponseData for &SystVersCommand {
     fn format_response_data(&self, formatter: &mut dyn Formatter) -> Result<()> {
         self.year.format_response_data(formatter)?;
         formatter.push_byte(b'.')?;
@@ -127,5 +125,45 @@ where
         mut response: ResponseUnit,
     ) -> Result<()> {
         response.data(self).finish()
+    }
+}
+
+#[cfg(feature = "unit-frequency")]
+pub trait LineFrequency {
+    fn line_frequency(&mut self, freq: NumericValue<uom::si::f32::Frequency>) -> Result<()>;
+    fn get_line_frequency(&self) -> uom::si::f32::Frequency;
+
+    fn auto(&mut self, auto: Auto) -> Result<()>;
+    fn get_auto(&self) -> Auto;
+}
+#[cfg(feature = "unit-frequency")]
+pub struct SystLfrCommand;
+
+#[cfg(feature = "unit-frequency")]
+impl<D> Command<D> for SystLfrCommand
+where
+    D: ScpiDevice + LineFrequency,
+{
+    fn meta(&self) -> CommandTypeMeta {
+        CommandTypeMeta::Both
+    }
+
+    fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
+        let freq: NumericValue<uom::si::f32::Frequency> = args.next()?;
+        match freq {
+            NumericValue::Auto => device.auto(Auto::Bool(true)),
+            freq => device.line_frequency(freq),
+        }
+    }
+
+    fn query(
+        &self,
+        device: &mut D,
+        _context: &mut Context,
+        _args: Arguments,
+        mut response: ResponseUnit,
+    ) -> Result<()> {
+        let freq: uom::si::f32::Frequency = device.get_line_frequency();
+        response.data(freq).finish()
     }
 }

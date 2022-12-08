@@ -22,11 +22,9 @@
 
 use crate::error::Result;
 use crate::format::Character;
-use crate::prelude::*;
-use crate::tokenizer::Arguments;
+use crate::parameters::Arguments;
+use crate::{both, prelude::*};
 use crate::{nquery, qonly};
-
-use core::convert::TryInto;
 
 use super::IEEE488Device;
 
@@ -62,8 +60,10 @@ impl<D> Command<D> for EseCommand
 where
     D: IEEE488Device,
 {
+    both!();
+
     fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
-        let ese = args.next()?.try_into()?;
+        let ese = args.next()?;
         device.set_ese(ese);
         Ok(())
     }
@@ -99,9 +99,7 @@ where
     ) -> Result<()> {
         let esr = device.esr();
         device.set_esr(0);
-        response
-            .data(esr)
-            .finish()
+        response.data(esr).finish()
     }
 }
 
@@ -159,6 +157,8 @@ impl<D> Command<D> for OpcCommand
 where
     D: IEEE488Device,
 {
+    both!();
+
     fn event(&self, device: &mut D, _context: &mut Context, _args: Arguments) -> Result<()> {
         device.exec_opc()
     }
@@ -223,8 +223,10 @@ impl<D> Command<D> for SreCommand
 where
     D: IEEE488Device,
 {
+    both!();
+
     fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
-        let sre = args.next()?.try_into()?;
+        let sre = args.next()?;
         device.set_sre(sre);
         Ok(())
     }
@@ -257,7 +259,7 @@ where
         mut response: ResponseUnit,
     ) -> Result<()> {
         // MAV is provided by the context from whatever interface the command was received on
-        let mut  stb = device.read_stb();
+        let mut stb = device.read_stb();
         if context.mav {
             stb |= 0x10;
         }
@@ -325,7 +327,7 @@ macro_rules! ieee488_idn {
         $crate::prelude::Leaf {
             name: b"*IDN",
             default: false,
-            handler: &IdnCommand {
+            handler: &$crate::ieee488::mandatory::IdnCommand {
                 manufacturer: $manufacturer,
                 model: $model,
                 serial: $serial,
@@ -341,7 +343,7 @@ macro_rules! ieee488_cls {
         $crate::prelude::Leaf {
             name: b"*CLS",
             default: false,
-            handler: &ClsCommand,
+            handler: &$crate::ieee488::mandatory::ClsCommand,
         }
     };
 }
@@ -352,7 +354,7 @@ macro_rules! ieee488_ese {
         $crate::prelude::Leaf {
             name: b"*ESE",
             default: false,
-            handler: &EseCommand,
+            handler: &$crate::ieee488::mandatory::EseCommand,
         }
     };
 }
@@ -363,7 +365,7 @@ macro_rules! ieee488_esr {
         $crate::prelude::Leaf {
             name: b"*ESR",
             default: false,
-            handler: &EsrCommand,
+            handler: &$crate::ieee488::mandatory::EsrCommand,
         }
     };
 }
@@ -374,7 +376,7 @@ macro_rules! ieee488_opc {
         $crate::prelude::Leaf {
             name: b"*OPC",
             default: false,
-            handler: &OpcCommand,
+            handler: &$crate::ieee488::mandatory::OpcCommand,
         }
     };
 }
@@ -385,7 +387,7 @@ macro_rules! ieee488_rst {
         $crate::prelude::Leaf {
             name: b"*RST",
             default: false,
-            handler: &RstCommand,
+            handler: &$crate::ieee488::mandatory::RstCommand,
         }
     };
 }
@@ -396,7 +398,7 @@ macro_rules! ieee488_sre {
         $crate::prelude::Leaf {
             name: b"*SRE",
             default: false,
-            handler: &SreCommand,
+            handler: &$crate::ieee488::mandatory::SreCommand,
         }
     };
 }
@@ -407,7 +409,7 @@ macro_rules! ieee488_stb {
         $crate::prelude::Leaf {
             name: b"*STB",
             default: false,
-            handler: &StbCommand,
+            handler: &$crate::ieee488::mandatory::StbCommand,
         }
     };
 }
@@ -418,7 +420,7 @@ macro_rules! ieee488_tst {
         $crate::prelude::Leaf {
             name: b"*TST",
             default: false,
-            handler: &TstCommand,
+            handler: &$crate::ieee488::mandatory::TstCommand,
         }
     };
 }
@@ -429,7 +431,7 @@ macro_rules! ieee488_wai {
         $crate::prelude::Leaf {
             name: b"*WAI",
             default: false,
-            handler: &WaiCommand,
+            handler: &$crate::ieee488::mandatory::WaiCommand,
         }
     };
 }

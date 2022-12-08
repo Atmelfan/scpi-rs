@@ -103,7 +103,10 @@ use uom::si::volume::{cubic_meter, cubic_millimeter, liter, milliliter, Volume};
 #[cfg(feature = "unit-frequency")]
 use uom::si::frequency::{gigahertz, hertz, kilohertz, megahertz, Frequency};
 
-use crate::error::Error;
+use crate::{
+    error::Error,
+    response::{Formatter, ResponseData},
+};
 
 /// A logarithmic or linear unit
 pub enum Db<V, UNIT> {
@@ -203,7 +206,7 @@ macro_rules! try_from_unit {
         impl<'a, U, V> TryFrom<Token<'a>> for $unit<U, V>
         where
             U: Units<V> + ?Sized,
-            V: Num + uom::Conversion<V> + TryFrom<Token<'a>,Error=Error>,
+            V: Num + uom::Conversion<V> + TryFrom<Token<'a>, Error=Error>,
             $base: $conversion,
             $(
             $subunit: $conversion
@@ -227,6 +230,15 @@ macro_rules! try_from_unit {
                 } else {
                     Err(ErrorCode::DataTypeError.into())
                 }
+            }
+        }
+
+        impl<U, V> ResponseData for $unit<U, V> where U: Units<V> + ?Sized, V: Num + Conversion<V> + ResponseData {
+            fn format_response_data(
+                &self,
+                formatter: &mut dyn Formatter,
+            ) -> core::result::Result<(), Error> {
+                self.value.format_response_data(formatter)
             }
         }
 

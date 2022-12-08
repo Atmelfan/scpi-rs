@@ -1,12 +1,12 @@
-use std::collections::VecDeque;
+use std::{collections::VecDeque, path::Path};
 
 use arrayvec::ArrayVec;
 use scpi::{
     error::Result,
     prelude::*,
     scpi1999::{
-        status::{GetEventRegister, Operation, Questionable},
-        EventRegister, ScpiDevice,
+        status::{Operation, Questionable},
+        EventRegister, GetEventRegister, ScpiDevice,
     },
 };
 use serde::Deserialize;
@@ -83,8 +83,8 @@ impl ErrorQueue for TestDevice {
         self.errors.push_back(err);
     }
 
-    fn pop_front_error(&mut self) -> Error {
-        self.errors.pop_front().unwrap_or_default()
+    fn pop_front_error(&mut self) -> Option<Error> {
+        self.errors.pop_front()
     }
 
     fn num_errors(&self) -> usize {
@@ -125,7 +125,10 @@ struct Record {
 }
 
 #[allow(dead_code)]
-pub fn test_file<D: Device>(dev: &mut D, tree: &Node<D>, path: &str) {
+pub fn test_file<P, D: Device>(dev: &mut D, tree: &Node<D>, path: P)
+where
+    P: AsRef<Path>,
+{
     let mut rdr = csv::ReaderBuilder::default()
         .has_headers(true)
         .comment(Some(b'#'))

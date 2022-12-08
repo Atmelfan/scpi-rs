@@ -2,8 +2,8 @@
 //!
 
 use crate::error::{Error, Result};
-use crate::Device;
 use crate::prelude::ErrorCode;
+use crate::Device;
 
 pub mod mandatory;
 pub mod trg;
@@ -88,8 +88,10 @@ pub trait IEEE488Device: Device {
     }
 }
 
-
-impl<T> Device for T where T: IEEE488Device  {
+impl<T> Device for T
+where
+    T: IEEE488Device,
+{
     fn handle_error(&mut self, err: Error) {
         <Self as IEEE488Device>::_handle_error(self, err)
     }
