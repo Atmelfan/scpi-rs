@@ -17,8 +17,8 @@
 //! CONFigure and then customize the measurement by changing particular
 //! instrument-dependent functions. The READ? then completes the measurement process.
 //!
-//! READ?, in turn, is broken down into two additional commands INITiate[:IMMediate] and
-//! FETCh?. INITiate[:IMMediate] performs the data acquisition. This command is described in
+//! READ?, in turn, is broken down into two additional commands INITiate\[:IMMediate\] and
+//! FETCh?. INITiate\[:IMMediate\] performs the data acquisition. This command is described in
 //! chapter 22. FETCh? performs the postprocessing function and returns the data. This allows
 //! the user to perform several different FETCh? functions on a single set of acquired data. For
 //! example, an oscilloscope can acquire measurement data that can yield many different signal

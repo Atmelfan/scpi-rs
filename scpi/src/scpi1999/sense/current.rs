@@ -9,8 +9,10 @@ pub type SensCurrDcRangUpp<const N: usize = 1> = SenseRangeUpperCommand<CurrentD
 pub type SensCurrDcRangLow<const N: usize = 1> = SenseRangeLowerCommand<CurrentDc, N>;
 pub type SensCurrDcRangAuto<const N: usize = 1> = SenseRangeAutoCommand<CurrentDc, N>;
 pub type SensCurrDcRes<const N: usize = 1> = SenseResolutionCommand<CurrentDc, N>;
-pub type SensCurrDcAper<const N: usize = 1> = SenseApertureCommand<CurrentDc, N>;
-pub type SensCurrDcNplc<const N: usize = 1> = SenseNPLCyclesCommand<CurrentDc, N>;
+#[cfg(feature = "unit-time")]
+pub type SensCurrDcAper<const N: usize = 1> = aperture::SenseApertureCommand<CurrentDc, N>;
+#[cfg(feature = "unit-ratio")]
+pub type SensCurrDcNplc<const N: usize = 1> = nplc::SenseNPLCyclesCommand<CurrentDc, N>;
 
 pub struct CurrentAc;
 impl SenseFunction for CurrentAc {
@@ -21,5 +23,7 @@ pub type SensCurrAcRangUpp<const N: usize = 1> = SenseRangeUpperCommand<CurrentA
 pub type SensCurrAcRangLow<const N: usize = 1> = SenseRangeLowerCommand<CurrentAc, N>;
 pub type SensCurrAcRangAuto<const N: usize = 1> = SenseRangeAutoCommand<CurrentAc, N>;
 pub type SensCurrAcRes<const N: usize = 1> = SenseResolutionCommand<CurrentAc, N>;
-pub type SensCurrAcAper<const N: usize = 1> = SenseApertureCommand<CurrentAc, N>;
-pub type SensCurrAcNplc<const N: usize = 1> = SenseNPLCyclesCommand<CurrentAc, N>;
+#[cfg(feature = "unit-time")]
+pub type SensCurrAcAper<const N: usize = 1> = aperture::SenseApertureCommand<CurrentAc, N>;
+#[cfg(feature = "unit-ratio")]
+pub type SensCurrAcNplc<const N: usize = 1> = nplc::SenseNPLCyclesCommand<CurrentAc, N>;

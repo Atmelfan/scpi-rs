@@ -62,20 +62,7 @@ impl<'a> Token<'a> {
         //Option<usize>
         match self {
             Token::ProgramMnemonic(s) | Token::CharacterProgramData(s) => {
-                util::mnemonic_compare(mnemonic, s)
-                    || match (
-                        util::mnemonic_split_index(mnemonic),
-                        util::mnemonic_split_index(s),
-                    ) {
-                        (None, None) => false,
-                        (Some((m, index)), None) => util::mnemonic_compare(m, s) && index == b"1",
-                        (None, Some((x, index))) => {
-                            util::mnemonic_compare(mnemonic, x) && index == b"1"
-                        }
-                        (Some((m, index1)), Some((x, index2))) => {
-                            util::mnemonic_compare(m, x) && (index1 == index2)
-                        }
-                    }
+                util::mnemonic_match(mnemonic, s)
             }
             _ => false,
         }

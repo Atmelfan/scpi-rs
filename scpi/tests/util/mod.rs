@@ -1,14 +1,7 @@
 use std::{collections::VecDeque, path::Path};
 
 use arrayvec::ArrayVec;
-use scpi::{
-    error::Result,
-    prelude::*,
-    scpi1999::{
-        status::{Operation, Questionable},
-        EventRegister, GetEventRegister, ScpiDevice,
-    },
-};
+use scpi::{error::Result, scpi1999::prelude::*, tree::prelude::*};
 use serde::Deserialize;
 
 // #[macro_export]
@@ -177,7 +170,7 @@ pub fn test_execute_str<D: Device>(
     s: &[u8],
     dev: &mut D,
 ) -> Result<ArrayVec<u8, 256>> {
-    let mut context = Context::new();
+    let mut context = Context::default();
     let mut buf = ArrayVec::<u8, 256>::new();
     //Result
     tree.run(s, dev, &mut context, &mut buf)?;

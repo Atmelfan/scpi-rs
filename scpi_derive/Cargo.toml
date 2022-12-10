@@ -1,9 +1,9 @@
 [package]
 name = "scpi_derive"
-version = "0.4.3"
+version = "0.99.0"
 authors = ["Atmelfan <gustavp@gpa-robotics.com>"]
 edition = "2021"
-license-file = "../LICENSE.txt"
+license = "MIT OR Apache-2.0"
 
 description = "SCPI/IEEE488.2 parser support library"
 keywords = []
@@ -21,9 +21,11 @@ readme = "./README.md"
 proc-macro2 = "1.0"
 quote = "1.0"
 syn = "1.0"
+document-features = "0.2"
 
 [lib]
 proc-macro = true
 
 [features]
-__private = []
+## Used to enable macros used internally by scpi-rs
+_private = []

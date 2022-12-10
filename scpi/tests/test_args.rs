@@ -1,19 +1,13 @@
-// Test mandated ieee488.2 commands
-use scpi::error::Result;
-use scpi::prelude::*;
-
-//Default commands
-
 use scpi::{
-    ieee488_cls, ieee488_ese, ieee488_esr, ieee488_idn, ieee488_opc, ieee488_rst, ieee488_sre,
-    ieee488_stb, ieee488_tst, ieee488_wai, qonly, scpi_status, scpi_system,
+    cmd_qonly, ieee488_cls, ieee488_ese, ieee488_esr, ieee488_idn, ieee488_opc, ieee488_rst,
+    ieee488_sre, ieee488_stb, ieee488_tst, ieee488_wai, scpi_status, scpi_system,
 };
+use scpi::{error::Result, tree::prelude::*};
+
 use std::convert::TryFrom;
 use std::marker::PhantomData;
 
 mod util;
-use scpi::format::{Arbitrary, Character};
-
 use util::TestDevice;
 
 extern crate std;
@@ -31,7 +25,7 @@ impl<T> Command<TestDevice> for EchoCommand<T>
 where
     T: for<'a> TryFrom<Token<'a>, Error = Error> + ResponseData,
 {
-    qonly!();
+    cmd_qonly!();
 
     fn query(
         &self,
@@ -48,7 +42,7 @@ where
 struct StrEchoCommand;
 
 impl Command<TestDevice> for StrEchoCommand {
-    qonly!();
+    cmd_qonly!();
 
     fn query(
         &self,
@@ -65,7 +59,7 @@ impl Command<TestDevice> for StrEchoCommand {
 struct ArbEchoCommand;
 
 impl Command<TestDevice> for ArbEchoCommand {
-    qonly!();
+    cmd_qonly!();
 
     fn query(
         &self,
@@ -82,7 +76,7 @@ impl Command<TestDevice> for ArbEchoCommand {
 struct ChrEchoCommand;
 
 impl Command<TestDevice> for ChrEchoCommand {
-    qonly!();
+    cmd_qonly!();
 
     fn query(
         &self,
@@ -134,7 +128,7 @@ impl<T> Command<TestDevice> for IsInf<T>
 where
     T: for<'a> TryFrom<Token<'a>, Error = Error> + ResponseData + InfOrNan,
 {
-    qonly!();
+    cmd_qonly!();
 
     fn query(
         &self,
@@ -161,7 +155,7 @@ impl<T> Command<TestDevice> for IsNan<T>
 where
     T: for<'a> TryFrom<Token<'a>, Error = Error> + ResponseData + InfOrNan,
 {
-    qonly!();
+    cmd_qonly!();
 
     fn query(
         &self,
@@ -474,7 +468,7 @@ impl Utf8Command {
 }
 
 impl Command<TestDevice> for Utf8Command {
-    qonly!();
+    cmd_qonly!();
 
     fn query(
         &self,

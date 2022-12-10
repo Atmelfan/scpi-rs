@@ -74,6 +74,20 @@ pub fn mnemonic_compare(mnemonic: &[u8], s: &[u8]) -> bool {
     }
 }
 
+pub fn mnemonic_match(mnemonic: &[u8], s: &[u8]) -> bool {
+    mnemonic_compare(mnemonic, s)
+        || match (mnemonic_split_index(mnemonic), mnemonic_split_index(s)) {
+            // ABC, ABC
+            (None, None) => false,
+            // ABC1, ABC
+            (Some((m, index)), None) => mnemonic_compare(m, s) && index == b"1",
+            // ABC, ABC1
+            (None, Some((x, index))) => mnemonic_compare(mnemonic, x) && index == b"1",
+            //ABCn, ABCn
+            (Some((m, index1)), Some((x, index2))) => mnemonic_compare(m, x) && (index1 == index2),
+        }
+}
+
 ///
 ///
 pub(crate) fn ascii_to_digit(digit: u8, radix: u8) -> Option<u32> {

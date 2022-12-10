@@ -1,10 +1,9 @@
 use core::marker::PhantomData;
 
 use crate::{
-    command::CommandTypeMeta,
     error::Result,
-    prelude::*,
-    scpi1999::{system::LineFrequency, util::Auto},
+    scpi1999::{numeric::NumericValue, util::Auto},
+    tree::prelude::*,
 };
 
 use super::*;
@@ -35,15 +34,15 @@ where
     D: ScpiDevice + Sense<N> + SenseRange<FUNC, N>,
     FUNC: SenseFunction,
 {
-    fn meta(&self) -> scpi::command::CommandTypeMeta {
-        scpi::command::CommandTypeMeta::Both
+    fn meta(&self) -> CommandTypeMeta {
+        CommandTypeMeta::Both
     }
 
     fn event(
         &self,
         device: &mut D,
         _context: &mut scpi::Context,
-        mut args: scpi::parameters::Arguments,
+        mut args: Arguments,
     ) -> scpi::error::Result<()> {
         let upper = args.data::<NumericValue<FUNC::Unit>>()?;
         device.range_upper(upper)
@@ -53,8 +52,8 @@ where
         &self,
         device: &mut D,
         _context: &mut scpi::Context,
-        _args: scpi::parameters::Arguments,
-        mut response: scpi::response::ResponseUnit,
+        _args: Arguments,
+        mut response: ResponseUnit,
     ) -> scpi::error::Result<()> {
         let upper = device.get_range_upper();
         response.data(upper).finish()
@@ -70,15 +69,15 @@ where
     D: ScpiDevice + Sense<N> + SenseRange<FUNC, N>,
     FUNC: SenseFunction,
 {
-    fn meta(&self) -> scpi::command::CommandTypeMeta {
-        scpi::command::CommandTypeMeta::Both
+    fn meta(&self) -> CommandTypeMeta {
+        CommandTypeMeta::Both
     }
 
     fn event(
         &self,
         device: &mut D,
         _context: &mut scpi::Context,
-        mut args: scpi::parameters::Arguments,
+        mut args: Arguments,
     ) -> scpi::error::Result<()> {
         let upper = args.data::<NumericValue<FUNC::Unit>>()?;
         device.range_lower(upper)
@@ -88,8 +87,8 @@ where
         &self,
         device: &mut D,
         _context: &mut scpi::Context,
-        _args: scpi::parameters::Arguments,
-        mut response: scpi::response::ResponseUnit,
+        _args: Arguments,
+        mut response: ResponseUnit,
     ) -> scpi::error::Result<()> {
         let upper = device.get_range_lower();
         response.data(upper).finish()
@@ -123,8 +122,8 @@ where
         &self,
         device: &mut D,
         _context: &mut scpi::Context,
-        _args: scpi::parameters::Arguments,
-        mut response: scpi::response::ResponseUnit,
+        _args: Arguments,
+        mut response: ResponseUnit,
     ) -> scpi::error::Result<()> {
         let auto = device.get_auto();
         response.data(auto).finish()
@@ -148,15 +147,15 @@ where
     D: ScpiDevice + Sense<N> + SenseResolution<FUNC, N>,
     FUNC: SenseFunction,
 {
-    fn meta(&self) -> scpi::command::CommandTypeMeta {
-        scpi::command::CommandTypeMeta::Both
+    fn meta(&self) -> CommandTypeMeta {
+        CommandTypeMeta::Both
     }
 
     fn event(
         &self,
         device: &mut D,
         _context: &mut scpi::Context,
-        mut args: scpi::parameters::Arguments,
+        mut args: Arguments,
     ) -> scpi::error::Result<()> {
         let resolution = args.data::<NumericValue<FUNC::Unit>>()?;
         device.resolution(resolution)
@@ -166,94 +165,213 @@ where
         &self,
         device: &mut D,
         _context: &mut scpi::Context,
-        _args: scpi::parameters::Arguments,
-        mut response: scpi::response::ResponseUnit,
+        _args: Arguments,
+        mut response: ResponseUnit,
     ) -> scpi::error::Result<()> {
         let resolution = device.get_resolution();
         response.data(resolution).finish()
     }
 }
 
-trait SenseAperture<FUNC, const N: usize = 1>: Sense<N>
-where
-    FUNC: SenseFunction,
-{
-    ///
-    fn aperture(&mut self, aperture: NumericValue<uom::si::f32::Time>) -> Result<()>;
-    fn get_aperture(&self) -> uom::si::f32::Time;
+#[cfg(feature = "unit-time")]
+pub(crate) mod aperture {
+    use super::*;
+    use uom::si::f32::Time;
+
+    pub trait SenseAperture<FUNC, const N: usize = 1>: Sense<N>
+    where
+        FUNC: SenseFunction,
+    {
+        ///
+        fn aperture(&mut self, aperture: NumericValue<Time>) -> Result<()>;
+        fn get_aperture(&self) -> Time;
+    }
+
+    pub struct SenseApertureCommand<FUNC, const N: usize = 1> {
+        _phantom: PhantomData<FUNC>,
+    }
+
+    impl<FUNC, const N: usize> SenseApertureCommand<FUNC, N> {
+        pub fn new() -> Self {
+            Self {
+                _phantom: PhantomData,
+            }
+        }
+    }
+
+    impl<D, FUNC, const N: usize> Command<D> for SenseApertureCommand<FUNC, N>
+    where
+        D: ScpiDevice + Sense<N> + SenseAperture<FUNC, N>,
+        FUNC: SenseFunction,
+    {
+        fn meta(&self) -> CommandTypeMeta {
+            CommandTypeMeta::Both
+        }
+
+        fn event(
+            &self,
+            device: &mut D,
+            _context: &mut scpi::Context,
+            mut args: Arguments,
+        ) -> scpi::error::Result<()> {
+            let aperture: NumericValue<Time> = args.data::<NumericValue<Time>>()?;
+            device.aperture(aperture)
+        }
+
+        fn query(
+            &self,
+            device: &mut D,
+            _context: &mut scpi::Context,
+            _args: Arguments,
+            mut response: ResponseUnit,
+        ) -> scpi::error::Result<()> {
+            let aperture: Time = device.get_aperture();
+            response.data(aperture).finish()
+        }
+    }
 }
 
-pub struct SenseApertureCommand<FUNC, const N: usize = 1> {
-    phantom: PhantomData<FUNC>,
+#[cfg(feature = "unit-ratio")]
+pub(crate) mod nplc {
+    use super::*;
+    use uom::si::f32::Ratio;
+
+    pub trait SenseNplc<FUNC, const N: usize = 1>: Sense<N>
+    where
+        FUNC: SenseFunction,
+    {
+        ///
+        fn nplc(&mut self, aperture: NumericValue<Ratio>) -> Result<()>;
+        fn get_nplc(&self) -> Ratio;
+    }
+
+    pub struct SenseNPLCyclesCommand<FUNC, const N: usize = 1> {
+        _phantom: PhantomData<FUNC>,
+    }
+
+    impl<FUNC, const N: usize> SenseNPLCyclesCommand<FUNC, N> {
+        pub fn new() -> Self {
+            Self {
+                _phantom: PhantomData,
+            }
+        }
+    }
+
+    impl<D, FUNC, const N: usize> Command<D> for SenseNPLCyclesCommand<FUNC, N>
+    where
+        D: ScpiDevice + Sense<N> + SenseNplc<FUNC, N>,
+        FUNC: SenseFunction,
+    {
+        fn meta(&self) -> CommandTypeMeta {
+            CommandTypeMeta::Both
+        }
+
+        fn event(
+            &self,
+            device: &mut D,
+            _context: &mut scpi::Context,
+            mut args: Arguments,
+        ) -> scpi::error::Result<()> {
+            let nplc: NumericValue<Ratio> = args.data()?;
+            device.nplc(nplc)
+        }
+
+        fn query(
+            &self,
+            device: &mut D,
+            _context: &mut scpi::Context,
+            mut args: Arguments,
+            mut response: ResponseUnit,
+        ) -> scpi::error::Result<()> {
+            let nplc: Ratio = match args.optional_data::<NumericValue<()>>()? {
+                None => device.get_nplc(),
+                Some(NumericValue::Maximum) => todo!(),
+                Some(NumericValue::Minimum) => todo!(),
+                Some(_) => todo!(),
+            };
+
+            // Convert aperture time to NPL with instrument line frequency
+            response.data(nplc).finish()
+        }
+    }
 }
 
-impl<D, FUNC, const N: usize> Command<D> for SenseApertureCommand<FUNC, N>
-where
-    D: ScpiDevice + Sense<N> + SenseAperture<FUNC, N>,
-    FUNC: SenseFunction,
-{
-    fn meta(&self) -> scpi::command::CommandTypeMeta {
-        scpi::command::CommandTypeMeta::Both
+#[cfg(test)]
+mod tests {
+    use crate::{
+        scpi1999::{sense::*, tests::fixture_scpi_device},
+        tree::Node,
+    };
+
+    struct Test;
+    fixture_scpi_device!(Test);
+
+    struct TestSenseFunction;
+    impl SenseFunction for TestSenseFunction {
+        type Unit = f32;
     }
 
-    fn event(
-        &self,
-        device: &mut D,
-        _context: &mut scpi::Context,
-        mut args: scpi::parameters::Arguments,
-    ) -> scpi::error::Result<()> {
-        let aperture: NumericValue<uom::si::f32::Time> = args.data()?;
-        device.aperture(aperture)
+    impl Sense for Test {
+        fn function_on(&mut self, _function: SensorFunction) -> Result<(), FunctionError> {
+            unimplemented!()
+        }
+
+        fn get_function_on(&self) -> Result<SensorFunction, FunctionError> {
+            unimplemented!()
+        }
     }
 
-    fn query(
-        &self,
-        device: &mut D,
-        _context: &mut scpi::Context,
-        _args: scpi::parameters::Arguments,
-        mut response: scpi::response::ResponseUnit,
-    ) -> scpi::error::Result<()> {
-        let aperture: uom::si::f32::Time = device.get_aperture();
-        response.data(aperture).finish()
-    }
-}
+    #[cfg(feature = "unit-time")]
+    use super::aperture::{SenseAperture, SenseApertureCommand};
 
-pub struct SenseNPLCyclesCommand<FUNC, const N: usize = 1> {
-    phantom: PhantomData<FUNC>,
-}
+    #[cfg(feature = "unit-time")]
+    impl SenseAperture<TestSenseFunction> for Test {
+        fn aperture(
+            &mut self,
+            _aperture: crate::scpi1999::NumericValue<uom::si::f32::Time>,
+        ) -> crate::error::Result<()> {
+            unimplemented!()
+        }
 
-impl<D, FUNC, const N: usize> Command<D> for SenseNPLCyclesCommand<FUNC, N>
-where
-    D: ScpiDevice + Sense<N> + SenseAperture<FUNC, N> + LineFrequency,
-    FUNC: SenseFunction,
-{
-    fn meta(&self) -> scpi::command::CommandTypeMeta {
-        scpi::command::CommandTypeMeta::Both
+        fn get_aperture(&self) -> uom::si::f32::Time {
+            unimplemented!()
+        }
     }
 
-    fn event(
-        &self,
-        device: &mut D,
-        _context: &mut scpi::Context,
-        mut args: scpi::parameters::Arguments,
-    ) -> scpi::error::Result<()> {
-        let aperture: NumericValue<uom::si::f32::Time> = args
-            .data::<NumericValue<f32>>()?
-            .map(|npl| npl / device.get_line_frequency());
-        device.aperture(aperture)
+    #[cfg(feature = "unit-time")]
+    #[test]
+    fn test_aperture() {
+        let _: Node<Test> = Node::Leaf {
+            name: b"",
+            default: false,
+            handler: &SenseApertureCommand::new(),
+        };
     }
 
-    fn query(
-        &self,
-        device: &mut D,
-        _context: &mut scpi::Context,
-        _args: scpi::parameters::Arguments,
-        mut response: scpi::response::ResponseUnit,
-    ) -> scpi::error::Result<()> {
-        let aperture: uom::si::f32::Time = device.get_aperture();
-        // Convert aperture time to NPL with instrument line frequency
-        response
-            .data(aperture * device.get_line_frequency())
-            .finish()
+    #[cfg(feature = "unit-ratio")]
+    use super::nplc::{SenseNPLCyclesCommand, SenseNplc};
+
+    #[cfg(feature = "unit-ratio")]
+    impl SenseNplc<TestSenseFunction> for Test {
+        fn nplc(
+            &mut self,
+            _aperture: scpi::scpi1999::NumericValue<uom::si::f32::Ratio>,
+        ) -> scpi::error::Result<()> {
+            unimplemented!()
+        }
+
+        fn get_nplc(&self) -> uom::si::f32::Ratio {
+            unimplemented!()
+        }
+    }
+
+    #[cfg(feature = "unit-ratio")]
+    #[test]
+    fn test_nplc() {
+        let _: Node<Test> = Node::Leaf {
+            name: b"",
+            default: false,
+            handler: &SenseNPLCyclesCommand::new(),
+        };
     }
 }

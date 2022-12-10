@@ -2,14 +2,20 @@ mod util;
 use std::fs;
 
 use scpi::{
-    command::Todo, error::Result, ieee488_cls, ieee488_ese, ieee488_esr, ieee488_idn, ieee488_opc,
-    ieee488_rst, ieee488_sre, ieee488_stb, ieee488_tst, ieee488_wai, prelude::*, qonly,
-    scpi_status, scpi_system,
+    error::Result,
+    parser::expression::{channel_list, numeric_list},
+    scpi1999::numeric::NumericValue,
+    tree::{command::Todo, prelude::*},
+};
+// Commands
+use scpi::{
+    cmd_qonly, ieee488_cls, ieee488_ese, ieee488_esr, ieee488_idn, ieee488_opc, ieee488_rst,
+    ieee488_sre, ieee488_stb, ieee488_tst, ieee488_wai, scpi_status, scpi_system,
 };
 
 struct NumCommand;
 impl Command<util::TestDevice> for NumCommand {
-    qonly!();
+    cmd_qonly!();
 
     fn query(
         &self,
@@ -24,12 +30,16 @@ impl Command<util::TestDevice> for NumCommand {
         // Use builder to resolve special values
         let value = x
             // Specify required max,min values
-            .with(100.0, -100.0)
+            .build()
+            // Specify maximum value
+            .max(100.0)
+            // Specify minimum value
+            .min(-100.0)
             // Specify the default value
             .default(Default::default())
             // Finish the builder and resolve the final value,
             // Provided clousure is called when `AUTO` is used to determine the final value
-            .finish_auto(|| 42.0)?;
+            .finish()?;
 
         // Sanity check
         let option = match x {
@@ -39,7 +49,6 @@ impl Command<util::TestDevice> for NumCommand {
             NumericValue::Default => 3,
             NumericValue::Up => 4,
             NumericValue::Down => 5,
-            NumericValue::Auto => 6,
         };
         response.data(value).data(option).finish()
     }
@@ -48,7 +57,7 @@ impl Command<util::TestDevice> for NumCommand {
 struct ChannelListCommand;
 
 impl Command<util::TestDevice> for ChannelListCommand {
-    qonly!();
+    cmd_qonly!();
 
     fn query(
         &self,
@@ -84,7 +93,7 @@ impl Command<util::TestDevice> for ChannelListCommand {
 struct NumericListCommand;
 
 impl Command<util::TestDevice> for NumericListCommand {
-    qonly!();
+    cmd_qonly!();
 
     fn query(
         &self,

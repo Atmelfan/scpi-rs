@@ -9,14 +9,12 @@ use core::fmt::Display;
 pub use arrayqueue::*;
 
 /// A SCPI error
-///
-/// If `extended-error` feature is enabled, an optional extended
-/// message can be added (Example: `-241,"Hardware missing;Extended message"`).
-///
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub struct Error(
+    /// Error code
     ErrorCode,
-    #[cfg(feature = "extended-error")] Option<&'static [u8]>,
+    /// Optional additional error information
+    Option<&'static [u8]>,
 );
 
 impl Display for Error {
@@ -45,29 +43,17 @@ pub type Result<T> = core::result::Result<T, Error>;
 impl Error {
     /// Create new error with specified error code
     pub fn new(code: ErrorCode) -> Self {
-        Self(
-            code,
-            #[cfg(feature = "extended-error")]
-            None,
-        )
+        Self(code, None)
     }
 
+    /// Create new error with a custom (unchecked) code
     pub fn custom(code: i16, desc: &'static [u8]) -> Self {
-        Self(
-            ErrorCode::Custom(code, desc),
-            #[cfg(feature = "extended-error")]
-            None,
-        )
+        Self(ErrorCode::Custom(code, desc), None)
     }
 
     /// Create new error with specified error code with an extended message
-    #[allow(unused_variables)]
     pub fn extended(code: ErrorCode, msg: &'static [u8]) -> Self {
-        Self(
-            code,
-            #[cfg(feature = "extended-error")]
-            Some(msg),
-        )
+        Self(code, Some(msg))
     }
 
     /// Get numeric error code of error
@@ -82,14 +68,7 @@ impl Error {
 
     /// Get extended message of error
     pub fn get_extended(&self) -> Option<&'static [u8]> {
-        #[cfg(feature = "extended-error")]
-        {
-            self.1
-        }
-        #[cfg(not(feature = "extended-error"))]
-        {
-            None
-        }
+        self.1
     }
 
     /**
@@ -1052,19 +1031,4 @@ pub trait ErrorQueue {
     fn is_empty(&self) -> bool {
         self.num_errors() == 0
     }
-}
-
-/// No-op error queue
-impl ErrorQueue for () {
-    fn push_back_error(&mut self, _err: Error) {}
-
-    fn pop_front_error(&mut self) -> Option<Error> {
-        None
-    }
-
-    fn num_errors(&self) -> usize {
-        0
-    }
-
-    fn clear_errors(&mut self) {}
 }

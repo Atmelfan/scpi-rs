@@ -4,12 +4,11 @@ use scpi::prelude::*;
 
 //Default commands
 
-use scpi::scpi1999::{mandatory::*, ScpiDevice};
-use scpi::tree::Node;
 use scpi::{
-    ieee488_cls, ieee488_ese, ieee488_esr, ieee488_idn, ieee488_opc, ieee488_rst, ieee488_sre,
-    ieee488_stb, ieee488_tst, ieee488_wai, nquery, qonly, scpi_status, scpi_system,
+    cmd_nquery, cmd_qonly, ieee488_cls, ieee488_ese, ieee488_esr, ieee488_idn, ieee488_opc,
+    ieee488_rst, ieee488_sre, ieee488_stb, ieee488_tst, ieee488_wai, scpi_status, scpi_system,
 };
+use scpi::{scpi1999::prelude::*, tree::prelude::*};
 
 mod util;
 use util::TestDevice;
@@ -63,7 +62,7 @@ const IEEE488_TREE: Node<TestDevice> = Branch {
 struct ErrorCommand;
 
 impl Command<TestDevice> for ErrorCommand {
-    nquery!();
+    cmd_nquery!();
 
     fn event(
         &self,
@@ -84,7 +83,7 @@ impl Command<TestDevice> for ErrorCommand {
 struct OperCommand {}
 
 impl Command<TestDevice> for OperCommand {
-    nquery!();
+    cmd_nquery!();
 
     fn event(
         &self,
@@ -103,7 +102,7 @@ impl Command<TestDevice> for OperCommand {
 struct QuesCommand {}
 
 impl Command<TestDevice> for QuesCommand {
-    nquery!();
+    cmd_nquery!();
 
     fn event(
         &self,
@@ -123,7 +122,7 @@ impl Command<TestDevice> for QuesCommand {
 struct QueryCommand {}
 
 impl Command<TestDevice> for QueryCommand {
-    qonly!();
+    cmd_qonly!();
 
     fn query(
         &self,
@@ -139,7 +138,7 @@ impl Command<TestDevice> for QueryCommand {
 struct EventCommand {}
 
 impl Command<TestDevice> for EventCommand {
-    nquery!();
+    cmd_nquery!();
 
     fn event(
         &self,

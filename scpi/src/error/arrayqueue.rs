@@ -53,15 +53,9 @@ mod test_error_queue {
         // Check that errorqueue returns NoError when there are no errors
         let mut errors = ArrayErrorQueue::<10>::new();
         errors.push_back_error(Error::extended(ErrorCode::Custom(1, b"Error"), b"Extended"));
-        #[cfg(feature = "extended-error")]
         assert_eq!(
             errors.pop_front_error(),
             Some(Error(ErrorCode::Custom(1, b"Error"), Some(b"Extended")))
-        );
-        #[cfg(not(feature = "extended-error"))]
-        assert_eq!(
-            errors.pop_front_error(),
-            Some(Error(ErrorCode::Custom(1, b"Error")))
         );
     }
 

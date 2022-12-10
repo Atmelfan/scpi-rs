@@ -1,11 +1,38 @@
-mod numeric;
-pub use numeric::NumericValue;
-
 use core::iter::Peekable;
 use core::str;
 
-use crate::prelude::*;
-use crate::util;
+use crate::error::{Error, ErrorCode};
+
+use super::{
+    expression::{channel_list, numeric_list},
+    format,
+    tokenizer::{util, Token, Tokenizer},
+};
+
+macro_rules! parser_unreachable {
+    () => {
+        if cfg!(debug_assertions) {
+            unreachable!()
+        } else {
+            Err($crate::error::Error::extended(
+                $crate::error::ErrorCode::DeviceSpecificError,
+                b"Internal parser error",
+            ))
+        }
+    };
+    ($e:literal) => {
+        if cfg!(debug_assertions) {
+            unreachable!($e)
+        } else {
+            Err($crate::error::Error::extended(
+                $crate::error::ErrorCode::DeviceSpecificError,
+                concat!(b"Internal parser error: ", $e),
+            ))
+        }
+    };
+}
+
+pub(crate) use parser_unreachable;
 
 /// Alias
 pub struct Arguments<'a, 'b>(&'a mut Peekable<Tokenizer<'b>>);
@@ -90,10 +117,7 @@ impl<'a> TryFrom<Token<'a>> for &'a [u8] {
                 if t.is_data() {
                     Err(ErrorCode::DataTypeError.into())
                 } else {
-                    Err(Error::extended(
-                        ErrorCode::DeviceSpecificError,
-                        b"Parser error",
-                    ))
+                    parser_unreachable!()
                 }
             }
         }
@@ -129,10 +153,7 @@ impl<'a> TryFrom<Token<'a>> for bool {
                 if t.is_data() {
                     Err(ErrorCode::DataTypeError.into())
                 } else {
-                    Err(Error::extended(
-                        ErrorCode::DeviceSpecificError,
-                        b"Parser error",
-                    ))
+                    parser_unreachable!()
                 }
             }
         }
@@ -158,10 +179,7 @@ impl<'a> TryFrom<Token<'a>> for &'a str {
                 if t.is_data() {
                     Err(ErrorCode::DataTypeError.into())
                 } else {
-                    Err(Error::extended(
-                        ErrorCode::DeviceSpecificError,
-                        b"Parser error",
-                    ))
+                    parser_unreachable!()
                 }
             }
         }
@@ -184,10 +202,7 @@ impl<'a> TryFrom<Token<'a>> for format::Arbitrary<'a> {
                 if t.is_data() {
                     Err(ErrorCode::DataTypeError.into())
                 } else {
-                    Err(Error::extended(
-                        ErrorCode::DeviceSpecificError,
-                        b"Parser error",
-                    ))
+                    parser_unreachable!()
                 }
             }
         }
@@ -210,10 +225,7 @@ impl<'a> TryFrom<Token<'a>> for format::Character<'a> {
                 if t.is_data() {
                     Err(ErrorCode::DataTypeError.into())
                 } else {
-                    Err(Error::extended(
-                        ErrorCode::DeviceSpecificError,
-                        b"Parser error",
-                    ))
+                    parser_unreachable!()
                 }
             }
         }
@@ -230,10 +242,7 @@ impl<'a> TryFrom<Token<'a>> for numeric_list::NumericList<'a> {
                 if t.is_data() {
                     Err(ErrorCode::DataTypeError.into())
                 } else {
-                    Err(Error::extended(
-                        ErrorCode::DeviceSpecificError,
-                        b"Parser error",
-                    ))
+                    parser_unreachable!()
                 }
             }
         }
@@ -252,10 +261,7 @@ impl<'a> TryFrom<Token<'a>> for channel_list::ChannelList<'a> {
                 if t.is_data() {
                     Err(ErrorCode::DataTypeError.into())
                 } else {
-                    Err(Error::extended(
-                        ErrorCode::DeviceSpecificError,
-                        b"Parser error",
-                    ))
+                    parser_unreachable!()
                 }
             }
         }
@@ -272,10 +278,7 @@ impl<'a> TryFrom<Token<'a>> for format::Expression<'a> {
                 if t.is_data() {
                     Err(ErrorCode::DataTypeError.into())
                 } else {
-                    Err(Error::extended(
-                        ErrorCode::DeviceSpecificError,
-                        b"Parser error",
-                    ))
+                    parser_unreachable!()
                 }
             }
         }
@@ -316,10 +319,7 @@ macro_rules! impl_tryfrom_float {
                         if t.is_data() {
                             Err(ErrorCode::DataTypeError.into())
                         } else {
-                            Err(Error::extended(
-                                ErrorCode::DeviceSpecificError,
-                                b"Parser error",
-                            ))
+                            parser_unreachable!()
                         }
                     }
                 }
@@ -387,10 +387,7 @@ macro_rules! impl_tryfrom_integer {
                         if t.is_data() {
                             Err(ErrorCode::DataTypeError.into())
                         } else {
-                            Err(Error::extended(
-                                ErrorCode::DeviceSpecificError,
-                                b"Parser error",
-                            ))
+                            parser_unreachable!()
                         }
                     }
                 }

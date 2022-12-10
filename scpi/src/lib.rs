@@ -29,18 +29,12 @@
 //! The API is still work in progress so the minor version should be specified.
 //!
 //! # Features
-//! These features are by default turned *OFF*.
-//! - `extended-error` - Allows extended error messages of the form `<error code>, "error message;extended message"`.
-//! Requires more data and program memory.
-//! - `std` - Use std library, note that libm feature can be disabled with std.
-//!
-//! These features are by default turned **ON**.
-//! - `unit-*` - Creates conversion from a argument \[and suffix] into corresponding [uom](https://crates.io/crates/uom) unit. Disable the ones you don't need to save space and skip uom.
+#![doc = document_features::document_features!()]
 //!
 //! # Getting started
 //! Look at the [`example`](https://github.com/Atmelfan/scpi-rs/tree/master/example) for how to create a tree and run commands.
 //!
-//! Here's a good resource general SCPI style and good practices: https://www.keysight.com/us/en/assets/9921-01873/miscellaneous/SCPITrainingSlides.pdf
+//! Here's a good resource general SCPI style and good practices: `<https://www.keysight.com/us/en/assets/9921-01873/miscellaneous/SCPITrainingSlides.pdf>`
 //!
 //! # Character coding
 //! SCPI is strictly ASCII and will throw a error InvalidCharacter if any non-ascii `(>127)` characters are encountered (Exception: Arbitrary data blocks).
@@ -100,91 +94,54 @@ extern crate lexical_core;
 #[cfg(any(feature = "unit-any"))]
 pub extern crate uom;
 
-pub mod command;
 pub mod error;
-pub mod expression;
-pub mod ieee488;
 pub mod option;
-pub mod parameters;
-pub mod response;
-pub mod scpi1999;
-pub mod suffix;
-pub mod tokenizer;
+pub mod parser;
 pub mod tree;
 
-pub use tokenizer::util;
+pub mod ieee488;
+pub mod scpi1999;
 
 /// Prelude containing the most useful stuff
 ///
 pub mod prelude {
-    pub use crate::command::{Command, CommandTypeMeta};
-    pub use crate::error::{ArrayErrorQueue, Error, ErrorCode, ErrorQueue};
-    pub use crate::parameters::{Arguments, NumericValue};
-    pub use crate::response::{Formatter, ResponseData, ResponseUnit};
-    pub use crate::tokenizer::{Token, Tokenizer};
-    pub use crate::tree::Node::{self, Branch, Leaf};
-    pub use crate::{
-        expression::{channel_list, numeric_list},
-        format,
-    };
-    pub use crate::{Context, Device};
-    #[cfg(any(
-        feature = "unit-length",
-        feature = "unit-velocity",
-        feature = "unit-acceleration",
-        feature = "unit-electric-potential",
-        feature = "unit-electric-current",
-        feature = "unit-electric-conductance",
-        feature = "unit-electric-resistance",
-        feature = "unit-electric-charge",
-        feature = "unit-electric-capacitance",
-        feature = "unit-electric-inductance",
-        feature = "unit-energy",
-        feature = "unit-power",
-        feature = "unit-angle",
-        feature = "unit-amount-of-substance",
-        feature = "unit-magnetic-flux",
-        feature = "unit-magnetic-flux-density",
-        feature = "unit-ratio",
-        feature = "unit-temperature",
-        feature = "unit-time",
-        feature = "unit-pressure",
-        feature = "unit-volume",
-        feature = "unit-frequency"
-    ))]
+    pub use crate::Device;
+}
+
+use core::any::Any;
+
+/// Re-export uom if enabled
+#[cfg(any(
+    feature = "unit-length",
+    feature = "unit-velocity",
+    feature = "unit-acceleration",
+    feature = "unit-electric-potential",
+    feature = "unit-electric-current",
+    feature = "unit-electric-conductance",
+    feature = "unit-electric-resistance",
+    feature = "unit-electric-charge",
+    feature = "unit-electric-capacitance",
+    feature = "unit-electric-inductance",
+    feature = "unit-energy",
+    feature = "unit-power",
+    feature = "unit-angle",
+    feature = "unit-amount-of-substance",
+    feature = "unit-magnetic-flux",
+    feature = "unit-magnetic-flux-density",
+    feature = "unit-ratio",
+    feature = "unit-temperature",
+    feature = "unit-time",
+    feature = "unit-pressure",
+    feature = "unit-volume",
+    feature = "unit-frequency"
+))]
+pub mod units {
+    #[doc(no_inline)]
     pub use uom;
+    pub use uom::si::*;
 }
 
 use crate::error::Error;
-use crate::tokenizer::Token;
-
-/// Wrappers to format and discriminate SCPI types
-pub mod format {
-
-    /// Hexadecimal data
-    #[derive(Debug, PartialEq, Eq, Copy, Clone)]
-    pub struct Hex<V>(pub V);
-
-    /// Binary data
-    #[derive(Debug, PartialEq, Eq, Copy, Clone)]
-    pub struct Binary<V>(pub V);
-
-    /// Octal data
-    #[derive(Debug, PartialEq, Eq, Copy, Clone)]
-    pub struct Octal<V>(pub V);
-
-    /// Arbitrary data
-    #[derive(Debug, PartialEq, Eq, Copy, Clone)]
-    pub struct Arbitrary<'a>(pub &'a [u8]);
-
-    /// Expression data
-    #[derive(Debug, PartialEq, Eq, Copy, Clone)]
-    pub struct Expression<'a>(pub &'a [u8]);
-
-    /// Character data
-    #[derive(Debug, PartialEq, Eq, Copy, Clone)]
-    pub struct Character<'a>(pub &'a [u8]);
-}
 
 /// A basic device capable of executing commands and not much else
 pub trait Device {
@@ -193,25 +150,60 @@ pub trait Device {
 
 /// Context in which to execute a message.
 ///
-pub struct Context {
+#[derive(Debug)]
+pub struct Context<'a> {
     /// Does output buffer contain data?
     pub mav: bool,
+
+    /// User context data.
+    ///
+    /// **Do not use this to pass application data!**
+    /// Use traits instead. It's only intended to pass along data from whatever context is running a command.
+    ///
+    /// For example: User authentication information if the call comes from an authenticated interface.
+    pub user: &'a dyn Any,
 }
 
-impl Default for Context {
+impl<'a> Default for Context<'a> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Context {
+impl<'a> Context<'a> {
     /// Create a new context
-    ///
-    /// # Arguments
-    ///  * `device` - Device to act upon
-    ///  * `writer` - Writer used to write back response messages
-    ///  * `root` - SCPI command tree to use
     pub fn new() -> Self {
-        Context { mav: false }
+        Context {
+            mav: false,
+            user: &(),
+        }
     }
+
+    // Create a new context with user data
+    pub fn new_with_user(user: &'a dyn Any) -> Self {
+        Context { mav: false, user }
+    }
+
+    /// Get user context data.
+    ///
+    /// **DO NOT USE FOR APPLICATION DATA**
+    pub fn user<U: Any>(&'a self) -> Option<&'a U> {
+        self.user.downcast_ref()
+    }
+
+    pub fn mav(&self) -> bool {
+        self.mav
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    macro_rules! fixture_device {
+        ($dev:ident) => {
+            impl $crate::Device for $dev {
+                fn handle_error(&mut self, _err: $crate::error::Error) {}
+            }
+        };
+    }
+    pub(crate) use fixture_device;
 }

@@ -7,12 +7,7 @@ use rustyline::{
     validate::Validator,
     Helper,
 };
-use scpi::{
-    prelude::{CommandTypeMeta, Error, ErrorCode},
-    tokenizer::{Token, Tokenizer},
-    tree::Node::{self, Branch, Leaf},
-    Device,
-};
+use scpi::tree::prelude::*;
 
 pub struct ScpiHelper<'a, D> {
     pub tree: &'a Node<'a, D>,

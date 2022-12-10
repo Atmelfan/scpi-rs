@@ -3,4 +3,3 @@ command,error,response
 "*NUM? MAX",0,"100.0,1\n"
 "*NUM? MIN",0,"-100.0,2\n"
 "*NUM? DEF",0,"0.0,3\n"
-"*NUM? AUTO",0,"42.0,6\n"

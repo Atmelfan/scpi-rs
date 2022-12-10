@@ -2,22 +2,31 @@
 //!
 //!
 
-use crate::error::{Error, Result};
-use crate::prelude::ErrorCode;
-use crate::{ieee488::IEEE488Device, prelude::ErrorQueue, Device};
+use crate::error::{Error, ErrorCode, ErrorQueue, Result};
+use crate::{ieee488::IEEE488Device, Device};
 
 pub use self::status::{Operation, Questionable};
 
-pub mod mandatory;
-pub mod status;
-pub mod system;
+pub mod numeric;
+#[doc(inline)]
+pub use numeric::{NumericBuilder, NumericValue};
 
-// Measurement instructions
+// Subsystems
 pub mod input;
 pub mod measurement;
 pub mod sense;
+pub mod status;
+pub mod system;
 pub mod trigger;
 pub mod unit;
+
+pub mod prelude {
+    pub use super::{
+        status::{Operation, Questionable},
+        EventRegister, GetEventRegister, ScpiDevice,
+    };
+    pub use crate::error::{Error, ErrorQueue};
+}
 
 pub trait ScpiDevice:
     Device + ErrorQueue + GetEventRegister<Operation> + GetEventRegister<Questionable>
@@ -273,12 +282,14 @@ impl EventRegister {
     }
 }
 
-mod util {
+pub mod util {
     use crate::{
         error::{Error, Result},
-        prelude::Token,
-        response::{Formatter, ResponseData},
-        util,
+        parser::{
+            mnemonic_compare,
+            response::{Formatter, ResponseData},
+            tokenizer::Token,
+        },
     };
 
     /// `AUTO <Boolean>|ONCE`
@@ -295,7 +306,7 @@ mod util {
             match value {
                 Token::CharacterProgramData(s) => match s {
                     //Check for special float values
-                    x if util::mnemonic_compare(b"ONCE", x) => Ok(Self::Once),
+                    x if mnemonic_compare(b"ONCE", x) => Ok(Self::Once),
                     _ => Ok(Self::Bool(bool::try_from(value)?)),
                 },
                 t => Ok(Self::Bool(bool::try_from(t)?)),
@@ -329,9 +340,82 @@ mod util {
 
         /// Returns true if autorange should be used
         ///
-        /// **Note:** Call [Auto::run_once] when autorange has been executed to handle [Auto::Once] logic
+        /// **Note:** Call `auto_once()` when autorange has been executed to handle [Auto::Once] logic
         pub fn auto_enabled(&self) -> bool {
             matches!(self, Self::Once | Self::Bool(true))
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    // Test fixture
+    macro_rules! fixture_scpi_device {
+        ($dev:ident) => {
+            impl $crate::scpi1999::ScpiDevice for $dev {
+                fn sre(&self) -> u8 {
+                    unimplemented!()
+                }
+
+                fn set_sre(&mut self, _value: u8) {
+                    unimplemented!()
+                }
+
+                fn esr(&self) -> u8 {
+                    unimplemented!()
+                }
+
+                fn set_esr(&mut self, _value: u8) {
+                    unimplemented!()
+                }
+
+                fn ese(&self) -> u8 {
+                    unimplemented!()
+                }
+
+                fn set_ese(&mut self, _value: u8) {
+                    unimplemented!()
+                }
+            }
+
+            impl $crate::scpi1999::GetEventRegister<$crate::scpi1999::Questionable> for $dev {
+                fn register(&self) -> &$crate::scpi1999::EventRegister {
+                    unimplemented!()
+                }
+
+                fn register_mut(&mut self) -> &mut $crate::scpi1999::EventRegister {
+                    unimplemented!()
+                }
+            }
+
+            impl $crate::scpi1999::GetEventRegister<$crate::scpi1999::Operation> for $dev {
+                fn register(&self) -> &$crate::scpi1999::EventRegister {
+                    unimplemented!()
+                }
+
+                fn register_mut(&mut self) -> &mut $crate::scpi1999::EventRegister {
+                    unimplemented!()
+                }
+            }
+
+            impl $crate::error::ErrorQueue for $dev {
+                fn push_back_error(&mut self, _err: $crate::error::Error) {
+                    unimplemented!()
+                }
+
+                fn pop_front_error(&mut self) -> Option<$crate::error::Error> {
+                    unimplemented!()
+                }
+
+                fn num_errors(&self) -> usize {
+                    unimplemented!()
+                }
+
+                fn clear_errors(&mut self) {
+                    unimplemented!()
+                }
+            }
+        };
+    }
+    pub(crate) use fixture_scpi_device;
 }

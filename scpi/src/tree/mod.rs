@@ -1,30 +1,96 @@
-//! Used to build a SCPI command tree
+//! A SCPI command tree consisting of command nodes and handlers.
+//!
+//! Se chapter 6 of SCPI standard for guidelines for header and command tree guidelines.
+//!
+//! # Example
+//! Take the following command tree.
+//! ```text
+//! *COM
+//! :TODO
+//! :TODO?
+//! :BRANch
+//!     :CHILd <args>
+//!     [:DEFault?] <args>
+//! ```
+//! This would be written like below.
+//! Note that a node handles both the query and event form of commands and it's up to the handler to reject a query on an event only node or vice-versa.
+//! ```
+//! # struct MyDevice;
+//! # impl scpi::Device for MyDevice {
+//! #     fn handle_error(&mut self, err: Error) {}
+//! # }
+//! use scpi::tree::{prelude::*, command::Todo};
+//! const ROOT: Node<MyDevice> = Branch {
+//!     name: b"",
+//!     sub: &[
+//!         Leaf {
+//!             name: b"*COM",
+//!             default: false,
+//!             handler: &Todo,
+//!         },
+//!         Leaf {
+//!             name: b"TODO",
+//!             default: false,
+//!             handler: &Todo,//Handles both TODO and TODO?
+//!         },
+//!         Branch {
+//!             name: b"BRANch",
+//!             sub: &[
+//!                 // Default leaves must be first!
+//!                 Leaf {
+//!                     name: b"DEFault",
+//!                     default: true,
+//!                     handler: &Todo,
+//!                 },
+//!                 Leaf {
+//!                     name: b"CHILd",
+//!                     default: false,
+//!                     handler: &Todo,
+//!                 },
+//!             ],
+//!         },
+//!     ],
+//! };
+//! ```
 
 use core::iter::Peekable;
 //extern crate std;
 
-use crate::command::Command;
+pub mod command;
+
+use command::Command;
+
 use crate::error::{Error, ErrorCode, Result};
-use crate::parameters::Arguments;
-use crate::response::Formatter;
-use crate::tokenizer::{Token, Tokenizer};
+use crate::parser::parameters::Arguments;
+use crate::parser::response::Formatter;
+use crate::parser::tokenizer::{Token, Tokenizer};
 use crate::{Context, Device};
+
+/// Everything needed when creating command trees or command handlers
+pub mod prelude {
+    pub use super::{
+        command::{Command, CommandTypeMeta},
+        Node::{self, Branch, Leaf},
+    };
+    pub use crate::{
+        error::{Error, ErrorCode},
+        parser::{
+            format::*,
+            parameters::Arguments,
+            response::{Formatter, ResponseData, ResponseUnit},
+            tokenizer::{Token, Tokenizer},
+        },
+        Context, Device,
+    };
+}
 
 /// A SCPI command node
 /// These nodes are structured as a command tree where each node represent a SCPI header mnemonic.
 ///
-/// # Example
-///
-/// ```
-/// //TODO
-/// ```
-/// Note that all strings are ascii-/bytestrings, this is because only ASCII is defined in SCPI thus
-/// the normal UTF8 &str in rust would be improper. To send a unicode string you can use Arbitrary Block Data
-/// (or, this parser has an alternative arbitrary data header `#s"..."` which allows and checks UTF8 data inside the quotes.
-///
 pub enum Node<'a, D> {
+    /// A leaf node which can be called or queried.
     Leaf {
-        /// Name of this leaf node
+        /// Mnemonic of this leaf
         name: &'static [u8],
         /// Default node, will be executed if the branch immediately below is executed.
         /// Only one default node is allowed in each branch.
@@ -32,11 +98,12 @@ pub enum Node<'a, D> {
         /// Command handler
         handler: &'a dyn Command<D>,
     },
+    /// A branch which contains one or more leaves.
     Branch {
-        /// Name of this branch node
+        /// Mnemonic of this branch
         name: &'static [u8],
         /// Child nodes
-        /// **Note:** Default child must be first!
+        /// **Note:** Default leaf must be first!
         sub: &'a [Node<'a, D>],
     },
 }
@@ -50,23 +117,21 @@ impl<'a, D> Node<'a, D> {
     }
 }
 
-#[macro_export]
-macro_rules! tree {
-    ($tree:expr) => {
-        $crate::tree::Node::Branch {
-            name: b"",
-            sub: $tree,
-        }
-    };
-}
-
 impl<'a, D> Node<'a, D>
 where
     D: Device,
 {
+    /// Execute a command against a given device.
+    ///
+    /// # Arguments:
+    /// * command - To be executed
+    /// * device - To execute against
+    /// * context - Context for this command
+    /// * response - A formatter to write a response into.
+    ///
     pub fn run<FMT>(
         &self,
-        s: &[u8],
+        command: &[u8],
         device: &mut D,
         context: &mut Context,
         response: &mut FMT,
@@ -74,7 +139,7 @@ where
     where
         FMT: Formatter,
     {
-        let mut tokenizer = Tokenizer::new(s).peekable();
+        let mut tokenizer = Tokenizer::new(command).peekable();
         let res = self.run_tokens(device, context, &mut tokenizer, response);
         if let Err(err) = &res {
             device.handle_error(*err);

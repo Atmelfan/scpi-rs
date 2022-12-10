@@ -1,9 +1,9 @@
+use super::format::{Arbitrary, Binary, Character, Expression, Hex, Octal};
 use crate::error::{Error, ErrorCode, Result};
-use crate::format::{Arbitrary, Binary, Character, Expression, Hex, Octal};
 
-pub mod arrayformatter;
+mod arrayformatter;
 #[cfg(feature = "alloc")]
-pub mod vecformatter;
+mod vecformatter;
 
 use lexical_core::FormattedSize;
 use lexical_core::NumberFormatBuilder;

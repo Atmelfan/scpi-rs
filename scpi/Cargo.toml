@@ -1,9 +1,9 @@
 [package]
 name = "scpi"
-version = "0.4.3"
+version = "0.99.0"
 authors = ["Atmelfan <gustavp@gpa-robotics.com>"]
 edition = "2021"
-license = "MIT"
+license = "MIT OR Apache-2.0"
 
 description = "SCPI/IEEE488.2 parser library"
 keywords = ["SCPI", "parser", "Instrumentation", "Embedded", "Multimeter"]
@@ -18,20 +18,30 @@ readme = "README.md"
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-scpi_derive = { path = "../scpi_derive", version= "0.4.3", features = ["__private"]}
-lexical-core = { version="0.8.3", features=["parse-floats", "parse-integers", "write-floats", "write-integers", "power-of-two"], default-features=false }
+document-features = "0.2"
 arrayvec = { version = "0.7", default-features = false }
+
+[dependencies.scpi_derive]
+path = "../scpi_derive"
+version = "0.99"
+features = ["_private"]
+
+[dependencies.lexical-core]
+version = "0.8"
+default-features = false
+features = [
+    "parse-floats",
+    "parse-integers",
+    "write-floats",
+    "write-integers",
+    "power-of-two",
+]
 
 [dependencies.uom]
 version = "0.33.0"
 default-features = false
 optional = true
-features = [
-    "autoconvert",
-    "f32", "f64",
-    "si",
-    "try-from"
-]
+features = ["autoconvert", "f32", "f64", "si", "try-from"]
 
 [dev-dependencies]
 csv = "1.1"
@@ -40,13 +50,12 @@ rustyline = "10.0"
 
 [features]
 default = [
-    "extended-error",
     "alloc",
     # Units
     "unit-electric-potential",
     "unit-electric-current",
-    "unit-electric-conductance",
-    "unit-electric-resistance",
+    "unit-electrical-conductance",
+    "unit-electrical-resistance",
     "unit-electric-charge",
     "unit-electric-capacitance",
     "unit-electric-inductance",
@@ -54,45 +63,48 @@ default = [
     "unit-power",
     "unit-angle",
     "unit-ratio",
-    "unit-temperature",
+    "unit-thermodynamic-temperature",
     "unit-time",
     "unit-frequency",
 ]
 
-# Use std
-std = ["lexical-core/std", "alloc"]
+#! Common features
+## Use alloc
 alloc = []
 
+## Use std
+std = ["lexical-core/std", "alloc"]
+
+## Enable compact feature in lexical-core
 compact = ["lexical-core/compact"]
 
-# Support extender errors (example -100,"Command error;extended")
-extended-error = []
-
-###################################### UNITS ######################################
-# Individual units
-unit-length = ["uom"]
-unit-velocity = ["uom"]
-unit-acceleration = ["uom"]
+#! ## Units of measurements
+#! Use [uom](https://crates.io/crates/uom) 
+## Electric potential (Voltage)
 unit-electric-potential = ["uom"]
+## Electric current
 unit-electric-current = ["uom"]
-unit-electric-conductance = ["uom"]
-unit-electric-resistance = ["uom"]
+## Electric conductance (inverse resistance)
+unit-electrical-conductance = ["uom"]
+## Electric resistance
+unit-electrical-resistance = ["uom"]
+## Electric charge
 unit-electric-charge = ["uom"]
+## Electric capacitance
 unit-electric-capacitance = ["uom"]
+## Electric inductance
 unit-electric-inductance = ["uom"]
+## Energy
 unit-energy = ["uom"]
+## Power
 unit-power = ["uom"]
+## Angle
 unit-angle = ["uom"]
-unit-amount-of-substance = ["uom"]
-unit-magnetic-flux = ["uom"]
-unit-magnetic-flux-density = ["uom"]
+## Ratio / percentage / unitless
 unit-ratio = ["uom"]
-unit-temperature = ["uom"]
+## Temperature
+unit-thermodynamic-temperature = ["uom"]
+## Time
 unit-time = ["uom"]
-unit-pressure = ["uom"]
-unit-volume = ["uom"]
+## Frequency
 unit-frequency = ["uom"]
-
-
-
-

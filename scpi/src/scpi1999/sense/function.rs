@@ -1,8 +1,13 @@
-use super::*;
+extern crate self as scpi;
+
+use crate::{error::Result, option::ScpiEnum, scpi1999::ScpiDevice, tree::prelude::*};
+
+use super::Sense;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, ScpiEnum)]
 #[non_exhaustive]
 pub enum Presentation {
+    /// g
     #[scpi(mnemonic = b"XNONe")]
     None,
     #[scpi(mnemonic = b"XTIMe")]
@@ -226,7 +231,7 @@ impl SensorFunction {
 impl<'a> TryFrom<Token<'a>> for SensorFunction {
     type Error = Error;
 
-    fn try_from(value: Token<'a>) -> Result<Self, Self::Error> {
+    fn try_from(value: Token<'a>) -> Result<Self> {
         if let Token::StringProgramData(string) = value {
             if let Some(func) = Self::new_from_str(string) {
                 Ok(func)
@@ -243,10 +248,7 @@ impl<'a> TryFrom<Token<'a>> for SensorFunction {
 }
 
 impl ResponseData for SensorFunction {
-    fn format_response_data(
-        &self,
-        formatter: &mut dyn scpi::response::Formatter,
-    ) -> scpi::error::Result<()> {
+    fn format_response_data(&self, formatter: &mut dyn Formatter) -> Result<()> {
         formatter.push_byte(b'\"')?;
         // Presentation layer
         match self.presentation {
@@ -290,16 +292,11 @@ impl<const N: usize, D> Command<D> for SensFuncOn<N>
 where
     D: ScpiDevice + Sense<N>,
 {
-    fn meta(&self) -> scpi::command::CommandTypeMeta {
-        scpi::command::CommandTypeMeta::Both
+    fn meta(&self) -> CommandTypeMeta {
+        CommandTypeMeta::Both
     }
 
-    fn event(
-        &self,
-        device: &mut D,
-        _context: &mut scpi::Context,
-        mut args: scpi::parameters::Arguments,
-    ) -> scpi::error::Result<()> {
+    fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
         let sensor_func = args.data::<SensorFunction>()?;
         device.function_on(sensor_func)?;
         Ok(())
@@ -308,10 +305,10 @@ where
     fn query(
         &self,
         device: &mut D,
-        _context: &mut scpi::Context,
-        _args: scpi::parameters::Arguments,
-        mut response: scpi::response::ResponseUnit,
-    ) -> scpi::error::Result<()> {
+        _context: &mut Context,
+        _args: Arguments,
+        mut response: ResponseUnit,
+    ) -> Result<()> {
         let sensor_func = device.get_function_on()?;
         response.data(sensor_func).finish()
     }

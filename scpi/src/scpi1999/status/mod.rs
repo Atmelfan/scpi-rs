@@ -16,8 +16,8 @@
 //! later date.
 //!
 use crate::error::Result;
-use crate::prelude::*;
-use crate::{nquery, qonly};
+use crate::tree::prelude::*;
+use crate::{cmd_nquery, cmd_qonly};
 
 use core::marker::PhantomData;
 
@@ -217,7 +217,7 @@ impl<D> Command<D> for StatPresCommand
 where
     D: ScpiDevice,
 {
-    nquery!();
+    cmd_nquery!();
     fn event(&self, device: &mut D, _context: &mut Context, _args: Arguments) -> Result<()> {
         device.exec_preset()
     }
@@ -238,7 +238,7 @@ where
     T: EventRegisterName,
     D: Device + GetEventRegister<T>,
 {
-    qonly!();
+    cmd_qonly!();
 
     fn query(
         &self,
@@ -268,7 +268,7 @@ where
     T: EventRegisterName,
     D: Device + GetEventRegister<T>,
 {
-    qonly!();
+    cmd_qonly!();
 
     fn query(
         &self,
@@ -379,4 +379,84 @@ where
             .data(device.register().ptr_filter & 0x7FFFu16)
             .finish()
     }
+}
+
+/// Create a `STATus:` tree branch
+#[macro_export]
+macro_rules! scpi_status {
+    ($($node:expr),*) => {
+        $crate::tree::prelude::Branch {
+            name: b"STATus",
+            sub: &[
+                $crate::tree::prelude::Branch {
+                    name: b"OPERation",
+                    sub: &[
+                        $crate::tree::prelude::Leaf {
+                            name: b"EVENt",
+                            default: true,
+                            handler: &$crate::scpi1999::status::StatOperEvenCommand::new(),
+                        },
+                        $crate::tree::prelude::Leaf {
+                            name: b"CONDition",
+                            default: false,
+                            handler: &$crate::scpi1999::status::StatOperCondCommand::new(),
+                        },
+                        $crate::tree::prelude::Leaf {
+                            name: b"ENABle",
+                            default: false,
+                            handler: &$crate::scpi1999::status::StatOperEnabCommand::new(),
+                        },
+                        $crate::tree::prelude::Leaf {
+                            name: b"NTRansition",
+                            default: false,
+                            handler: &$crate::scpi1999::status::StatOperNtrCommand::new(),
+                        },
+                        $crate::tree::prelude::Leaf {
+                            name: b"PTRansition",
+                            default: false,
+                            handler: &$crate::scpi1999::status::StatOperPtrCommand::new(),
+                        },
+                    ],
+                },
+                $crate::tree::prelude::Branch {
+                    name: b"QUEStionable",
+                    sub: &[
+                        $crate::tree::prelude::Leaf {
+                            name: b"EVENt",
+                            default: true,
+                            handler: &$crate::scpi1999::status::StatQuesEvenCommand::new(),
+                        },
+                        $crate::tree::prelude::Leaf {
+                            name: b"CONDition",
+                            default: false,
+                            handler: &$crate::scpi1999::status::StatQuesCondCommand::new(),
+                        },
+                        $crate::tree::prelude::Leaf {
+                            name: b"ENABle",
+                            default: false,
+                            handler: &$crate::scpi1999::status::StatQuesEnabCommand::new(),
+                        },
+                        $crate::tree::prelude::Leaf {
+                            name: b"NTRansition",
+                            default: false,
+                            handler: &$crate::scpi1999::status::StatQuesNtrCommand::new(),
+                        },
+                        $crate::tree::prelude::Leaf {
+                            name: b"PTRansition",
+                            default: false,
+                            handler: &$crate::scpi1999::status::StatQuesPtrCommand::new(),
+                        },
+                    ],
+                },
+                $crate::tree::prelude::Leaf {
+                    name: b"PRESet",
+                    default: false,
+                    handler: &$crate::scpi1999::status::StatPresCommand,
+                },
+                $(
+                    $node
+                ),*
+            ],
+        }
+    };
 }

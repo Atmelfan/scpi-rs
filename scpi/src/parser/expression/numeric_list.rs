@@ -4,9 +4,8 @@
 //! numbers in a single parameter.
 
 use crate::error::{Error, ErrorCode};
-use crate::tokenizer;
 
-type Number<'a> = tokenizer::Token<'a>;
+type Number<'a> = crate::parser::tokenizer::Token<'a>;
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum Token<'a> {
@@ -17,14 +16,14 @@ pub enum Token<'a> {
 /// Numeric list expression tokenizer
 #[derive(Clone)]
 pub struct NumericList<'a> {
-    pub tokenizer: tokenizer::Tokenizer<'a>,
+    pub tokenizer: crate::parser::tokenizer::Tokenizer<'a>,
     pub first: bool,
 }
 
 impl<'a> NumericList<'a> {
     pub fn new(s: &'a [u8]) -> NumericList<'a> {
         NumericList {
-            tokenizer: tokenizer::Tokenizer::new(s),
+            tokenizer: crate::parser::tokenizer::Tokenizer::new(s),
             first: true,
         }
     }
@@ -72,8 +71,7 @@ impl<'a> Iterator for NumericList<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::error::{Error, ErrorCode};
-    use crate::expression::numeric_list::{Number, NumericList, Token};
+    use super::*;
 
     extern crate std;
 

@@ -1,11 +1,10 @@
 //! Contains IEEE 488.2 parser and mandatory commands
 //!
 
-use crate::error::{Error, Result};
-use crate::prelude::ErrorCode;
+use crate::error::{Error, ErrorCode, Result};
 use crate::Device;
 
-pub mod mandatory;
+pub mod common;
 pub mod trg;
 
 pub trait IEEE488Device: Device {
@@ -48,7 +47,7 @@ pub trait IEEE488Device: Device {
 
     /// # *TST
     /// Executed when a `*TST` command is issued.
-    /// See [crate::ieee488::commands::TstCommand] for details.
+    /// See [crate::ieee488::common::TstCommand] for details.
     ///
     /// Return Ok(()) on successfull self-test or
     /// some kind of standard or device-specific error on self-test-fault
@@ -58,14 +57,14 @@ pub trait IEEE488Device: Device {
 
     /// # *RST
     /// Executed when a `*RST` command is issued.
-    /// See [crate::ieee488::commands::RstCommand] for details.
+    /// See [crate::ieee488::common::RstCommand] for details.
     fn exec_rst(&mut self) -> Result<()> {
         Ok(())
     }
 
     /// # *CLS
     /// Executed when a `*CLS` command is issued.
-    /// See [crate::ieee488::commands::ClsCommand] for details.
+    /// See [crate::ieee488::common::ClsCommand] for details.
     fn exec_cls(&mut self) -> Result<()> {
         // Clear ESR
         self.set_esr(0);
@@ -74,7 +73,7 @@ pub trait IEEE488Device: Device {
 
     /// # *OPC
     /// Executed when a `*OPC` command is issued.
-    /// See [crate::ieee488::commands::OpcCommand] for details.
+    /// See [crate::ieee488::common::OpcCommand] for details.
     fn exec_opc(&mut self) -> Result<()> {
         let esr = self.esr() | ErrorCode::OperationComplete.esr_mask();
         self.set_esr(esr);

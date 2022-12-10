@@ -278,8 +278,8 @@ impl<'a> ChannelList<'a> {
         // Read pathname
         let s = self.chars.as_slice();
 
-        if let crate::Token::StringProgramData(s) =
-            crate::tokenizer::Tokenizer::new(s).read_string_data(x, true)?
+        if let crate::parser::tokenizer::Token::StringProgramData(s) =
+            crate::parser::tokenizer::Tokenizer::new(s).read_string_data(x, true)?
         {
             self.chars.nth(s.len() + 1); //Forward iterator characters
             Ok(Token::PathName(s))
@@ -319,7 +319,7 @@ impl<'a> Iterator for ChannelList<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::expression::channel_list::{ChannelList, ChannelSpec, Token};
+    use super::*;
 
     extern crate std;
 

@@ -1,6 +1,4 @@
-use crate::{command::Command, nquery, scpi1999::ScpiDevice};
-
-use super::Trigger;
+use crate::{cmd_nquery, error::Result, scpi1999::ScpiDevice, tree::prelude::*};
 
 pub trait Abort {
     /// Abort trigger
@@ -22,16 +20,11 @@ struct AbortCommand;
 
 impl<D> Command<D> for AbortCommand
 where
-    D: ScpiDevice + Trigger,
+    D: ScpiDevice + Abort,
 {
-    nquery!();
+    cmd_nquery!();
 
-    fn event(
-        &self,
-        device: &mut D,
-        _context: &mut crate::Context,
-        _args: crate::prelude::Arguments,
-    ) -> crate::error::Result<()> {
+    fn event(&self, device: &mut D, _context: &mut Context, _args: Arguments) -> Result<()> {
         device.abort();
         Ok(())
     }

@@ -102,30 +102,12 @@ pub fn derive_scpi_enum(input: proc_macro::TokenStream) -> proc_macro::TokenStre
             let meta = attr.parse_meta().unwrap();
             if let Some(mnemonic) = find_prop_bstr(&meta, "scpi", "mnemonic") {
                 // Check that mnemonic is not empty and start with a uppercase character
-                let shortform_len = mnemonic
-                    .value()
-                    .iter()
-                    .take_while(|c| c.is_ascii_uppercase() || c.is_ascii_digit())
-                    .count();
-                let (last_upper, _) = mnemonic
-                    .value()
-                    .iter()
-                    .enumerate()
-                    .rfind(|(_, c)| c.is_ascii_uppercase() || c.is_ascii_digit())
-                    .expect("Mnemonic cannot be empty");
-
-                if shortform_len < 1
-                    || last_upper != shortform_len - 1
-                    || mnemonic.value().len() > 12
-                {
-                    panic!("{}::{} Invalid mnemonic, must follow \"SHORTlong\" format and <= 12 characters", name, variant_name);
-                }
                 let x = match &variant.fields {
                     syn::Fields::Unnamed(x) if x.unnamed.len() == 1 => quote! {
-                        x if scpi::util::mnemonic_compare(#mnemonic, x) => Some(#name::#variant_name(Default::default()))
+                        x if scpi::parser::mnemonic_match(#mnemonic, x) => Some(#name::#variant_name(Default::default()))
                     },
                     syn::Fields::Unit => quote! {
-                        x if scpi::util::mnemonic_compare(#mnemonic, x) => Some(#name::#variant_name)
+                        x if scpi::parser::mnemonic_match(#mnemonic, x) => Some(#name::#variant_name)
                     },
                     _ => quote_spanned! {
                         variant_name.span() => compile_error!("Variant must be unit or single unnamed field implementing default")
@@ -148,8 +130,6 @@ pub fn derive_scpi_enum(input: proc_macro::TokenStream) -> proc_macro::TokenStre
                 };
                 //println!("{}", x2);
                 to_mnemonic_matches.push(x2);
-            } else {
-                panic!("{}::{} Missing mnemonic", name, variant_name);
             }
         }
     }
@@ -174,11 +154,11 @@ pub fn derive_scpi_enum(input: proc_macro::TokenStream) -> proc_macro::TokenStre
         }
 
 
-        impl<'a> TryFrom<scpi::tokenizer::Token<'a>> for #name {
+        impl<'a> TryFrom<scpi::parser::tokenizer::Token<'a>> for #name {
             type Error = scpi::error::Error;
 
-            fn try_from(value: scpi::tokenizer::Token<'a>) -> scpi::error::Result<Self> {
-                if let scpi::tokenizer::Token::CharacterProgramData(s) = value {
+            fn try_from(value: scpi::parser::tokenizer::Token<'a>) -> scpi::error::Result<Self> {
+                if let scpi::parser::tokenizer::Token::CharacterProgramData(s) = value {
                     Self::from_mnemonic(s).ok_or(scpi::error::ErrorCode::IllegalParameterValue.into())
                 } else {
                     Err(scpi::error::ErrorCode::DataTypeError.into())
@@ -193,7 +173,7 @@ pub fn derive_scpi_enum(input: proc_macro::TokenStream) -> proc_macro::TokenStre
     proc_macro::TokenStream::from(expanded)
 }
 
-#[cfg(feature = "__private")]
+#[cfg(feature = "_private")]
 #[proc_macro_derive(ScpiError, attributes(error))]
 pub fn derive_error_messages(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // Parse the input tokens into a syntax tree.

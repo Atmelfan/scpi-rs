@@ -1,7 +1,6 @@
 use arrayvec::ArrayVec;
 
-use crate::error::Result;
-use crate::prelude::*;
+use crate::error::{ErrorCode, Result};
 
 use super::{
     Formatter, ResponseUnit, RESPONSE_MESSAGE_TERMINATOR, RESPONSE_MESSAGE_UNIT_SEPARATOR,
@@ -54,6 +53,7 @@ impl<const CAP: usize> Formatter for ArrayVec<u8, CAP> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{error::Error, tree::prelude::ResponseData};
 
     #[test]
     fn test_vecarray() {

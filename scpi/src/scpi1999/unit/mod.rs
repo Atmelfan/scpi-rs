@@ -1,7 +1,7 @@
 extern crate self as scpi;
 use core::marker::PhantomData;
 
-use crate::{option::ScpiEnum, prelude::*};
+use crate::{option::ScpiEnum, tree::prelude::*};
 
 use super::*;
 
@@ -80,6 +80,7 @@ impl Default for AngleUnit {
     }
 }
 
+#[cfg(feature = "unit-angle")]
 impl AngleUnit {
     pub fn convert(&self, value: uom::si::f32::Angle) -> f32 {
         match self {
@@ -109,6 +110,7 @@ impl Default for CurrentUnit {
     }
 }
 
+#[cfg(feature = "unit-electric-current")]
 impl CurrentUnit {
     pub fn convert(&self, value: uom::si::f32::ElectricCurrent) -> f32 {
         match self {
@@ -140,6 +142,7 @@ impl Default for VoltageUnit {
     }
 }
 
+#[cfg(feature = "unit-electric-potential")]
 impl VoltageUnit {
     pub fn convert(&self, value: uom::si::f32::ElectricPotential) -> f32 {
         match self {
@@ -171,6 +174,7 @@ impl Default for PowerUnit {
     }
 }
 
+#[cfg(feature = "unit-power")]
 impl PowerUnit {
     pub fn convert(&self, value: uom::si::f32::Power) -> f32 {
         match self {
@@ -207,9 +211,9 @@ impl<'a> TryFrom<Token<'a>> for TemperatureUnit {
     fn try_from(value: Token<'a>) -> Result<Self> {
         match value {
             Token::CharacterProgramData(s) => match s {
-                x if crate::util::mnemonic_compare(b"Cel", x) => Ok(Self::Celsius),
-                x if crate::util::mnemonic_compare(b"Far", x) => Ok(Self::Fahrenheit),
-                x if crate::util::mnemonic_compare(b"K", x) => Ok(Self::Kelvin),
+                x if crate::parser::mnemonic_compare(b"Cel", x) => Ok(Self::Celsius),
+                x if crate::parser::mnemonic_compare(b"Far", x) => Ok(Self::Fahrenheit),
+                x if crate::parser::mnemonic_compare(b"K", x) => Ok(Self::Kelvin),
                 _ => Err(ErrorCode::IllegalParameterValue.into()),
             },
             _ => Err(ErrorCode::IllegalParameterValue.into()),
@@ -225,6 +229,7 @@ impl Default for TemperatureUnit {
     }
 }
 
+#[cfg(feature = "unit-temperature")]
 impl TemperatureUnit {
     pub fn convert(&self, value: uom::si::f32::ThermodynamicTemperature) -> f32 {
         match self {
@@ -256,6 +261,7 @@ impl Default for TimeUnit {
     }
 }
 
+#[cfg(feature = "unit-time")]
 impl TimeUnit {
     pub fn convert(&self, value: uom::si::f32::Time) -> f32 {
         match self {

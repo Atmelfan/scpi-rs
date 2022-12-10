@@ -1,19 +1,22 @@
 extern crate self as scpi;
 use crate::{
-    command::Command,
-    option::ScpiEnum,
-    prelude::{Error, ErrorCode, Token, Tokenizer},
-    response::ResponseData,
+    error::{Error, ErrorCode},
+    parser::{response::ResponseData, tokenizer::Token},
 };
 
 use self::function::SensorFunction;
 
 use super::ScpiDevice;
 
-pub mod common;
-pub mod current;
 pub mod function;
+
+// Sense functions
+pub mod common;
+#[cfg(feature = "unit-electric-current")]
+pub mod current;
+#[cfg(feature = "unit-electric-resistance")]
 pub mod resistance;
+#[cfg(feature = "unit-electric-potential")]
 pub mod voltage;
 
 pub trait SenseFunction {

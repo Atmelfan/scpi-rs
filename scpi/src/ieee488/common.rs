@@ -20,11 +20,12 @@
 //!
 //! Note that the comments about the default mandatory commands below are from the IEEE 488.2-1992 document and explain their purpose, not my implementation.
 
+use core::fmt::Display;
+
 use crate::error::Result;
-use crate::format::Character;
-use crate::parameters::Arguments;
-use crate::{both, prelude::*};
-use crate::{nquery, qonly};
+
+use crate::tree::prelude::*;
+use crate::{cmd_both, cmd_nquery, cmd_qonly};
 
 use super::IEEE488Device;
 
@@ -35,13 +36,14 @@ use super::IEEE488Device;
 ///> If the Clear Status command immediately follows a <PROGRAM MESSAGE TERMINATOR>, the Output Queue
 ///> and the MAV bit will be cleared because any new <PROGRAM MESSAGE> after a <PROGRAM MESSAGE
 ///> TERMINATOR> clears the Output Queue, see 6.3.2.3.
+#[derive(Debug, Clone, Copy)]
 pub struct ClsCommand;
 
 impl<D> Command<D> for ClsCommand
 where
     D: IEEE488Device,
 {
-    nquery!();
+    cmd_nquery!();
 
     fn event(&self, device: &mut D, _context: &mut Context, _args: Arguments) -> Result<()> {
         // Clear any device specific status
@@ -54,13 +56,14 @@ where
 ///## 10.11 *ESE?, Standard Event Status Enable Query
 ///> The Standard Event Status Enable query allows the programmer to determine the current contents of the Standard
 ///> Event Status Enable Register. See 11.5.1.3.
+#[derive(Debug, Clone, Copy)]
 pub struct EseCommand;
 
 impl<D> Command<D> for EseCommand
 where
     D: IEEE488Device,
 {
-    both!();
+    cmd_both!();
 
     fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
         let ese = args.data()?;
@@ -82,13 +85,14 @@ where
 ///## 10.12 *ESR?, Standard Event Status Register Query
 ///> The Standard Event Status Register query allows the programmer to determine the current contents of the Standard
 ///> Event Status Register. Reading the Standard Event Status Register clears it. See 11.5.1.2.
+#[derive(Debug, Clone, Copy)]
 pub struct EsrCommand;
 
 impl<D> Command<D> for EsrCommand
 where
     D: IEEE488Device,
 {
-    qonly!();
+    cmd_qonly!();
 
     fn query(
         &self,
@@ -111,22 +115,37 @@ where
 ///> syntax. SCPI adds no further requirement, but here are some suggestions:
 ///>
 ///> All devices produced by a company should implement the *IDN? response consistently.
-///>  * Field 1, the Manufacturer field, should be identical for all devices produced by a single company.
-///>  * Field 2, the Model field, should NOT contain the word “MODEL”.
-///>  * Field 4, the Firmware level field, should contain information about all separately revisable subsystems.
-///> This information can be contained in single or multiple revision codes.
+#[derive(Debug, Clone, Copy)]
 pub struct IdnCommand<'a> {
+    /// * Field 1, the Manufacturer field, should be identical for all devices produced by a single company.
     pub manufacturer: &'a [u8],
+    /// * Field 2, the Model field, should NOT contain the word “MODEL”.
     pub model: &'a [u8],
+    /// * Field 3, the serial number field.
     pub serial: &'a [u8],
+    /// * Field 4, the Firmware level field, should contain information about all separately revisable subsystems.
+    ///   This information can be contained in single or multiple revision codes.
     pub firmware: &'a [u8],
+}
+
+impl<'a> Display for IdnCommand<'a> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "{},{},{},{}",
+            core::str::from_utf8(self.manufacturer).unwrap_or_default(),
+            core::str::from_utf8(self.model).unwrap_or_default(),
+            core::str::from_utf8(self.serial).unwrap_or_default(),
+            core::str::from_utf8(self.firmware).unwrap_or_default()
+        )
+    }
 }
 
 impl<'a, D> Command<D> for IdnCommand<'a>
 where
     D: IEEE488Device,
 {
-    qonly!();
+    cmd_qonly!();
 
     fn query(
         &self,
@@ -152,12 +171,14 @@ where
 ///> The Operation Complete query places an ASCII character "1" into the device's Output Queue when all pending
 ///> selected device operations have been finished. See 12.5.3 for details of operation.
 ///
+#[derive(Debug, Clone, Copy)]
 pub struct OpcCommand;
+
 impl<D> Command<D> for OpcCommand
 where
     D: IEEE488Device,
 {
-    both!();
+    cmd_both!();
 
     fn event(&self, device: &mut D, _context: &mut Context, _args: Arguments) -> Result<()> {
         device.exec_opc()
@@ -201,12 +222,14 @@ where
 ///>  * The Parallel Poll Enable Register setting, see 11.6.1.4.
 ///>  * The memory register(s) associated with *SAV.
 ///> The scope of the *LRN? response and *RCL (if implemented) is the same as *RST. See 10.17.3 and 10.29.3.
+#[derive(Debug, Clone, Copy)]
 pub struct RstCommand;
+
 impl<D> Command<D> for RstCommand
 where
     D: IEEE488Device,
 {
-    nquery!();
+    cmd_nquery!();
 
     fn event(&self, device: &mut D, _context: &mut Context, _args: Arguments) -> Result<()> {
         device.exec_rst()
@@ -218,12 +241,14 @@ where
 ///## 10.35 *SRE?, Service Request Enable Query
 ///> The Service Request Enable query allows the programmer to determine the current contents of the Service Request
 ///> Enable Register, see 11.3.2.
+#[derive(Debug, Clone, Copy)]
 pub struct SreCommand;
+
 impl<D> Command<D> for SreCommand
 where
     D: IEEE488Device,
 {
-    both!();
+    cmd_both!();
 
     fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
         let sre = args.data()?;
@@ -244,12 +269,14 @@ where
 
 ///## 10.36 *STB?, Read Status Byte Query
 ///> The Read Status Byte query allows the programmer to read the status byte and Master Summary Status bit.
+#[derive(Debug, Clone, Copy)]
 pub struct StbCommand;
+
 impl<D> Command<D> for StbCommand
 where
     D: IEEE488Device,
 {
-    qonly!();
+    cmd_qonly!();
 
     fn query(
         &self,
@@ -280,12 +307,14 @@ where
 ///> Upon successful completion of *TST?, the device settings shall be restored to their values prior to the *TST?; set to
 ///> fixed, known values that are stated in the device documentation; or set to values deÞned by the user and stored in local
 ///> memory.
+#[derive(Debug, Clone, Copy)]
 pub struct TstCommand;
+
 impl<D> Command<D> for TstCommand
 where
     D: IEEE488Device,
 {
-    qonly!();
+    cmd_qonly!();
 
     fn query(
         &self,
@@ -310,12 +339,14 @@ where
 ///> operation-pending flag is TRUE. See 12.5.1.
 ///>
 ///> NOTE - In a device that implements only sequential commands, the no-operation-pending flag is always TRUE
+#[derive(Debug, Clone, Copy)]
 pub struct WaiCommand;
+
 impl<D> Command<D> for WaiCommand
 where
     D: IEEE488Device,
 {
-    nquery!();
+    cmd_nquery!();
     fn event(&self, _device: &mut D, _context: &mut Context, _args: Arguments) -> Result<()> {
         Ok(())
     }
@@ -324,10 +355,10 @@ where
 #[macro_export]
 macro_rules! ieee488_idn {
     ($manufacturer:expr, $model:expr, $serial:expr, $firmware:expr) => {
-        $crate::prelude::Leaf {
+        $crate::tree::prelude::Leaf {
             name: b"*IDN",
             default: false,
-            handler: &$crate::ieee488::mandatory::IdnCommand {
+            handler: &$crate::ieee488::common::IdnCommand {
                 manufacturer: $manufacturer,
                 model: $model,
                 serial: $serial,
@@ -340,10 +371,10 @@ macro_rules! ieee488_idn {
 #[macro_export]
 macro_rules! ieee488_cls {
     () => {
-        $crate::prelude::Leaf {
+        $crate::tree::prelude::Leaf {
             name: b"*CLS",
             default: false,
-            handler: &$crate::ieee488::mandatory::ClsCommand,
+            handler: &$crate::ieee488::common::ClsCommand,
         }
     };
 }
@@ -351,10 +382,10 @@ macro_rules! ieee488_cls {
 #[macro_export]
 macro_rules! ieee488_ese {
     () => {
-        $crate::prelude::Leaf {
+        $crate::tree::prelude::Leaf {
             name: b"*ESE",
             default: false,
-            handler: &$crate::ieee488::mandatory::EseCommand,
+            handler: &$crate::ieee488::common::EseCommand,
         }
     };
 }
@@ -362,10 +393,10 @@ macro_rules! ieee488_ese {
 #[macro_export]
 macro_rules! ieee488_esr {
     () => {
-        $crate::prelude::Leaf {
+        $crate::tree::prelude::Leaf {
             name: b"*ESR",
             default: false,
-            handler: &$crate::ieee488::mandatory::EsrCommand,
+            handler: &$crate::ieee488::common::EsrCommand,
         }
     };
 }
@@ -373,10 +404,10 @@ macro_rules! ieee488_esr {
 #[macro_export]
 macro_rules! ieee488_opc {
     () => {
-        $crate::prelude::Leaf {
+        $crate::tree::prelude::Leaf {
             name: b"*OPC",
             default: false,
-            handler: &$crate::ieee488::mandatory::OpcCommand,
+            handler: &$crate::ieee488::common::OpcCommand,
         }
     };
 }
@@ -384,10 +415,10 @@ macro_rules! ieee488_opc {
 #[macro_export]
 macro_rules! ieee488_rst {
     () => {
-        $crate::prelude::Leaf {
+        $crate::tree::prelude::Leaf {
             name: b"*RST",
             default: false,
-            handler: &$crate::ieee488::mandatory::RstCommand,
+            handler: &$crate::ieee488::common::RstCommand,
         }
     };
 }
@@ -395,10 +426,10 @@ macro_rules! ieee488_rst {
 #[macro_export]
 macro_rules! ieee488_sre {
     () => {
-        $crate::prelude::Leaf {
+        $crate::tree::prelude::Leaf {
             name: b"*SRE",
             default: false,
-            handler: &$crate::ieee488::mandatory::SreCommand,
+            handler: &$crate::ieee488::common::SreCommand,
         }
     };
 }
@@ -406,10 +437,10 @@ macro_rules! ieee488_sre {
 #[macro_export]
 macro_rules! ieee488_stb {
     () => {
-        $crate::prelude::Leaf {
+        $crate::tree::prelude::Leaf {
             name: b"*STB",
             default: false,
-            handler: &$crate::ieee488::mandatory::StbCommand,
+            handler: &$crate::ieee488::common::StbCommand,
         }
     };
 }
@@ -417,10 +448,10 @@ macro_rules! ieee488_stb {
 #[macro_export]
 macro_rules! ieee488_tst {
     () => {
-        $crate::prelude::Leaf {
+        $crate::tree::prelude::Leaf {
             name: b"*TST",
             default: false,
-            handler: &$crate::ieee488::mandatory::TstCommand,
+            handler: &$crate::ieee488::common::TstCommand,
         }
     };
 }
@@ -428,10 +459,10 @@ macro_rules! ieee488_tst {
 #[macro_export]
 macro_rules! ieee488_wai {
     () => {
-        $crate::prelude::Leaf {
+        $crate::tree::prelude::Leaf {
             name: b"*WAI",
             default: false,
-            handler: &$crate::ieee488::mandatory::WaiCommand,
+            handler: &$crate::ieee488::common::WaiCommand,
         }
     };
 }
