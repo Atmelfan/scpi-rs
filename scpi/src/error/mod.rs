@@ -114,7 +114,7 @@ impl From<ErrorCode> for Error {
 ///
 ///
 ///
-#[derive(Debug, PartialEq, Eq, Copy, Clone, ScpiError)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone, scpi_derive::ScpiError)]
 pub enum ErrorCode {
     ///# Custom error
     /// Used for custom error in the range`[ -399 , -300 ]` or `[ 1 , 32767 ]`.
@@ -1008,6 +1008,10 @@ impl ErrorCode {
             -899..=-800 => 0x01u8, //bit 0
             _ => 0x08u8,           //bit 3
         }
+    }
+
+    pub fn extended(self, msg: &'static [u8]) -> Error {
+        Error::extended(self, msg)
     }
 }
 

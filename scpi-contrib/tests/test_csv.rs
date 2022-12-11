@@ -2,12 +2,56 @@ mod util;
 use std::fs;
 
 use scpi::{
+    cmd_qonly,
     error::Result,
     parser::expression::{channel_list, numeric_list},
     tree::prelude::*,
 };
-// Commands
-use scpi::cmd_qonly;
+use scpi_contrib::{
+    ieee488_cls, ieee488_ese, ieee488_esr, ieee488_idn, ieee488_opc, ieee488_rst, ieee488_sre,
+    ieee488_stb, ieee488_tst, ieee488_wai, scpi1999::NumericValue, scpi_status, scpi_system,
+};
+
+struct NumCommand;
+impl Command<util::TestDevice> for NumCommand {
+    cmd_qonly!();
+
+    fn query(
+        &self,
+        _device: &mut util::TestDevice,
+        _context: &mut Context,
+        mut args: Arguments,
+        mut response: ResponseUnit,
+    ) -> Result<()> {
+        // Parse a <numeric>
+        let x: NumericValue<f32> = args.data()?;
+
+        // Use builder to resolve special values
+        let value = x
+            // Specify required max,min values
+            .build()
+            // Specify maximum value
+            .max(100.0)
+            // Specify minimum value
+            .min(-100.0)
+            // Specify the default value
+            .default(Default::default())
+            // Finish the builder and resolve the final value,
+            // Provided clousure is called when `AUTO` is used to determine the final value
+            .finish()?;
+
+        // Sanity check
+        let option = match x {
+            NumericValue::Value(_) => 0,
+            NumericValue::Maximum => 1,
+            NumericValue::Minimum => 2,
+            NumericValue::Default => 3,
+            NumericValue::Up => 4,
+            NumericValue::Down => 5,
+        };
+        response.data(value).data(option).finish()
+    }
+}
 
 struct ChannelListCommand;
 
@@ -93,10 +137,23 @@ const IEEE488_TREE: Node<util::TestDevice> = Branch {
     name: b"",
     default: false,
     sub: &[
+        // Create default IEEE488 mandated commands
+        ieee488_cls!(),
+        ieee488_ese!(),
+        ieee488_esr!(),
+        ieee488_idn!(b"GPA-Robotics", b"T800-101", b"0", b"0"),
+        ieee488_opc!(),
+        ieee488_rst!(),
+        ieee488_sre!(),
+        ieee488_stb!(),
+        ieee488_tst!(),
+        ieee488_wai!(),
+        scpi_status!(),
+        scpi_system!(),
         Leaf {
-            name: b"*COM",
+            name: b"*NUM",
             default: false,
-            handler: &IdCommand(100),
+            handler: &NumCommand,
         },
         Leaf {
             name: b"*CHLIST",
@@ -150,38 +207,6 @@ const IEEE488_TREE: Node<util::TestDevice> = Branch {
                             },
                         ],
                     }],
-                },
-            ],
-        },
-        Branch {
-            name: b"SYSTem",
-            default: false,
-            sub: &[
-                Branch {
-                    name: b"ERRor",
-                    default: false,
-                    sub: &[
-                        Leaf {
-                            name: b"ALL",
-                            default: false,
-                            handler: &IdCommand(11),
-                        },
-                        Leaf {
-                            name: b"COUNt",
-                            default: false,
-                            handler: &IdCommand(12),
-                        },
-                        Leaf {
-                            name: b"NEXT",
-                            default: true,
-                            handler: &IdCommand(13),
-                        },
-                    ],
-                },
-                Leaf {
-                    name: b"VERSion",
-                    default: false,
-                    handler: &IdCommand(10),
                 },
             ],
         },

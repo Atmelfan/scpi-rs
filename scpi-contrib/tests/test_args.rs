@@ -1,13 +1,14 @@
-mod util;
-
-use scpi::{
-    cmd_qonly
+use scpi_contrib::{
+    ieee488_cls, ieee488_ese, ieee488_esr, ieee488_idn, ieee488_opc, ieee488_rst,
+    ieee488_sre, ieee488_stb, ieee488_tst, ieee488_wai, scpi_status, scpi_system,
 };
-use scpi::{error::Result, tree::prelude::*};
-use util::TestDevice;
+use scpi::{cmd_qonly, error::Result, tree::prelude::*};
 
 use std::convert::TryFrom;
 use std::marker::PhantomData;
+
+mod util;
+use util::TestDevice;
 
 extern crate std;
 
@@ -184,7 +185,7 @@ macro_rules! test_integer {
             use super::*;
             #[test]
             fn test_integer() {
-                let mut dev = TestDevice;
+                let mut dev = TestDevice::new();
                 let res = util::test_execute_str(
                     &IEEE488_TREE,
                     format!("{cmd} 42", cmd = $cmd).as_bytes(),
@@ -338,6 +339,19 @@ const IEEE488_TREE: &Node<TestDevice> = &Branch {
     name: b"",
     default: false,
     sub: &[
+        // Create default IEEE488 mandated commands
+        ieee488_cls!(),
+        ieee488_ese!(),
+        ieee488_esr!(),
+        ieee488_idn!(b"GPA-Robotics", b"T800-101", b"0", b"0"),
+        ieee488_opc!(),
+        ieee488_rst!(),
+        ieee488_sre!(),
+        ieee488_stb!(),
+        ieee488_tst!(),
+        ieee488_wai!(),
+        scpi_status!(),
+        scpi_system!(),
         add_numeric_command!(b"*STR": &StrEchoCommand),
         add_numeric_command!(b"*ARB": &ArbEchoCommand),
         add_numeric_command!(b"*CHR": &ChrEchoCommand),

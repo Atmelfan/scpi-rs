@@ -1,29 +1,25 @@
 [package]
 name = "scpi"
-version = "0.99.0"
-authors = ["Atmelfan <gustavp@gpa-robotics.com>"]
-edition = "2021"
-license = "MIT OR Apache-2.0"
-
+version = "0.10.0"
 description = "SCPI/IEEE488.2 parser library"
-keywords = ["SCPI", "parser", "Instrumentation", "Embedded", "Multimeter"]
-categories = ["command-line-interface", "embedded", "parsing", "no-std"]
 
-homepage = "https://github.com/Atmelfan/scpi-rs"
-documentation = "https://docs.rs/crate/scpi"
-repository = "https://github.com/Atmelfan/scpi-rs"
-readme = "README.md"
-
-[badges]
-maintenance = { status = "actively-developed" }
+# Inherit from workspace workspace
+authors = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+readme = { workspace = true }
 
 [dependencies]
-document-features = "0.2"
+document-features = { workspace = true }
 arrayvec = { version = "0.7", default-features = false }
 
-[dependencies.scpi_derive]
-path = "../scpi_derive"
-version = "0.99"
+[dependencies.scpi-derive]
+path = "../scpi-derive"
+version = "0.10"
 features = ["_private"]
 
 [dependencies.lexical-core]
@@ -46,7 +42,6 @@ features = ["autoconvert", "f32", "f64", "si", "try-from"]
 [dev-dependencies]
 csv = "1.1"
 serde = { version = "1", features = ["derive"] }
-rustyline = "10.0"
 
 [features]
 default = [
@@ -57,8 +52,8 @@ default = [
     "unit-electrical-conductance",
     "unit-electrical-resistance",
     "unit-electric-charge",
-    "unit-electric-capacitance",
-    "unit-electric-inductance",
+    "unit-capacitance",
+    "unit-inductance",
     "unit-energy",
     "unit-power",
     "unit-angle",
@@ -80,6 +75,7 @@ compact = ["lexical-core/compact"]
 
 #! ## Units of measurements
 #! Use [uom](https://crates.io/crates/uom) 
+uom = ["dep:uom"]
 ## Electric potential (Voltage)
 unit-electric-potential = ["uom"]
 ## Electric current
@@ -91,9 +87,9 @@ unit-electrical-resistance = ["uom"]
 ## Electric charge
 unit-electric-charge = ["uom"]
 ## Electric capacitance
-unit-electric-capacitance = ["uom"]
+unit-capacitance = ["uom"]
 ## Electric inductance
-unit-electric-inductance = ["uom"]
+unit-inductance = ["uom"]
 ## Energy
 unit-energy = ["uom"]
 ## Power

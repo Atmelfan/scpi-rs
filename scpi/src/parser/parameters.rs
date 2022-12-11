@@ -9,6 +9,7 @@ use super::{
     tokenizer::{util, Token, Tokenizer},
 };
 
+#[macro_export]
 macro_rules! parser_unreachable {
     () => {
         if cfg!(debug_assertions) {

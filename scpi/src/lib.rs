@@ -79,67 +79,76 @@
 //!  * `scpi_derive` - Internal macro support library, used by `scpi` to generate error messages and suffixes (enter at own risk)
 //!
 
-#[macro_use]
-extern crate scpi_derive;
-
 #[cfg(feature = "std")]
 extern crate std as alloc;
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 extern crate alloc;
 
-/* Used to create responses */
-extern crate arrayvec;
-extern crate lexical_core;
-#[cfg(any(feature = "unit-any"))]
-pub extern crate uom;
-
 pub mod error;
 pub mod option;
 pub mod parser;
 pub mod tree;
 
-pub mod ieee488;
-pub mod scpi1999;
-
 /// Prelude containing the most useful stuff
 ///
 pub mod prelude {
-    pub use crate::Device;
+    pub use crate::{Context, Device};
 }
 
 use core::any::Any;
 
 /// Re-export uom if enabled
 #[cfg(any(
-    feature = "unit-length",
-    feature = "unit-velocity",
-    feature = "unit-acceleration",
     feature = "unit-electric-potential",
     feature = "unit-electric-current",
-    feature = "unit-electric-conductance",
-    feature = "unit-electric-resistance",
+    feature = "unit-electrical-conductance",
+    feature = "unit-electrical-resistance",
     feature = "unit-electric-charge",
     feature = "unit-electric-capacitance",
     feature = "unit-electric-inductance",
     feature = "unit-energy",
     feature = "unit-power",
     feature = "unit-angle",
-    feature = "unit-amount-of-substance",
-    feature = "unit-magnetic-flux",
-    feature = "unit-magnetic-flux-density",
     feature = "unit-ratio",
-    feature = "unit-temperature",
+    feature = "unit-thermodynamic-temperature",
     feature = "unit-time",
-    feature = "unit-pressure",
-    feature = "unit-volume",
     feature = "unit-frequency"
 ))]
 pub mod units {
     #[doc(no_inline)]
     pub use uom;
-    pub use uom::si::*;
+
+    #[cfg(feature = "unit-electric-potential")]
+    pub use uom::si::f32::ElectricPotential;
+    #[cfg(feature = "unit-electric-current")]
+    pub use uom::si::f32::ElectricCurrent;
+    #[cfg(feature = "unit-electrical-conductance")]
+    pub use uom::si::f32::ElectricalConductance;
+    #[cfg(feature = "unit-electrical-resistance")]
+    pub use uom::si::f32::ElectricalResistance;
+    #[cfg(feature = "unit-electric-charge")]
+    pub use uom::si::f32::ElectricCharge;
+    #[cfg(feature = "unit-capacitance")]
+    pub use uom::si::f32::Capacitance;
+    #[cfg(feature = "unit-inductance")]
+    pub use uom::si::f32::Inductance;
+    #[cfg(feature = "unit-energy")]
+    pub use uom::si::f32::Energy;
+    #[cfg(feature = "unit-power")]
+    pub use uom::si::f32::Power;
+    #[cfg(feature = "unit-angle")]
+    pub use uom::si::f32::Angle;
+    #[cfg(feature = "unit-ratio")]
+    pub use uom::si::f32::Ratio;
+    #[cfg(feature = "unit-thermodynamic-temperature")]
+    pub use uom::si::f32::ThermodynamicTemperature;
+    #[cfg(feature = "unit-time")]
+    pub use uom::si::f32::Time;
+    #[cfg(feature = "unit-frequency")]
+    pub use uom::si::f32::Frequency;
 }
+pub use arrayvec;
 
 use crate::error::Error;
 

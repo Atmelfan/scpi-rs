@@ -1,0 +1,35 @@
+[package]
+name = "scpi-contrib"
+version = "0.1.0"
+description = "SCPI/IEEE488.2 contrib library"
+
+# Inherit from workspace workspace
+authors = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+readme = { workspace = true }
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+scpi = { path = "../scpi", version = "0.10", default-features = false, features = ["unit-time"]}
+scpi-derive = { path = "../scpi-derive", version = "0.10" }
+document-features = { workspace = true }
+
+[dev-dependencies]
+csv = "1.1"
+serde = { version = "1", features = ["derive"] }
+rustyline = "10.0"
+
+[features]
+default = []
+
+## Use std
+std = ["scpi/std"]
+## 
+alloc = ["scpi/alloc"]
+

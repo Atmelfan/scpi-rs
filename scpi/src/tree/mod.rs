@@ -22,6 +22,7 @@
 //! use scpi::tree::{prelude::*, command::Todo};
 //! const ROOT: Node<MyDevice> = Branch {
 //!     name: b"",
+//!     default: false,
 //!     sub: &[
 //!         Leaf {
 //!             name: b"*COM",
@@ -35,6 +36,7 @@
 //!         },
 //!         Branch {
 //!             name: b"BRANch",
+//!             default: false,
 //!             sub: &[
 //!                 // Default leaves must be first!
 //!                 Leaf {
@@ -102,8 +104,10 @@ pub enum Node<'a, D> {
     Branch {
         /// Mnemonic of this branch
         name: &'static [u8],
+        /// Default node.
+        default: bool,
         /// Child nodes
-        /// **Note:** Default leaf must be first!
+        /// **Note:** Default node must be first!
         sub: &'a [Node<'a, D>],
     },
 }
@@ -260,6 +264,8 @@ where
                         let response_unit = response.response_unit()?;
                         handler.query(device, context, Arguments::with(tokens), response_unit)
                     }
+                    // This is a leaf node, cannot traverse further
+                    Some(Token::HeaderMnemonicSeparator | Token::ProgramMnemonic(..)) => Err(ErrorCode::UndefinedHeader.into()),
                     // Tokenizer shouldn't emit anything else...
                     Some(_) => Err(ErrorCode::SyntaxError.into()),
                 }
@@ -273,61 +279,49 @@ where
                         tokens.next_if(|t| matches!(t, Ok(Token::HeaderMnemonicSeparator)));
 
                         // Get mnemonic
-                        let mnemonic = match tokens.next() {
+                        let mnemonic = match tokens.peek() {
                             Some(Ok(mnemonic @ Token::ProgramMnemonic(..))) => mnemonic,
-                            Some(Err(err)) => return Err(err.into()),
+                            Some(Err(err)) => return Err(err.clone().into()),
                             _ => return Err(ErrorCode::CommandHeaderError.into()),
                         };
 
                         //std::println!("Branch:{mnemonic:?}");
 
+                        // Try to match a child with mnemonic
                         *leaf = self;
                         for child in *sub {
                             if mnemonic.match_program_header(child.name()) {
+                                tokens.next();// Consume mnemonic
                                 return child.exec(leaf, device, context, tokens, response);
                             }
                         }
-                        Err(ErrorCode::UndefinedHeader.into())
-                    }
-                    // Branch .. | Branch\EOM | Branch;
-                    Some(Token::ProgramHeaderSeparator | Token::ProgramMessageUnitSeparator)
-                    | None => {
-                        // Consume header seperator
-                        tokens.next_if(|t| matches!(t, Ok(Token::ProgramHeaderSeparator)));
 
-                        // Check if the first child is default and execute
-                        match sub.first() {
-                            Some(Node::Leaf {
-                                default: true,
-                                handler,
-                                ..
-                            }) => handler.event(device, context, Arguments::with(tokens)),
-                            _ => Err(ErrorCode::CommandHeaderError.into()),
+                        // Check if there's a default child branch
+                        if let Some(child) = sub
+                            .iter()
+                            .find(|child| matches!(child, Node::Branch { default: true, .. }))
+                        {
+                            return child.exec(leaf, device, context, tokens, response);
+                        } else {
+                            Err(ErrorCode::UndefinedHeader.into())
                         }
                     }
-                    // Branch?..
-                    Some(Token::HeaderQuerySuffix) => {
-                        tokens.next();
-
-                        // Consume header seperator
-                        tokens.next_if(|t| matches!(t, Ok(Token::ProgramHeaderSeparator)));
-
-                        // Check if the first child is default and execute
-                        match sub.first() {
-                            Some(Node::Leaf {
-                                default: true,
-                                handler,
-                                ..
-                            }) => {
-                                let response_unit = response.response_unit()?;
-                                handler.query(
-                                    device,
-                                    context,
-                                    Arguments::with(tokens),
-                                    response_unit,
-                                )
-                            }
-                            _ => Err(ErrorCode::CommandHeaderError.into()),
+                    // Branch .. | Branch\EOM | Branch;
+                    Some(Token::ProgramHeaderSeparator | Token::ProgramMessageUnitSeparator | Token::HeaderQuerySuffix)
+                    | None => {
+                        // Try to find a default leaf or branch execute
+                        if let Some(default_leaf) = sub
+                            .iter()
+                            .find(|child| matches!(child, Node::Leaf { default: true, .. }))
+                        {
+                            default_leaf.exec(leaf, device, context, tokens, response)
+                        } else if let Some(default_branch) = sub
+                            .iter()
+                            .find(|child| matches!(child, Node::Branch { default: true, .. }))
+                        {
+                            default_branch.exec(leaf, device, context, tokens, response)
+                        } else {
+                            Err(ErrorCode::UndefinedHeader.into())
                         }
                     }
                     // Tokenizer shouldn't emit anything else...

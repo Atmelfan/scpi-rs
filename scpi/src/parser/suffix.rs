@@ -10,7 +10,7 @@ use {
     core::convert::{TryFrom, TryInto},
 };
 
-use crate::scpi1999::numeric::NumericValueDefaults;
+//use crate::scpi1999::numeric::NumericValueDefaults;
 
 /// A logarithmic or linear unit
 pub enum Db<V, UNIT> {
@@ -82,8 +82,8 @@ mod angle {
     ];
 }
 
-#[cfg(feature = "unit-electric-capacitance")]
-mod electric_capacitance {
+#[cfg(feature = "unit-capacitance")]
+mod capacitance {
     use super::*;
     use uom::si::capacitance::{farad, microfarad, millifarad, nanofarad, picofarad, Capacitance};
 
@@ -212,8 +212,8 @@ mod energy {
     ];
 }
 
-#[cfg(feature = "unit-electric-inductance")]
-mod electric_inductance {
+#[cfg(feature = "unit-inductance")]
+mod inductance {
     use super::*;
     use uom::si::inductance::{henry, microhenry, millihenry, nanohenry, picohenry, Inductance};
 
@@ -314,7 +314,7 @@ mod test_suffix {
 
     use crate::{
         parser::suffix::{Amplitude, Db},
-        scpi1999::numeric::NumericValueDefaults,
+        //scpi1999::numeric::NumericValueDefaults,
         tree::prelude::*,
     };
     use core::convert::TryInto;
@@ -360,11 +360,11 @@ mod test_suffix {
         assert!(matches!(peak_to_peak, Db::Logarithmic(_, _)));
     }
 
-    #[test]
-    fn test_suffix_numeric_value() {
-        let volt_max = ElectricPotential::numeric_value_max();
-        assert_eq!(volt_max.value, f32::MAX)
-    }
+    // #[test]
+    // fn test_suffix_numeric_value() {
+    //     let volt_max = ElectricPotential::numeric_value_max();
+    //     assert_eq!(volt_max.value, f32::MAX)
+    // }
 }
 
 #[allow(unused_macros)]
@@ -449,20 +449,20 @@ macro_rules! impl_unit {
             }
         }
 
-        impl<U, V, T> NumericValueDefaults for $unit<U, V>
-        where
-            U: Units<V> + ?Sized,
-            V: Num + Conversion<V, T = T> + NumericValueDefaults,
-            $base: Conversion<V, T = T>,
-        {
-            fn numeric_value_max() -> Self {
-                Self::new::<$base>(V::numeric_value_max())
-            }
+        // impl<U, V, T> NumericValueDefaults for $unit<U, V>
+        // where
+        //     U: Units<V> + ?Sized,
+        //     V: Num + Conversion<V, T = T> + NumericValueDefaults,
+        //     $base: Conversion<V, T = T>,
+        // {
+        //     fn numeric_value_max() -> Self {
+        //         Self::new::<$base>(V::numeric_value_max())
+        //     }
 
-            fn numeric_value_min() -> Self {
-                Self::new::<$base>(V::numeric_value_min())
-            }
-        }
+        //     fn numeric_value_min() -> Self {
+        //         Self::new::<$base>(V::numeric_value_min())
+        //     }
+        // }
 
         #[cfg(test)]
         #[allow(non_snake_case)]

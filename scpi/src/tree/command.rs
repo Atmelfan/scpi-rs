@@ -11,7 +11,7 @@ use crate::{
 /// Marks the command as query only by creating a stub for [Command::meta].
 ///
 /// ```
-/// # use scpi::{qonly, tree::prelude::*};
+/// # use scpi::{cmd_qonly, tree::prelude::*};
 /// # struct MyDevice;
 /// # impl Device for MyDevice {
 /// #     fn handle_error(&mut self, _: scpi::error::Error) { todo!() }
@@ -19,7 +19,7 @@ use crate::{
 ///
 /// struct MyQuery;
 /// impl Command<MyDevice> for MyQuery {
-///     qonly!();
+///     cmd_qonly!();
 ///
 ///     fn query(
 ///         &self,
@@ -45,7 +45,7 @@ macro_rules! cmd_qonly {
 /// Marks the command as not queryable by creating a stub for [Command::meta].
 ///
 /// ```
-/// # use scpi::{nquery, tree::prelude::*};
+/// # use scpi::{cmd_nquery, tree::prelude::*};
 /// # struct MyDevice;
 /// # impl Device for MyDevice {
 /// #     fn handle_error(&mut self, _: scpi::error::Error) { todo!() }
@@ -53,7 +53,7 @@ macro_rules! cmd_qonly {
 ///
 /// struct MyQuery;
 /// impl Command<MyDevice> for MyQuery {
-///     nquery!();
+///     cmd_nquery!();
 ///
 ///     fn event(
 ///         &self,
@@ -78,7 +78,7 @@ macro_rules! cmd_nquery {
 /// Marks the command as both query and event by creating a stub for [Command::meta].
 ///
 /// ```
-/// # use scpi::{both, tree::prelude::*};
+/// # use scpi::{cmd_both, tree::prelude::*};
 /// # struct MyDevice;
 /// # impl Device for MyDevice {
 /// #     fn handle_error(&mut self, _: scpi::error::Error) { todo!() }
@@ -86,7 +86,7 @@ macro_rules! cmd_nquery {
 ///
 /// struct MyQuery;
 /// impl Command<MyDevice> for MyQuery {
-///     both!();
+///     cmd_both!();
 ///
 ///     fn query(
 ///         &self,
@@ -122,7 +122,7 @@ macro_rules! cmd_both {
 /// This trait implements a command with event/query operations.
 /// # Example
 /// ```
-/// use scpi::{error::Result, tree::prelude::*, both};
+/// use scpi::{error::Result, tree::prelude::*, cmd_both};
 ///
 /// struct MyCommand;
 /// impl<D> Command<D> for MyCommand
@@ -153,6 +153,28 @@ macro_rules! cmd_both {
 /// ```
 ///
 /// The default stubs for [Command::event] and [Command::query] returns an [ErrorCode::UndefinedHeader] error.
+/// 
+/// ## Naming convention
+/// A command impl should be named in PascalCase after the shortform header mnemonics upp to the last which should be in longform.
+/// Common commands should be named as-is without '*' obv.
+/// 
+/// Examples:
+/// * `INITiate[:IMMediate][:ALL]` => `InitImmAllCommand`
+/// * `SYSTem:ERRor[:NEXT]` => `SystErrNextCommand`
+/// * `SENSe:VOLTage[:DC]:NPLCycles` => `SensVoltDcNPLCyclesCommand`
+/// * `*TRG` => `TrgCommand`
+/// 
+/// Sometimes a command is re-used in multiple branches, in that case one might skip the changing branches in the name. 
+/// Generics may be used to specialize the command.
+/// * `SENSe(:VOLTage|:CURRent|..)([:DC]|:AC):RESolution` => `SensResolutionCommand` or `SensResolutionCommand<Func>` 
+/// 
+/// When instantaiting more than one command it is recommended to use a command constant/member or const generics, i.e. like this:
+/// * `OUTPut[<n>]:ATTenuation` => `OutpAttenuationCommand<const N: usize = 1>`
+/// * `ARM:SEQuence[<n1>]:LAYer[<n2>][:IMMediate]` => `ArmSeqLayImmediateCommand { sequence: n1, layer: n2 }`
+/// 
+/// All of these forms may also be combined for extra headache.
+/// 
+/// In the end readability overrules the above conventions if the name gets too verbose...
 pub trait Command<D: Device> {
     /// Hint about the allowed forms this command allows.
     ///
