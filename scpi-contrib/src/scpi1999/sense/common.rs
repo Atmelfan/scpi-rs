@@ -300,7 +300,7 @@ pub(crate) mod nplc {
 #[cfg(test)]
 mod tests {
     use crate::{
-        scpi1999::{sense::*, tests::fixture_scpi_device},
+        scpi1999::{sense::*, tests::fixture_scpi_device}, sense::function::SensorFunction,
     };
 
     struct Test;
@@ -312,6 +312,7 @@ mod tests {
     }
 
     impl Sense for Test {
+        
         fn function_on(&mut self, _function: SensorFunction) -> Result<(), FunctionError> {
             unimplemented!()
         }
@@ -319,6 +320,8 @@ mod tests {
         fn get_function_on(&self) -> Result<SensorFunction, FunctionError> {
             unimplemented!()
         }
+
+        type Function = SensorFunction;
     }
 
     #[cfg(feature = "unit-time")]

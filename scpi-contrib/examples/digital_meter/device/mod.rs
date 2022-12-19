@@ -1,11 +1,44 @@
 use scpi::Device;
-use scpi_contrib::{scpi1999::prelude::*, IEEE4882};
+use scpi_contrib::{
+    classes::digital_meter::DigitalMeter,
+    scpi1999::prelude::*,
+    trigger::{TriggerSource, TriggerState},
+    IEEE4882,
+};
 
 use std::collections::VecDeque;
 
-mod measure;
-mod trigger;
+use self::measure::ScalVoltAc;
 
+pub(crate) mod util;
+
+pub(crate) mod measure;
+pub(crate) mod sense;
+pub(crate) mod trigger;
+
+/// Fake sensor. This would be the ADC with range switches etc in a real device
+#[derive(Debug, Default)]
+pub(crate) enum FakeSensorMode {
+    /// Take multiple measurements and calculate RMS
+    VoltageAc,
+    /// Take one or more measurements and calculate average
+    #[default]
+    VoltageDc,
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct FakeSensor {
+    pub(crate) mode: FakeSensorMode,
+}
+
+impl FakeSensor {
+    // Take one measurement of whatever function is configured
+    fn sense(&self) -> f32 {
+        0.0
+    }
+}
+
+#[derive(Debug, Default)]
 pub(crate) struct Voltmeter {
     /// # Mandatory IEEE488/SCPI registers
     /// Event Status Register
@@ -20,6 +53,18 @@ pub(crate) struct Voltmeter {
     pub questionable: EventRegister,
     /// Error queue
     pub errors: VecDeque<Error>,
+
+    // Trigger
+    pub trigger_src: TriggerSource,
+    pub trigger_state: TriggerState,
+    pub trigger_cnt: usize,
+
+    // Measurment config
+    pub measfunc: measure::MeasFunction,
+    pub sensor: FakeSensor,
+
+    // measurment buffer
+    pub measurement: Option<Vec<f32>>,
 }
 
 impl Voltmeter {
@@ -31,13 +76,19 @@ impl Voltmeter {
             operation: Default::default(),
             questionable: Default::default(),
             errors: Default::default(),
+            trigger_src: Default::default(),
+            measfunc: Default::default(),
+            sensor: Default::default(),
+            measurement: None,
+            trigger_state: Default::default(),
+            trigger_cnt: 1,
         }
     }
 }
 
-impl ScpiDevice for Voltmeter {
+impl DigitalMeter<ScalVoltAc> for Voltmeter {}
 
-}
+impl ScpiDevice for Voltmeter {}
 
 impl Device for Voltmeter {
     fn handle_error(&mut self, err: Error) {
@@ -79,6 +130,7 @@ impl IEEE4882 for Voltmeter {
     }
 
     fn rst(&mut self) -> scpi::error::Result<()> {
+        self.measurement = None;
         Ok(())
     }
 

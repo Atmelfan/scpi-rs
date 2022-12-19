@@ -3,7 +3,7 @@ use scpi::{
     parser::{response::ResponseData, tokenizer::Token},
 };
 
-use self::function::SensorFunction;
+use core::fmt::Debug;
 
 use super::ScpiDevice;
 
@@ -23,8 +23,14 @@ pub trait SenseFunction {
 }
 
 pub trait Sense<const N: usize = 1> {
-    fn function_on(&mut self, function: SensorFunction) -> Result<(), FunctionError>;
-    fn get_function_on(&self) -> Result<SensorFunction, FunctionError>;
+    /// Sensor function type for the `SENSe:FUNCtion:ON[?] <sensor_function>` command.
+    /// Should be convertable from a  string data token and returnable as a response by the query form.
+    ///
+    /// See [function::SensorFunction] for a simple function type or base for rollling your own.
+    type Function: for<'a> TryFrom<Token<'a>, Error = Error> + ResponseData;
+
+    fn function_on(&mut self, function: Self::Function) -> Result<(), FunctionError>;
+    fn get_function_on(&self) -> Result<Self::Function, FunctionError>;
 }
 
 #[derive(Debug, Clone, Copy)]

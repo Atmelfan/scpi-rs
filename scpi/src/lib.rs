@@ -81,9 +81,11 @@
 
 #[cfg(feature = "std")]
 extern crate std as alloc;
-
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 extern crate alloc;
+
+use crate::error::Error;
+use core::any::Any;
 
 pub mod error;
 pub mod option;
@@ -93,64 +95,48 @@ pub mod tree;
 /// Prelude containing the most useful stuff
 ///
 pub mod prelude {
-    pub use crate::{Context, Device};
+    pub use crate::{
+        error::{Error, ErrorCode},
+        Context, Device,
+    };
 }
 
-use core::any::Any;
-
 /// Re-export uom if enabled
-#[cfg(any(
-    feature = "unit-electric-potential",
-    feature = "unit-electric-current",
-    feature = "unit-electrical-conductance",
-    feature = "unit-electrical-resistance",
-    feature = "unit-electric-charge",
-    feature = "unit-electric-capacitance",
-    feature = "unit-electric-inductance",
-    feature = "unit-energy",
-    feature = "unit-power",
-    feature = "unit-angle",
-    feature = "unit-ratio",
-    feature = "unit-thermodynamic-temperature",
-    feature = "unit-time",
-    feature = "unit-frequency"
-))]
+#[cfg(feature = "uom")]
 pub mod units {
     #[doc(no_inline)]
     pub use uom;
 
-    #[cfg(feature = "unit-electric-potential")]
-    pub use uom::si::f32::ElectricPotential;
+    #[cfg(feature = "unit-angle")]
+    pub use uom::si::f32::Angle;
+    #[cfg(feature = "unit-capacitance")]
+    pub use uom::si::f32::Capacitance;
+    #[cfg(feature = "unit-electric-charge")]
+    pub use uom::si::f32::ElectricCharge;
     #[cfg(feature = "unit-electric-current")]
     pub use uom::si::f32::ElectricCurrent;
+    #[cfg(feature = "unit-electric-potential")]
+    pub use uom::si::f32::ElectricPotential;
     #[cfg(feature = "unit-electrical-conductance")]
     pub use uom::si::f32::ElectricalConductance;
     #[cfg(feature = "unit-electrical-resistance")]
     pub use uom::si::f32::ElectricalResistance;
-    #[cfg(feature = "unit-electric-charge")]
-    pub use uom::si::f32::ElectricCharge;
-    #[cfg(feature = "unit-capacitance")]
-    pub use uom::si::f32::Capacitance;
-    #[cfg(feature = "unit-inductance")]
-    pub use uom::si::f32::Inductance;
     #[cfg(feature = "unit-energy")]
     pub use uom::si::f32::Energy;
+    #[cfg(feature = "unit-frequency")]
+    pub use uom::si::f32::Frequency;
+    #[cfg(feature = "unit-inductance")]
+    pub use uom::si::f32::Inductance;
     #[cfg(feature = "unit-power")]
     pub use uom::si::f32::Power;
-    #[cfg(feature = "unit-angle")]
-    pub use uom::si::f32::Angle;
     #[cfg(feature = "unit-ratio")]
     pub use uom::si::f32::Ratio;
     #[cfg(feature = "unit-thermodynamic-temperature")]
     pub use uom::si::f32::ThermodynamicTemperature;
     #[cfg(feature = "unit-time")]
     pub use uom::si::f32::Time;
-    #[cfg(feature = "unit-frequency")]
-    pub use uom::si::f32::Frequency;
 }
 pub use arrayvec;
-
-use crate::error::Error;
 
 /// A basic device capable of executing commands and not much else
 pub trait Device {

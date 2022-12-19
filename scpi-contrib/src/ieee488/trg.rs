@@ -5,9 +5,9 @@ use scpi::{cmd_nquery, error::Result, tree::prelude::*};
 use super::IEEE4882;
 
 /// Implements trigger logic for the `*TRG` command
-pub trait IEEE488Trg {
+pub trait CommonTrg {
     /// Called when `*TRG` is executed.
-    fn exec_trg(&mut self) -> Result<()>;
+    fn trig_bus(&mut self) -> Result<()>;
 }
 
 ///## 10.37 *TRG, Trigger Command
@@ -18,13 +18,13 @@ pub struct TrgCommand;
 
 impl<D> Command<D> for TrgCommand
 where
-    D: Device + IEEE4882 + IEEE488Trg,
+    D: Device + IEEE4882 + CommonTrg,
 {
     cmd_nquery!();
 
     fn event(&self, device: &mut D, _context: &mut Context, _args: Arguments) -> Result<()> {
         // Clear any device specific status
-        device.exec_trg()
+        device.trig_bus()
     }
 }
 

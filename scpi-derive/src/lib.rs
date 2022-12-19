@@ -133,16 +133,14 @@ pub fn derive_scpi_enum(input: proc_macro::TokenStream) -> proc_macro::TokenStre
             }
         }
     }
-    from_mnemonic_matches.push(quote! {
-        _ => None
-    });
 
     let expanded = quote! {
         // The generated impl.
         impl scpi::option::ScpiEnum for #name {
             fn from_mnemonic(s: &[u8]) -> Option<#name> {
                 match s {
-                    #(#from_mnemonic_matches),*
+                    #(#from_mnemonic_matches),*,
+                    _ => None
                 }
             }
 
@@ -159,7 +157,7 @@ pub fn derive_scpi_enum(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 
             fn try_from(value: scpi::parser::tokenizer::Token<'a>) -> scpi::error::Result<Self> {
                 if let scpi::parser::tokenizer::Token::CharacterProgramData(s) = value {
-                    Self::from_mnemonic(s).ok_or(scpi::error::ErrorCode::IllegalParameterValue.into())
+                    <Self as scpi::option::ScpiEnum>::from_mnemonic(s).ok_or(scpi::error::ErrorCode::IllegalParameterValue.into())
                 } else {
                     Err(scpi::error::ErrorCode::DataTypeError.into())
                 }

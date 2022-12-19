@@ -2,6 +2,8 @@
 //!
 //!
 
+use core::fmt::Display;
+
 use scpi::error::{Error, ErrorCode, ErrorQueue, Result};
 use scpi::Device;
 
@@ -12,7 +14,7 @@ pub use self::status::{Operation, Questionable};
 #[doc(hidden)]
 mod numeric;
 #[doc(inline)]
-pub use numeric::{NumericBuilder, NumericValue, NumericValueQuery};
+pub use numeric::{NumericBuilder, NumericValue, NumericValueQuery, NumericValueDefaults};
 
 // Subsystems
 pub mod input;
@@ -115,13 +117,19 @@ pub trait ScpiDevice:
 /// (used in OPERation/QUEStionable registers)
 ///
 ///
-#[derive(PartialEq, Eq, Copy, Clone)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub struct EventRegister {
     pub condition: u16,
     pub event: u16,
     pub enable: u16,
     pub ntr_filter: u16,
     pub ptr_filter: u16,
+}
+
+impl Display for EventRegister {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}, evt={}, en={}", self.condition, self.event, self.enable)
+    }
 }
 
 pub trait EventRegisterName {

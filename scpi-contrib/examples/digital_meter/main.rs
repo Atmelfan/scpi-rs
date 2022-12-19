@@ -7,7 +7,7 @@ use scpi::{self, prelude::*};
 #[path = "../common/mod.rs"]
 mod common;
 mod tree;
-mod device;
+pub mod device;
 
 //
 fn main() {

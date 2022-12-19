@@ -57,3 +57,385 @@
 //! | `MEASure:<function>?`  | `<parameters>[,<source_list>]` | `[query only]` |
 //!
 
+use core::marker::PhantomData;
+
+use scpi::{
+    error::{Error, Result},
+    parser::expression::channel_list::ChannelList,
+    tree::prelude::*,
+};
+
+use crate::{
+    trigger::{abort::Abort, initiate::Initiate, Trigger},
+    NumericValue, NumericValueQuery, ScpiDevice,
+};
+
+pub trait MeasurementFunction {
+    type ConfigureParameters: Copy;
+    type FetchData: ResponseData;
+}
+
+pub trait Configure: Trigger {
+    type Function: ResponseData;
+    type FetchData: ResponseData;
+
+    /// ## `CONFigure? [<channel_list>]`
+    ///
+    /// Should return a list of enabled functions for specified channels or all channels if None.
+    ///
+    /// NOTE: May only support one channel and return an error if channel_list is not None.
+    ///
+    fn configure(&mut self, channel: Option<ChannelList>) -> Result<Self::Function>;
+
+    /// ## `FETCh? [<channel_list>]`
+    ///
+    ///
+    fn fetch(&mut self, source_list: Option<ChannelList>) -> Result<Self::FetchData>;
+
+    /// ## `READ? [<channel_list>]`
+    ///
+    ///
+    fn read(&mut self, source_list: Option<ChannelList>) -> Result<Self::FetchData> {
+        self.abort();
+        self.initiate();
+        self.fetch(source_list)
+    }
+}
+
+pub struct ConfigureCommand;
+impl<D> Command<D> for ConfigureCommand
+where
+    D: ScpiDevice + Configure,
+{
+    fn query(
+        &self,
+        device: &mut D,
+        _context: &mut scpi::Context,
+        mut args: Arguments,
+        mut response: scpi::tree::prelude::ResponseUnit,
+    ) -> Result<()> {
+        let channel: Option<ChannelList> = args.optional_data()?;
+        let resp = device.configure(channel)?;
+        response.data(resp).finish()
+    }
+}
+
+pub struct FetchCommand;
+impl<D> Command<D> for FetchCommand
+where
+    D: ScpiDevice + Configure,
+{
+    fn query(
+        &self,
+        device: &mut D,
+        _context: &mut scpi::Context,
+        mut args: Arguments,
+        mut response: scpi::tree::prelude::ResponseUnit,
+    ) -> Result<()> {
+        let channel: Option<ChannelList> = args.optional_data()?;
+        let resp = device.fetch(channel)?;
+        response.data(resp).finish()
+    }
+}
+
+pub struct ReadCommand;
+impl<D> Command<D> for ReadCommand
+where
+    D: ScpiDevice + Configure,
+{
+    fn query(
+        &self,
+        device: &mut D,
+        _context: &mut scpi::Context,
+        mut args: Arguments,
+        mut response: scpi::tree::prelude::ResponseUnit,
+    ) -> Result<()> {
+        let channel: Option<ChannelList> = args.optional_data()?;
+        let resp = device.fetch(channel)?;
+        response.data(resp).finish()
+    }
+}
+
+pub trait Conf<Func>: Configure
+where
+    Func: MeasurementFunction,
+{
+    fn conf_function(
+        &mut self,
+        params: Func::ConfigureParameters,
+        source_list: Option<ChannelList>,
+    ) -> Result<()>;
+}
+
+pub struct ConfScalFuncCommand<Func> {
+    _phantom: PhantomData<Func>,
+}
+
+impl<Func> ConfScalFuncCommand<Func> {
+    pub const fn new() -> Self {
+        Self {
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<D, Func, T1, T2> Command<D> for ConfScalFuncCommand<Func>
+where
+    D: ScpiDevice + Conf<Func>,
+    Func: MeasurementFunction<ConfigureParameters = (T1, T2)>,
+    T1: for<'t> TryFrom<Token<'t>, Error = Error> + Default,
+    T2: for<'t> TryFrom<Token<'t>, Error = Error> + Default,
+{
+    fn event(
+        &self,
+        device: &mut D,
+        _context: &mut scpi::Context,
+        mut args: Arguments,
+    ) -> scpi::error::Result<()> {
+        let mut t1: T1 = Default::default();
+        let mut t2: T2 = Default::default();
+
+        let source_list = 'block: {
+            // Try to read a parameter, exit early if it's a channel list
+            t1 = match args.next_optional_token()? {
+                Some(tok @ Token::ExpressionProgramData(expr)) if expr.starts_with(b"@") => {
+                    break 'block Some(ChannelList::try_from(tok)?)
+                }
+                Some(tok) => tok.try_into()?,
+                None => break 'block None,
+            };
+            // Try to read a parameter, exit early if it's a channel list
+            t2 = match args.next_optional_token()? {
+                Some(tok @ Token::ExpressionProgramData(expr)) if expr.starts_with(b"@") => {
+                    break 'block Some(ChannelList::try_from(tok)?)
+                }
+                Some(tok) => tok.try_into()?,
+                None => break 'block None,
+            };
+
+            // Next should be a channel list if anything
+            args.optional_data()?
+        };
+
+        device.conf_function((t1, t2), source_list)
+    }
+
+    fn query(
+        &self,
+        _device: &mut D,
+        _context: &mut scpi::Context,
+        _args: Arguments,
+        _response: ResponseUnit,
+    ) -> scpi::error::Result<()> {
+        todo!()
+    }
+}
+
+pub trait Fetch<Func>: Configure
+where
+    Func: MeasurementFunction,
+{
+    fn fetch_function(
+        &mut self,
+        params: Func::ConfigureParameters,
+        source_list: Option<ChannelList>,
+    ) -> Result<Func::FetchData>;
+}
+
+pub struct FetchScalFuncCommand<Func> {
+    _phantom: PhantomData<Func>,
+}
+
+impl<Func> FetchScalFuncCommand<Func> {
+    pub const fn new() -> Self {
+        Self {
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<D, Func, T1, T2> Command<D> for FetchScalFuncCommand<Func>
+where
+    D: ScpiDevice + Fetch<Func>,
+    Func: MeasurementFunction<ConfigureParameters = (T1, T2)>,
+    T1: for<'t> TryFrom<Token<'t>, Error = Error> + Default,
+    T2: for<'t> TryFrom<Token<'t>, Error = Error> + Default,
+{
+    fn query(
+        &self,
+        device: &mut D,
+        _context: &mut scpi::Context,
+        mut args: Arguments,
+        mut response: ResponseUnit,
+    ) -> scpi::error::Result<()> {
+        let mut t1: T1 = Default::default();
+        let mut t2: T2 = Default::default();
+
+        let source_list = 'block: {
+            // Try to read a parameter, exit early if it's a channel list
+            t1 = match args.next_optional_token()? {
+                Some(tok @ Token::ExpressionProgramData(expr)) if expr.starts_with(b"@") => {
+                    break 'block Some(ChannelList::try_from(tok)?)
+                }
+                Some(tok) => tok.try_into()?,
+                None => break 'block None,
+            };
+            // Try to read a parameter, exit early if it's a channel list
+            t2 = match args.next_optional_token()? {
+                Some(tok @ Token::ExpressionProgramData(expr)) if expr.starts_with(b"@") => {
+                    break 'block Some(ChannelList::try_from(tok)?)
+                }
+                Some(tok) => tok.try_into()?,
+                None => break 'block None,
+            };
+
+            // Next should be a channel list if anything
+            args.optional_data()?
+        };
+
+        let data = device.fetch_function((t1, t2), source_list)?;
+        response.data(data).finish()
+    }
+}
+
+pub trait Read<Func>: Configure + Fetch<Func> + Abort + Initiate
+where
+    Func: MeasurementFunction,
+{
+    fn read_function(
+        &mut self,
+        params: Func::ConfigureParameters,
+        source_list: Option<ChannelList>,
+    ) -> Result<Func::FetchData> {
+        self.abort();
+        self.initiate();
+        self.fetch_function(params, source_list)
+    }
+}
+
+pub struct ReadScalFuncCommand<Func> {
+    _phantom: PhantomData<Func>,
+}
+
+impl<Func> ReadScalFuncCommand<Func> {
+    pub const fn new() -> Self {
+        Self {
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<D, Func, T1, T2> Command<D> for ReadScalFuncCommand<Func>
+where
+    D: ScpiDevice + Read<Func>,
+    Func: MeasurementFunction<ConfigureParameters = (T1, T2)>,
+    T1: for<'t> TryFrom<Token<'t>, Error = Error> + Default,
+    T2: for<'t> TryFrom<Token<'t>, Error = Error> + Default,
+{
+    fn query(
+        &self,
+        device: &mut D,
+        _context: &mut scpi::Context,
+        mut args: Arguments,
+        mut response: ResponseUnit,
+    ) -> scpi::error::Result<()> {
+        let mut t1: T1 = Default::default();
+        let mut t2: T2 = Default::default();
+
+        let source_list = 'block: {
+            // Try to read a parameter, exit early if it's a channel list
+            t1 = match args.next_optional_token()? {
+                Some(tok @ Token::ExpressionProgramData(expr)) if expr.starts_with(b"@") => {
+                    break 'block Some(ChannelList::try_from(tok)?)
+                }
+                Some(tok) => tok.try_into()?,
+                None => break 'block None,
+            };
+            // Try to read a parameter, exit early if it's a channel list
+            t2 = match args.next_optional_token()? {
+                Some(tok @ Token::ExpressionProgramData(expr)) if expr.starts_with(b"@") => {
+                    break 'block Some(ChannelList::try_from(tok)?)
+                }
+                Some(tok) => tok.try_into()?,
+                None => break 'block None,
+            };
+
+            // Next should be a channel list if anything
+            args.optional_data()?
+        };
+
+        let data = device.read_function((t1, t2), source_list)?;
+        response.data(data).finish()
+    }
+}
+
+pub trait Measure<Func>: Configure + Conf<Func> + Read<Func> + Abort
+where
+    Func: MeasurementFunction,
+{
+    fn measure_function(
+        &mut self,
+        params: Func::ConfigureParameters,
+        source_list: Option<ChannelList>,
+    ) -> Result<Func::FetchData> {
+        self.abort();
+        self.conf_function(params, source_list.clone())?;
+        self.read_function(params, source_list)
+    }
+}
+
+pub struct MeasScalFuncCommand<Func> {
+    _phantom: PhantomData<Func>,
+}
+
+impl<Func> MeasScalFuncCommand<Func> {
+    pub const fn new() -> Self {
+        Self {
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<D, Func, T1, T2> Command<D> for MeasScalFuncCommand<Func>
+where
+    D: ScpiDevice + Measure<Func>,
+    Func: MeasurementFunction<ConfigureParameters = (T1, T2)>,
+    T1: for<'t> TryFrom<Token<'t>, Error = Error> + Default,
+    T2: for<'t> TryFrom<Token<'t>, Error = Error> + Default,
+{
+    fn query(
+        &self,
+        device: &mut D,
+        _context: &mut scpi::Context,
+        mut args: Arguments,
+        mut response: ResponseUnit,
+    ) -> scpi::error::Result<()> {
+        let mut t1: T1 = Default::default();
+        let mut t2: T2 = Default::default();
+
+        let source_list = 'block: {
+            // Try to read a parameter, exit early if it's a channel list
+            t1 = match args.next_optional_token()? {
+                Some(tok @ Token::ExpressionProgramData(expr)) if expr.starts_with(b"@") => {
+                    break 'block Some(ChannelList::try_from(tok)?)
+                }
+                Some(tok) => tok.try_into()?,
+                None => break 'block None,
+            };
+            // Try to read a parameter, exit early if it's a channel list
+            t2 = match args.next_optional_token()? {
+                Some(tok @ Token::ExpressionProgramData(expr)) if expr.starts_with(b"@") => {
+                    break 'block Some(ChannelList::try_from(tok)?)
+                }
+                Some(tok) => tok.try_into()?,
+                None => break 'block None,
+            };
+
+            // Next should be a channel list if anything
+            args.optional_data()?
+        };
+
+        let data = device.measure_function((t1, t2), source_list)?;
+        response.data(data).finish()
+    }
+}

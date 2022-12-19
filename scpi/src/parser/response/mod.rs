@@ -5,6 +5,7 @@ mod arrayformatter;
 #[cfg(feature = "alloc")]
 mod vecformatter;
 
+use arrayvec::ArrayVec;
 use lexical_core::FormattedSize;
 use lexical_core::NumberFormatBuilder;
 
@@ -177,6 +178,41 @@ where
         let mnemonic = self.mnemonic();
         let short_form = mnemonic.split(|c| !c.is_ascii_uppercase()).next().unwrap();
         formatter.push_str(short_form)
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl<T> ResponseData for alloc::vec::Vec<T> where T: ResponseData
+{
+    fn format_response_data(&self, formatter: &mut dyn Formatter) -> Result<()> {
+        let mut it = self.iter();
+
+        let first = it
+            .next()
+            .ok_or_else(|| Error::new(ErrorCode::DeviceSpecificError))?;
+        first.format_response_data(formatter)?;
+        while let Some(func) = it.next() {
+            formatter.push_byte(b',')?;
+            func.format_response_data(formatter)?;
+        }
+        Ok(())
+    }
+}
+
+impl<T, const N: usize> ResponseData for ArrayVec<T, N> where T: ResponseData
+{
+    fn format_response_data(&self, formatter: &mut dyn Formatter) -> Result<()> {
+        let mut it = self.iter();
+
+        let first = it
+            .next()
+            .ok_or_else(|| Error::new(ErrorCode::DeviceSpecificError))?;
+        first.format_response_data(formatter)?;
+        while let Some(func) = it.next() {
+            formatter.push_byte(b',')?;
+            func.format_response_data(formatter)?;
+        }
+        Ok(())
     }
 }
 

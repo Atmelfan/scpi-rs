@@ -3,7 +3,11 @@ use core::ops::{Add, Div, Mul, Sub};
 use scpi::{
     error::{Error, ErrorCode, Result},
     parser::{mnemonic_compare, tokenizer::Token},
-    parser_unreachable,
+    units::uom::{
+        num_traits::Num,
+        si::{Dimension, Units},
+        Conversion,
+    },
 };
 
 /// SCPI `<numeric_value>`
@@ -91,6 +95,12 @@ pub enum NumericValue<T> {
     /// specify the step. The step may either be a fixed linear size or a logarithmic number
     /// representing number of decades/step.
     Down,
+}
+
+impl<T> Default for NumericValue<T> {
+    fn default() -> Self {
+        Self::Default
+    }
 }
 
 impl<T> NumericValue<T> {
@@ -230,8 +240,33 @@ impl_numeric_default!(i32);
 impl_numeric_default!(u32);
 impl_numeric_default!(i64);
 impl_numeric_default!(u64);
+impl_numeric_default!(isize);
+impl_numeric_default!(usize);
 impl_numeric_default!(f32);
 impl_numeric_default!(f64);
+
+impl<D, U, V> NumericValueDefaults for scpi::units::uom::si::Quantity<D, U, V>
+where
+    D: Dimension + ?Sized,
+    U: Units<V> + ?Sized,
+    V: Num + Conversion<V> + NumericValueDefaults,
+{
+    fn numeric_value_max() -> Self {
+        Self {
+            dimension: Default::default(),
+            units: Default::default(),
+            value: V::numeric_value_max(),
+        }
+    }
+
+    fn numeric_value_min() -> Self {
+        Self {
+            dimension: Default::default(),
+            units: Default::default(),
+            value: V::numeric_value_min(),
+        }
+    }
+}
 
 ///  A helper for resolving a [NumericValue] into a final value
 pub struct NumericBuilder<T> {
@@ -279,7 +314,7 @@ where
         Self { min: value, ..self }
     }
 
-    /// Set the default value
+    /// Set DEFault value
     pub fn default(self, value: T) -> Self {
         Self {
             default: Some(value),
@@ -330,33 +365,24 @@ where
 }
 
 /// A mirror of [NumericValue] which only matches MAXimum|MINimum|DEFault for queries of said values.
+#[derive(Debug, Clone, Copy, scpi_derive::ScpiEnum)]
 pub enum NumericValueQuery {
     /// See [NumericValue::Maximum]
+    #[scpi(mnemonic = b"MAXimum")]
     Maximum,
     /// See [NumericValue::Minimum]
+    #[scpi(mnemonic = b"MINimum")]
     Minimum,
     /// See [NumericValue::Default]
+    #[scpi(mnemonic = b"DEFault")]
     Default,
 }
 
-impl<'a> TryFrom<Token<'a>> for NumericValueQuery {
-    type Error = Error;
-
-    fn try_from(value: Token<'a>) -> Result<Self> {
-        match value {
-            Token::CharacterProgramData(s) => match s {
-                x if mnemonic_compare(b"MAXimum", x) => Ok(Self::Maximum),
-                x if mnemonic_compare(b"MINimum", x) => Ok(Self::Minimum),
-                x if mnemonic_compare(b"DEFault", x) => Ok(Self::Default),
-                _ => Err(ErrorCode::IllegalParameterValue.into()),
-            },
-            t => {
-                if t.is_data() {
-                    Err(ErrorCode::DataTypeError.into())
-                } else {
-                    parser_unreachable!()
-                }
-            }
-        }
-    }
+pub struct NumericValueLimits<T> {
+    /// See [NumericValue::Maximum]
+    maximum: T,
+    /// See [NumericValue::Minimum]
+    minimum: T,
+    /// See [NumericValue::Default]
+    default: Option<T>,
 }

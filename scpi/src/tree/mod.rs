@@ -113,6 +113,90 @@ pub enum Node<'a, D> {
 }
 
 impl<'a, D> Node<'a, D> {
+    pub const fn leaf(name: &'static [u8], handler: &'a dyn Command<D>) -> Self {
+        Self::Leaf { name, default: false, handler }
+    }
+
+    pub const fn default_leaf(name: &'static [u8], handler: &'a dyn Command<D>) -> Self {
+        Self::Leaf { name, default: true, handler }
+    }
+
+    pub const fn branch(name: &'static [u8], sub: &'a [Node<'a, D>],) -> Self {
+        Self::Branch { name, default: false, sub }
+    }
+
+    pub const fn default_branch(name: &'static [u8], sub: &'a [Node<'a, D>],) -> Self {
+        Self::Branch { name, default: true, sub }
+    }
+}
+
+/// A utility to create a [Node::Leaf].
+/// 
+/// 
+#[macro_export]
+macro_rules! Leaf {
+    ($name:literal => $handler:expr) => {
+        Leaf {
+            name: $name,
+            default: false,
+            handler: $handler,
+        }
+    };
+    (default $name:literal => $handler:expr) => {
+        Leaf {
+            name: $name,
+            default: true,
+            handler: $handler,
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! Branch {
+    ($name:literal; $($child:expr),+) => {
+        Branch {
+            name: $name,
+            default: false,
+            sub: &[
+                $($child),+
+            ],
+        }
+    };
+    ($name:literal => $handler:expr; $($child:expr),+) => {
+        Branch {
+            name: $name,
+            default: false,
+            sub: &[
+                Leaf!{ b"" => $handler },
+                $($child),+
+            ],
+        }
+    };
+    (default $name:literal; $($child:expr),+) => {
+        Branch {
+            name: $name,
+            default: true,
+            sub: &[
+                $($child),+
+            ],
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! Root {
+    ($($child:expr),+) => {
+        Branch {
+            name: b"",
+            default: false,
+            sub: &[
+                $($child),+
+            ],
+        }
+    };
+}
+
+impl<'a, D> Node<'a, D> {
     pub fn name(&self) -> &'static [u8] {
         match self {
             Self::Leaf { name, .. } => name,

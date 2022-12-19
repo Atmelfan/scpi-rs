@@ -1,28 +1,28 @@
-use scpi::{error::Result, option::ScpiEnum, tree::prelude::*};
-use crate::scpi1999::ScpiDevice;
 use super::Sense;
+use crate::scpi1999::ScpiDevice;
+use scpi::{error::Result, option::ScpiEnum, tree::prelude::*};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, scpi_derive::ScpiEnum)]
 #[non_exhaustive]
 pub enum Presentation {
     /// g
     #[scpi(mnemonic = b"XNONe")]
-    None,
+    XNone,
     #[scpi(mnemonic = b"XTIMe")]
-    Time,
+    XTime,
     #[scpi(mnemonic = b"XFRequency")]
-    Frequency,
+    XFrequency,
     #[scpi(mnemonic = b"XPOWer")]
-    Power,
+    XPower,
     #[scpi(mnemonic = b"XVOLtage")]
-    Voltage,
+    XVoltage,
     #[scpi(mnemonic = b"XCURrent")]
-    Current,
+    XCurrent,
 }
 
 impl Default for Presentation {
     fn default() -> Self {
-        Self::None
+        Self::XNone
     }
 }
 
@@ -30,10 +30,16 @@ impl Default for Presentation {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, scpi_derive::ScpiEnum)]
 #[non_exhaustive]
 pub enum Function {
+    #[scpi(mnemonic = b"CAPacitance")]
+    Capacitance,
     #[scpi(mnemonic = b"CURRent")]
     Current(CurrentFunction),
+    #[scpi(mnemonic = b"DIODe")]
+    Diode,
     #[scpi(mnemonic = b"FREQuency")]
     Frequency,
+    #[scpi(mnemonic = b"PERiod")]
+    Period,
     #[scpi(mnemonic = b"FRESistance")]
     FResistance,
     #[scpi(mnemonic = b"POWer")]
@@ -41,30 +47,50 @@ pub enum Function {
     #[scpi(mnemonic = b"RESistance")]
     Resistance,
     #[scpi(mnemonic = b"TEMPerature")]
-    Temperature,
+    Temperature(TemperatureFunction),
     #[scpi(mnemonic = b"VOLTage")]
     Voltage(VoltageFunction),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, scpi_derive::ScpiEnum)]
+impl From<VoltageFunction> for Function {
+    fn from(v: VoltageFunction) -> Self {
+        Self::Voltage(v)
+    }
+}
+
+impl From<TemperatureFunction> for Function {
+    fn from(v: TemperatureFunction) -> Self {
+        Self::Temperature(v)
+    }
+}
+
+impl From<PowerFunction> for Function {
+    fn from(v: PowerFunction) -> Self {
+        Self::Power(v)
+    }
+}
+
+impl From<CurrentFunction> for Function {
+    fn from(v: CurrentFunction) -> Self {
+        Self::Current(v)
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, scpi_derive::ScpiEnum)]
 pub enum CurrentFunction {
     #[scpi(mnemonic = b"AC")]
     Ac,
     #[scpi(mnemonic = b"DC")]
+    #[default]
     Dc,
 }
 
-impl Default for CurrentFunction {
-    fn default() -> Self {
-        Self::Dc
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, scpi_derive::ScpiEnum)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, scpi_derive::ScpiEnum)]
 pub enum PowerFunction {
     #[scpi(mnemonic = b"AC")]
     Ac,
     #[scpi(mnemonic = b"DC")]
+    #[default]
     Dc,
     #[scpi(mnemonic = b"DISTortion")]
     Distortion,
@@ -78,48 +104,41 @@ pub enum PowerFunction {
     Thd,
 }
 
-impl Default for PowerFunction {
-    fn default() -> Self {
-        Self::Dc
-    }
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, scpi_derive::ScpiEnum)]
+pub enum TemperatureFunction {
+    #[scpi(mnemonic = b"TC")]
+    #[default]
+    Thermocouple,
+    #[scpi(mnemonic = b"FRTD")]
+    FRtd,
+    #[scpi(mnemonic = b"RTD")]
+    Rtd,
+    #[scpi(mnemonic = b"FTHermistor")]
+    FThermistor,
+    #[scpi(mnemonic = b"THERmistor")]
+    Thermistor,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, scpi_derive::ScpiEnum)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, scpi_derive::ScpiEnum)]
 pub enum VoltageFunction {
     #[scpi(mnemonic = b"AC")]
     Ac,
     #[scpi(mnemonic = b"DC")]
+    #[default]
     Dc,
-}
-
-impl Default for VoltageFunction {
-    fn default() -> Self {
-        Self::Dc
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, scpi_derive::ScpiEnum)]
-#[non_exhaustive]
-pub enum Suffix {
-    #[scpi(mnemonic = b"RATio")]
-    Ratio,
-    #[scpi(mnemonic = b"SUM")]
-    Sum,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd)]
 pub struct SensorFunction {
     pub presentation: Presentation,
     pub function: Function,
-    pub suffix: Option<Suffix>,
 }
 
 impl SensorFunction {
-    fn new(presentation: Presentation, function: Function, suffix: Option<Suffix>) -> Self {
+    fn new(presentation: Presentation, function: Function) -> Self {
         Self {
             presentation,
             function,
-            suffix,
         }
     }
 
@@ -131,7 +150,7 @@ impl SensorFunction {
                 toks.next();
                 presentation
             } else {
-                Presentation::None
+                Presentation::XNone
             }
         } else {
             return None;
@@ -145,17 +164,12 @@ impl SensorFunction {
             match Function::from_mnemonic(func)? {
                 f @ Function::Current(_) => {
                     toks.next_if(|t| t.ok() == Some(Token::HeaderMnemonicSeparator));
-                    match toks.peek() {
+                    match toks.next() {
                         // Maybe an additional specifier [DC/AC]?
                         Some(Ok(Token::ProgramMnemonic(current_func))) => {
-                            // :DC|AC or Ratio/Sum
-                            if let Some(current_func) = CurrentFunction::from_mnemonic(current_func)
-                            {
-                                toks.next();
-                                Function::Current(current_func)
-                            } else {
-                                f
-                            }
+                            CurrentFunction::from_mnemonic(current_func)
+                                .map(|x| Function::from(x))
+                                .unwrap_or(f)
                         }
                         // Something went wrong
                         Some(Err(_)) => return None,
@@ -167,13 +181,21 @@ impl SensorFunction {
                     toks.next_if(|t| t.ok() == Some(Token::HeaderMnemonicSeparator));
                     match toks.peek() {
                         Some(Ok(Token::ProgramMnemonic(power_func))) => {
-                            // :DC|AC or Ratio/Sum
-                            if let Some(current_func) = PowerFunction::from_mnemonic(power_func) {
-                                toks.next();
-                                Function::Power(current_func)
-                            } else {
-                                f
-                            }
+                            PowerFunction::from_mnemonic(power_func)
+                                .map(|x| Function::from(x))
+                                .unwrap_or(f)
+                        }
+                        Some(Err(_)) => return None,
+                        _ => f,
+                    }
+                }
+                f @ Function::Temperature(_) => {
+                    toks.next_if(|t| t.ok() == Some(Token::HeaderMnemonicSeparator));
+                    match toks.peek() {
+                        Some(Ok(Token::ProgramMnemonic(temp_func))) => {
+                            TemperatureFunction::from_mnemonic(temp_func)
+                                .map(|x| Function::from(x))
+                                .unwrap_or(f)
                         }
                         Some(Err(_)) => return None,
                         _ => f,
@@ -183,14 +205,9 @@ impl SensorFunction {
                     toks.next_if(|t| t.ok() == Some(Token::HeaderMnemonicSeparator));
                     match toks.peek() {
                         Some(Ok(Token::ProgramMnemonic(voltage_func))) => {
-                            // :DC|AC or Ratio/Sum
-                            if let Some(current_func) = VoltageFunction::from_mnemonic(voltage_func)
-                            {
-                                toks.next();
-                                Function::Voltage(current_func)
-                            } else {
-                                f
-                            }
+                            VoltageFunction::from_mnemonic(voltage_func)
+                                .map(|x| Function::from(x))
+                                .unwrap_or(f)
                         }
                         Some(Err(_)) => return None,
                         _ => f,
@@ -202,19 +219,7 @@ impl SensorFunction {
             return None;
         };
 
-        toks.next_if(|t| t.ok() == Some(Token::HeaderMnemonicSeparator));
-
-        // Get suffix
-        let suffix = match toks.peek() {
-            Some(Ok(Token::ProgramMnemonic(suffix))) => {
-                let suffix = Suffix::from_mnemonic(suffix)?;
-                toks.next();
-                Some(suffix)
-            }
-            Some(Err(_)) => return None,
-            _ => None,
-        };
-
+        //toks.next_if(|t| t.ok() == Some(Token::HeaderMnemonicSeparator));
         //TODO: Input blocks, subnodes
 
         // No straggling tokens
@@ -222,7 +227,7 @@ impl SensorFunction {
             return None;
         }
 
-        Some(Self::new(presentation, function, suffix))
+        Some(Self::new(presentation, function))
     }
 }
 
@@ -250,7 +255,7 @@ impl ResponseData for SensorFunction {
         formatter.push_byte(b'\"')?;
         // Presentation layer
         match self.presentation {
-            Presentation::None => {}
+            Presentation::XNone => {}
             presentation => {
                 formatter.push_ascii(presentation.short_form())?;
                 formatter.push_byte(b':')?;
@@ -267,16 +272,15 @@ impl ResponseData for SensorFunction {
                 formatter.push_byte(b':')?;
                 formatter.push_ascii(x.short_form())?;
             }
+            Function::Temperature(x) => {
+                formatter.push_byte(b':')?;
+                formatter.push_ascii(x.short_form())?;
+            }
             Function::Voltage(x) => {
                 formatter.push_byte(b':')?;
                 formatter.push_ascii(x.short_form())?;
             }
             _ => {}
-        }
-        // Suffix
-        if let Some(suffix) = self.suffix {
-            formatter.push_byte(b':')?;
-            formatter.push_ascii(suffix.short_form())?;
         }
         formatter.push_byte(b'\"')?;
         Ok(())
@@ -284,7 +288,7 @@ impl ResponseData for SensorFunction {
 }
 
 #[derive(Debug)]
-struct SensFuncOnCommand<const N: usize>;
+pub struct SensFuncOnCommand<const N: usize = 1>;
 
 impl<const N: usize, D> Command<D> for SensFuncOnCommand<N>
 where
@@ -295,7 +299,7 @@ where
     }
 
     fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
-        let sensor_func = args.data::<SensorFunction>()?;
+        let sensor_func = args.data::<D::Function>()?;
         device.function_on(sensor_func)?;
         Ok(())
     }
@@ -324,9 +328,8 @@ mod tests {
         assert_eq!(
             volt,
             SensorFunction {
-                presentation: Presentation::None,
+                presentation: Presentation::XNone,
                 function: Function::Voltage(VoltageFunction::Dc),
-                suffix: None
             }
         );
 
@@ -334,9 +337,8 @@ mod tests {
         assert_eq!(
             volt_ac,
             SensorFunction {
-                presentation: Presentation::None,
+                presentation: Presentation::XNone,
                 function: Function::Voltage(VoltageFunction::Ac),
-                suffix: None
             }
         );
 
@@ -344,29 +346,8 @@ mod tests {
         assert_eq!(
             xnone_volt_ac,
             SensorFunction {
-                presentation: Presentation::Time,
+                presentation: Presentation::XTime,
                 function: Function::Voltage(VoltageFunction::Ac),
-                suffix: None
-            }
-        );
-
-        let volt_ratio = SensorFunction::new_from_str(b"voltage:ratio").unwrap();
-        assert_eq!(
-            volt_ratio,
-            SensorFunction {
-                presentation: Presentation::None,
-                function: Function::Voltage(VoltageFunction::Dc),
-                suffix: Some(Suffix::Ratio)
-            }
-        );
-
-        let volt_ac_ratio = SensorFunction::new_from_str(b"volt:ac:sum").unwrap();
-        assert_eq!(
-            volt_ac_ratio,
-            SensorFunction {
-                presentation: Presentation::None,
-                function: Function::Voltage(VoltageFunction::Ac),
-                suffix: Some(Suffix::Sum)
             }
         );
 
@@ -377,21 +358,19 @@ mod tests {
     #[test]
     fn func_response() {
         let volt_dc = SensorFunction {
-            presentation: Presentation::None,
+            presentation: Presentation::XNone,
             function: Function::Voltage(VoltageFunction::Dc),
-            suffix: None,
         };
         let mut buf = ArrayVec::<u8, 100>::new();
         volt_dc.format_response_data(&mut buf).unwrap();
         assert_eq!(buf.as_slice(), b"\"VOLT:DC\"");
 
-        let volt_ac_ratio = SensorFunction {
-            presentation: Presentation::Time,
+        let xtime_volt_ac = SensorFunction {
+            presentation: Presentation::XTime,
             function: Function::Voltage(VoltageFunction::Ac),
-            suffix: Some(Suffix::Ratio),
         };
         let mut buf = ArrayVec::<u8, 100>::new();
-        volt_ac_ratio.format_response_data(&mut buf).unwrap();
-        assert_eq!(buf.as_slice(), b"\"XTIM:VOLT:AC:RAT\"");
+        xtime_volt_ac.format_response_data(&mut buf).unwrap();
+        assert_eq!(buf.as_slice(), b"\"XTIM:VOLT:AC\"");
     }
 }
