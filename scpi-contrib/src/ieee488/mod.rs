@@ -24,12 +24,12 @@ pub enum EventStatusBit {
     /// User request
     UserRequest = 6,
     /// Power on
-    PowerOn = 7
+    PowerOn = 7,
 }
 
 impl EventStatusBit {
     pub fn mask(&self) -> u8 {
-        (0x01 << *self as usize) as u8 
+        (0x01 << *self as usize) as u8
     }
 }
 
@@ -51,12 +51,12 @@ pub enum StatusBit {
     /// RQS or MSS bit
     RqsMss = 6,
     /// Operation summary bit or designer bit 7
-    Operation = 7
+    Operation = 7,
 }
 
 impl StatusBit {
     pub fn mask(&self) -> u8 {
-        (0x01 << *self as usize) as u8 
+        (0x01 << *self as usize) as u8
     }
 }
 
@@ -65,11 +65,11 @@ pub trait IEEE4882 {
     fn stb(&self) -> u8 {
         let mut stb = 0x00;
         // ESB
-        if self.esr() &  self.ese() != 0 {
+        if self.esr() & self.ese() != 0 {
             stb |= StatusBit::Esb.mask();
         }
         // MSS
-        if stb &  self.sre() != 0 {
+        if stb & self.sre() != 0 {
             stb |= StatusBit::RqsMss.mask();
         }
         stb
@@ -95,7 +95,7 @@ pub trait IEEE4882 {
     /// See [crate::ieee488::common::TstCommand] for details.
     ///
     /// Return Ok(()) on successfull self-test or
-    /// some kind of standard or device-specific error on self-test-fault
+    /// some kind of standard or device-specific error on self-test fault
     fn tst(&mut self) -> Result<()>;
 
     /// # *RST

@@ -1,8 +1,6 @@
 mod util;
 
-use scpi::{
-    cmd_qonly
-};
+use scpi::cmd_qonly;
 use scpi::{error::Result, tree::prelude::*};
 use util::TestDevice;
 

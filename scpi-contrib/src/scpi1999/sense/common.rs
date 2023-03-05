@@ -1,9 +1,6 @@
 use core::marker::PhantomData;
 
-use scpi::{
-    error::Result,
-    tree::prelude::*,
-};
+use scpi::{error::Result, tree::prelude::*};
 
 use crate::scpi1999::{numeric::NumericValue, util::Auto};
 
@@ -27,7 +24,15 @@ where
 }
 
 pub struct SensRangUpperCommand<FUNC, const N: usize = 1> {
-    phantom: PhantomData<FUNC>,
+    _phantom: PhantomData<FUNC>,
+}
+
+impl<FUNC, const N: usize> SensRangUpperCommand<FUNC, N> {
+    pub const fn new() -> Self {
+        Self {
+            _phantom: PhantomData,
+        }
+    }
 }
 
 impl<D, FUNC, const N: usize> Command<D> for SensRangUpperCommand<FUNC, N>
@@ -62,7 +67,15 @@ where
 }
 
 pub struct SensRangLowerCommand<FUNC, const N: usize = 1> {
-    phantom: PhantomData<FUNC>,
+    _phantom: PhantomData<FUNC>,
+}
+
+impl<FUNC, const N: usize> SensRangLowerCommand<FUNC, N> {
+    pub const fn new() -> Self {
+        Self {
+            _phantom: PhantomData,
+        }
+    }
 }
 
 impl<D, FUNC, const N: usize> Command<D> for SensRangLowerCommand<FUNC, N>
@@ -97,7 +110,15 @@ where
 }
 
 pub struct SensRangAutoCommand<FUNC, const N: usize = 1> {
-    phantom: PhantomData<FUNC>,
+    _phantom: PhantomData<FUNC>,
+}
+
+impl<FUNC, const N: usize> SensRangAutoCommand<FUNC, N> {
+    pub const fn new() -> Self {
+        Self {
+            _phantom: PhantomData,
+        }
+    }
 }
 
 impl<D, FUNC, const N: usize> Command<D> for SensRangAutoCommand<FUNC, N>
@@ -131,7 +152,7 @@ where
     }
 }
 
-trait SenseResolution<FUNC, const N: usize = 1>: Sense<N>
+pub trait SenseResolution<FUNC, const N: usize = 1>: Sense<N>
 where
     FUNC: SenseFunction,
 {
@@ -140,7 +161,15 @@ where
 }
 
 pub struct SensResolutionCommand<FUNC, const N: usize = 1> {
-    phantom: PhantomData<FUNC>,
+    _phantom: PhantomData<FUNC>,
+}
+
+impl<FUNC, const N: usize> SensResolutionCommand<FUNC, N> {
+    pub const fn new() -> Self {
+        Self {
+            _phantom: PhantomData,
+        }
+    }
 }
 
 impl<D, FUNC, const N: usize> Command<D> for SensResolutionCommand<FUNC, N>
@@ -300,7 +329,8 @@ pub(crate) mod nplc {
 #[cfg(test)]
 mod tests {
     use crate::{
-        scpi1999::{sense::*, tests::fixture_scpi_device}, sense::function::SensorFunction,
+        scpi1999::{sense::*, tests::fixture_scpi_device},
+        sense::function::SensorFunction,
     };
 
     struct Test;
@@ -312,7 +342,6 @@ mod tests {
     }
 
     impl Sense for Test {
-        
         fn function_on(&mut self, _function: SensorFunction) -> Result<(), FunctionError> {
             unimplemented!()
         }
@@ -325,7 +354,7 @@ mod tests {
     }
 
     #[cfg(feature = "unit-time")]
-    use super::aperture::{SenseAperture, SensApertureCommand};
+    use super::aperture::{SensApertureCommand, SenseAperture};
 
     #[cfg(feature = "unit-time")]
     impl SenseAperture<TestSenseFunction> for Test {

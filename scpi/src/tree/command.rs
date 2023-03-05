@@ -153,27 +153,27 @@ macro_rules! cmd_both {
 /// ```
 ///
 /// The default stubs for [Command::event] and [Command::query] returns an [ErrorCode::UndefinedHeader] error.
-/// 
+///
 /// ## Naming convention
 /// A command impl should be named in PascalCase after the shortform header mnemonics upp to the last which should be in longform.
 /// Common commands should be named as-is without '*' obv.
-/// 
+///
 /// Examples:
 /// * `INITiate[:IMMediate][:ALL]` => `InitImmAllCommand`
 /// * `SYSTem:ERRor[:NEXT]` => `SystErrNextCommand`
 /// * `SENSe:VOLTage[:DC]:NPLCycles` => `SensVoltDcNPLCyclesCommand`
 /// * `*TRG` => `TrgCommand`
-/// 
-/// Sometimes a command is re-used in multiple branches, in that case one might skip the changing branches in the name. 
+///
+/// Sometimes a command is re-used in multiple branches, in that case one might skip the changing branches in the name.
 /// Generics may be used to specialize the command.
-/// * `SENSe(:VOLTage|:CURRent|..)([:DC]|:AC):RESolution` => `SensResolutionCommand` or `SensResolutionCommand<Func>` 
-/// 
+/// * `SENSe(:VOLTage|:CURRent|..)([:DC]|:AC):RESolution` => `SensResolutionCommand` or `SensResolutionCommand<Func>`
+///
 /// When instantaiting more than one command it is recommended to use a command constant/member or const generics, i.e. like this:
 /// * `OUTPut[<n>]:ATTenuation` => `OutpAttenuationCommand<const N: usize = 1>`
 /// * `ARM:SEQuence[<n1>]:LAYer[<n2>][:IMMediate]` => `ArmSeqLayImmediateCommand { sequence: n1, layer: n2 }`
-/// 
+///
 /// All of these forms may also be combined for extra headache.
-/// 
+///
 /// In the end readability overrules the above conventions if the name gets too verbose...
 pub trait Command<D: Device> {
     /// Hint about the allowed forms this command allows.

@@ -1,9 +1,9 @@
-use scpi::{
-    error::Result,
-    tree::prelude::*,
-};
+use scpi::{error::Result, tree::prelude::*};
 
-use crate::{scpi1999::{numeric::NumericValue, util::Auto, ScpiDevice}, NumericValueQuery};
+use crate::{
+    scpi1999::{numeric::NumericValue, util::Auto, ScpiDevice},
+    NumericValueQuery,
+};
 
 use scpi::units::Frequency;
 

@@ -13,11 +13,8 @@ impl TestDevice {
 }
 
 impl Device for TestDevice {
-    fn handle_error(&mut self, _err: Error) {
-        
-    }
+    fn handle_error(&mut self, _err: Error) {}
 }
-
 
 #[derive(Debug, Deserialize)]
 #[allow(dead_code)]

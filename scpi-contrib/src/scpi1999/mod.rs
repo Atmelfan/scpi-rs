@@ -9,12 +9,12 @@ use scpi::Device;
 
 use crate::IEEE4882;
 
-pub use self::status::{Operation, Questionable};
+use self::status::{operation::Operation, questionable::Questionable};
 
 #[doc(hidden)]
 mod numeric;
 #[doc(inline)]
-pub use numeric::{NumericBuilder, NumericValue, NumericValueQuery, NumericValueDefaults};
+pub use numeric::{NumericBuilder, NumericValue, NumericValueDefaults, NumericValueQuery};
 
 // Subsystems
 pub mod input;
@@ -28,7 +28,7 @@ pub mod unit;
 
 pub mod prelude {
     pub use super::{
-        status::{Operation, Questionable},
+        status::{operation::Operation, questionable::Questionable},
         EventRegister, GetEventRegister, ScpiDevice,
     };
     pub use scpi::error::{Error, ErrorQueue};
@@ -128,7 +128,11 @@ pub struct EventRegister {
 
 impl Display for EventRegister {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{}, evt={}, en={}", self.condition, self.event, self.enable)
+        write!(
+            f,
+            "{}, evt={}, en={}",
+            self.condition, self.event, self.enable
+        )
     }
 }
 
@@ -231,6 +235,12 @@ pub mod util {
     pub enum Auto {
         Once,
         Bool(bool),
+    }
+
+    impl Default for Auto {
+        fn default() -> Self {
+            Self::Bool(false)
+        }
     }
 
     impl<'a> TryFrom<Token<'a>> for Auto {

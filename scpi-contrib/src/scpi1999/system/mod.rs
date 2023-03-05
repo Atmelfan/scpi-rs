@@ -7,10 +7,13 @@ use scpi::{cmd_qonly, error::Result, tree::prelude::*};
 
 use crate::ScpiDevice;
 
+#[cfg(feature="unproven")]
 // LFRequency requires frequency units
 pub mod lfrequency;
 
+#[cfg(feature="unproven")]
 pub mod capability;
+
 pub mod error;
 
 ///## 21.21 :VERSion?

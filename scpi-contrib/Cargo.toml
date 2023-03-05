@@ -16,14 +16,18 @@ readme = { workspace = true }
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-scpi = { path = "../scpi", version = "0.10", default-features = false, features = ["unit-time"]}
+scpi = { path = "../scpi", version = "0.10", default-features = false, features = ["unit-time", "unit-frequency"]}
 scpi-derive = { path = "../scpi-derive", version = "0.10" }
 document-features = { workspace = true }
+
+[build-dependencies]
+clap = {version = "4.0", features = ["derive"]}
 
 [dev-dependencies]
 csv = "1.1"
 serde = { version = "1", features = ["derive"] }
 rustyline = "10.0"
+rand = "0.8"
 
 [features]
 default = []
@@ -32,4 +36,6 @@ default = []
 std = ["scpi/std"]
 ## 
 alloc = ["scpi/alloc"]
+
+unproven = []
 

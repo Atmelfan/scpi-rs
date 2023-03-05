@@ -3,7 +3,6 @@ use scpi::{
     Branch, Leaf, Root,
 };
 
-use scpi_contrib::{sense::function::SensFuncOnCommand, trigger::{TrigSeqCountCommand, TrigSeqDelayCommand}};
 use scpi_contrib::{
     ieee488_cls, ieee488_ese, ieee488_esr, ieee488_idn, ieee488_opc, ieee488_rst, ieee488_sre,
     ieee488_stb, ieee488_tst, ieee488_wai, scpi_status, scpi_system,
@@ -16,20 +15,29 @@ use scpi_contrib::{
     },
     trg::TrgCommand,
 };
+use scpi_contrib::{
+    sense::{
+        common::{SensRangAutoCommand, SensRangUpperCommand, SensResolutionCommand},
+        function::SensFuncOnCommand,
+    },
+    trigger::{TrigSeqCountCommand, TrigSeqDelayCommand},
+};
 
-use crate::{device::measure::ScalVoltAc, Voltmeter};
+use crate::{device::ScalVoltAc, Voltmeter};
 
-pub(crate) const TREE: Node<Voltmeter> = Root!{
+pub(crate) const TREE: Node<Voltmeter> = Root! {
+    // Add mandatory IEEE488 commands
     ieee488_cls!(),
     ieee488_ese!(),
     ieee488_esr!(),
-    ieee488_idn!(b"GPA-Robotics", b"T800-101", b"0", b"0"),
+    ieee488_idn!(b"scpi-rs", b"digital_voltmeter", b"0", b"0"),
     ieee488_opc!(),
     ieee488_rst!(),
     ieee488_sre!(),
     ieee488_stb!(),
     ieee488_tst!(),
     ieee488_wai!(),
+    // Add mandatory SCPI commands
     scpi_status!(),
     scpi_system!(),
     // *TRG
@@ -41,7 +49,7 @@ pub(crate) const TREE: Node<Voltmeter> = Root!{
         Branch!{default b"SCALar";
             Branch!{ b"VOLTage";
                 Leaf!(b"AC" => &ConfScalFuncCommand::<ScalVoltAc>::new()),
-                Leaf!(default b"DC" => &ConfScalFuncCommand::<ScalVoltAc>::new())
+                Leaf!(default b"DC" => &Todo)
             }
         }
     },
@@ -89,153 +97,20 @@ pub(crate) const TREE: Node<Voltmeter> = Root!{
         Branch!{b"VOLTage";
             Branch!{b"AC";
                 Branch!{b"RANGe";
-                    Leaf!(b"UPPer" => &Todo),
+                    Leaf!(default b"UPPer" => &SensRangUpperCommand::<ScalVoltAc>::new()),
+                    Leaf!(b"AUTO" => &SensRangAutoCommand::<ScalVoltAc>::new())
+                },
+                Leaf!(b"RESolution" => &SensResolutionCommand::<ScalVoltAc>::new())
+            },
+            Branch!{default b"DC";
+                Branch!{b"RANGe";
+                    Leaf!(default b"UPPer" => &Todo),
                     Leaf!(b"AUTO" => &Todo)
                 },
                 Leaf!(b"RESolution" => &Todo)
-            },
-            Branch {
-                name: b"DC",
-                default: true,
-                sub: &[
-                    Branch {
-                        name: b"RANGe",
-                        default: false,
-                        sub: &[
-                            Leaf {
-                                name: b"UPPer",
-                                default: true,
-                                handler: &Todo,
-                            },
-                            Leaf {
-                                name: b"AUTO",
-                                default: false,
-                                handler: &Todo,
-                            },
-                        ],
-                    },
-                    Leaf {
-                        name: b"RESolution",
-                        default: false,
-                        handler: &Todo,
-                    },
-                ],
             }
-        },
-        Branch {
-            name: b"CURRent",
-            default: false,
-            sub: &[
-                Branch {
-                    name: b"AC",
-                    default: false,
-                    sub: &[
-                        Branch {
-                            name: b"RANGe",
-                            default: false,
-                            sub: &[
-                                Leaf {
-                                    name: b"UPPer",
-                                    default: true,
-                                    handler: &Todo,
-                                },
-                                Leaf {
-                                    name: b"AUTO",
-                                    default: false,
-                                    handler: &Todo,
-                                },
-                            ],
-                        },
-                        Leaf {
-                            name: b"RESolution",
-                            default: false,
-                            handler: &Todo,
-                        },
-                    ],
-                },
-                Branch {
-                    name: b"DC",
-                    default: true,
-                    sub: &[
-                        Branch {
-                            name: b"RANGe",
-                            default: false,
-                            sub: &[
-                                Leaf {
-                                    name: b"UPPer",
-                                    default: true,
-                                    handler: &Todo,
-                                },
-                                Leaf {
-                                    name: b"AUTO",
-                                    default: false,
-                                    handler: &Todo,
-                                },
-                            ],
-                        },
-                        Leaf {
-                            name: b"RESolution",
-                            default: false,
-                            handler: &Todo,
-                        },
-                    ],
-                },
-            ],
-        },
-        Branch {
-            name: b"RESistance",
-            default: false,
-            sub: &[
-                Branch {
-                    name: b"RANGe",
-                    default: false,
-                    sub: &[
-                        Leaf {
-                            name: b"UPPer",
-                            default: true,
-                            handler: &Todo,
-                        },
-                        Leaf {
-                            name: b"AUTO",
-                            default: false,
-                            handler: &Todo,
-                        },
-                    ],
-                },
-                Leaf {
-                    name: b"RESolution",
-                    default: false,
-                    handler: &Todo,
-                },
-            ],
-        },
-        Branch {
-            name: b"FRESistance",
-            default: false,
-            sub: &[
-                Branch {
-                    name: b"RANGe",
-                    default: false,
-                    sub: &[
-                        Leaf {
-                            name: b"UPPer",
-                            default: true,
-                            handler: &Todo,
-                        },
-                        Leaf {
-                            name: b"AUTO",
-                            default: false,
-                            handler: &Todo,
-                        },
-                    ],
-                },
-                Leaf {
-                    name: b"RESolution",
-                    default: false,
-                    handler: &Todo,
-                },
-            ],
         }
+        // TODO: Demo more functions
     },
     Branch!{b"TRIGger";
         Branch!{default b"SEQuence";

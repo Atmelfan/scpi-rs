@@ -179,7 +179,7 @@ impl SensorFunction {
                 }
                 f @ Function::Power(_) => {
                     toks.next_if(|t| t.ok() == Some(Token::HeaderMnemonicSeparator));
-                    match toks.peek() {
+                    match toks.next() {
                         Some(Ok(Token::ProgramMnemonic(power_func))) => {
                             PowerFunction::from_mnemonic(power_func)
                                 .map(|x| Function::from(x))
@@ -191,7 +191,7 @@ impl SensorFunction {
                 }
                 f @ Function::Temperature(_) => {
                     toks.next_if(|t| t.ok() == Some(Token::HeaderMnemonicSeparator));
-                    match toks.peek() {
+                    match toks.next() {
                         Some(Ok(Token::ProgramMnemonic(temp_func))) => {
                             TemperatureFunction::from_mnemonic(temp_func)
                                 .map(|x| Function::from(x))
@@ -203,7 +203,7 @@ impl SensorFunction {
                 }
                 f @ Function::Voltage(_) => {
                     toks.next_if(|t| t.ok() == Some(Token::HeaderMnemonicSeparator));
-                    match toks.peek() {
+                    match toks.next() {
                         Some(Ok(Token::ProgramMnemonic(voltage_func))) => {
                             VoltageFunction::from_mnemonic(voltage_func)
                                 .map(|x| Function::from(x))

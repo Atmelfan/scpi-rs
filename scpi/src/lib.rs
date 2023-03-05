@@ -79,10 +79,10 @@
 //!  * `scpi_derive` - Internal macro support library, used by `scpi` to generate error messages and suffixes (enter at own risk)
 //!
 
-#[cfg(feature = "std")]
-extern crate std as alloc;
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 extern crate alloc;
+#[cfg(feature = "std")]
+extern crate std as alloc;
 
 use crate::error::Error;
 use core::any::Any;

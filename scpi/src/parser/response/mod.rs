@@ -182,7 +182,9 @@ where
 }
 
 #[cfg(feature = "alloc")]
-impl<T> ResponseData for alloc::vec::Vec<T> where T: ResponseData
+impl<T> ResponseData for alloc::vec::Vec<T>
+where
+    T: ResponseData,
 {
     fn format_response_data(&self, formatter: &mut dyn Formatter) -> Result<()> {
         let mut it = self.iter();
@@ -199,7 +201,9 @@ impl<T> ResponseData for alloc::vec::Vec<T> where T: ResponseData
     }
 }
 
-impl<T, const N: usize> ResponseData for ArrayVec<T, N> where T: ResponseData
+impl<T, const N: usize> ResponseData for ArrayVec<T, N>
+where
+    T: ResponseData,
 {
     fn format_response_data(&self, formatter: &mut dyn Formatter) -> Result<()> {
         let mut it = self.iter();

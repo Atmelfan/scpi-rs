@@ -1,6 +1,6 @@
 use scpi::{cmd_qonly, error::Result, tree::prelude::*};
 
-use crate::{ScpiDevice, classes::InstrumentClass};
+use crate::{classes::InstrumentClass, ScpiDevice};
 
 /// ## 21.3 :CAPability?
 ///> `SYSTem:CAPability?`

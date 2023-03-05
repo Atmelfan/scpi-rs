@@ -1,5 +1,4 @@
-use scpi::tree::prelude::{ResponseData, Formatter, Token, Error};
-
+use scpi::tree::prelude::{Error, Formatter, ResponseData, Token};
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum Auto<T> {

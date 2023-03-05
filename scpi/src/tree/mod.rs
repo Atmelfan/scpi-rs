@@ -114,36 +114,52 @@ pub enum Node<'a, D> {
 
 impl<'a, D> Node<'a, D> {
     pub const fn leaf(name: &'static [u8], handler: &'a dyn Command<D>) -> Self {
-        Self::Leaf { name, default: false, handler }
+        Self::Leaf {
+            name,
+            default: false,
+            handler,
+        }
     }
 
     pub const fn default_leaf(name: &'static [u8], handler: &'a dyn Command<D>) -> Self {
-        Self::Leaf { name, default: true, handler }
+        Self::Leaf {
+            name,
+            default: true,
+            handler,
+        }
     }
 
-    pub const fn branch(name: &'static [u8], sub: &'a [Node<'a, D>],) -> Self {
-        Self::Branch { name, default: false, sub }
+    pub const fn branch(name: &'static [u8], sub: &'a [Node<'a, D>]) -> Self {
+        Self::Branch {
+            name,
+            default: false,
+            sub,
+        }
     }
 
-    pub const fn default_branch(name: &'static [u8], sub: &'a [Node<'a, D>],) -> Self {
-        Self::Branch { name, default: true, sub }
+    pub const fn default_branch(name: &'static [u8], sub: &'a [Node<'a, D>]) -> Self {
+        Self::Branch {
+            name,
+            default: true,
+            sub,
+        }
     }
 }
 
 /// A utility to create a [Node::Leaf].
-/// 
-/// 
+///
+///
 #[macro_export]
 macro_rules! Leaf {
     ($name:literal => $handler:expr) => {
-        Leaf {
+        $crate::tree::Node::Leaf {
             name: $name,
             default: false,
             handler: $handler,
         }
     };
     (default $name:literal => $handler:expr) => {
-        Leaf {
+        $crate::tree::Node::Leaf {
             name: $name,
             default: true,
             handler: $handler,
@@ -154,7 +170,7 @@ macro_rules! Leaf {
 #[macro_export]
 macro_rules! Branch {
     ($name:literal; $($child:expr),+) => {
-        Branch {
+        $crate::tree::Node::Branch {
             name: $name,
             default: false,
             sub: &[
@@ -163,17 +179,17 @@ macro_rules! Branch {
         }
     };
     ($name:literal => $handler:expr; $($child:expr),+) => {
-        Branch {
+        $crate::tree::Node::Branch {
             name: $name,
             default: false,
             sub: &[
-                Leaf!{ b"" => $handler },
+                Leaf!{default b"" => $handler },
                 $($child),+
             ],
         }
     };
     (default $name:literal; $($child:expr),+) => {
-        Branch {
+        $crate::tree::Node::Branch {
             name: $name,
             default: true,
             sub: &[
@@ -186,7 +202,7 @@ macro_rules! Branch {
 #[macro_export]
 macro_rules! Root {
     ($($child:expr),+) => {
-        Branch {
+        $crate::tree::Node::Branch {
             name: b"",
             default: false,
             sub: &[
@@ -349,7 +365,9 @@ where
                         handler.query(device, context, Arguments::with(tokens), response_unit)
                     }
                     // This is a leaf node, cannot traverse further
-                    Some(Token::HeaderMnemonicSeparator | Token::ProgramMnemonic(..)) => Err(ErrorCode::UndefinedHeader.into()),
+                    Some(Token::HeaderMnemonicSeparator | Token::ProgramMnemonic(..)) => {
+                        Err(ErrorCode::UndefinedHeader.into())
+                    }
                     // Tokenizer shouldn't emit anything else...
                     Some(_) => Err(ErrorCode::SyntaxError.into()),
                 }
@@ -375,7 +393,7 @@ where
                         *leaf = self;
                         for child in *sub {
                             if mnemonic.match_program_header(child.name()) {
-                                tokens.next();// Consume mnemonic
+                                tokens.next(); // Consume mnemonic
                                 return child.exec(leaf, device, context, tokens, response);
                             }
                         }
@@ -391,7 +409,11 @@ where
                         }
                     }
                     // Branch .. | Branch\EOM | Branch;
-                    Some(Token::ProgramHeaderSeparator | Token::ProgramMessageUnitSeparator | Token::HeaderQuerySuffix)
+                    Some(
+                        Token::ProgramHeaderSeparator
+                        | Token::ProgramMessageUnitSeparator
+                        | Token::HeaderQuerySuffix,
+                    )
                     | None => {
                         // Try to find a default leaf or branch execute
                         if let Some(default_leaf) = sub

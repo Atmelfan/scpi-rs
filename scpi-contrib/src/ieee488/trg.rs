@@ -23,7 +23,6 @@ where
     cmd_nquery!();
 
     fn event(&self, device: &mut D, _context: &mut Context, _args: Arguments) -> Result<()> {
-        // Clear any device specific status
         device.trig_bus()
     }
 }

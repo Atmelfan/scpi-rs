@@ -377,12 +377,3 @@ pub enum NumericValueQuery {
     #[scpi(mnemonic = b"DEFault")]
     Default,
 }
-
-pub struct NumericValueLimits<T> {
-    /// See [NumericValue::Maximum]
-    maximum: T,
-    /// See [NumericValue::Minimum]
-    minimum: T,
-    /// See [NumericValue::Default]
-    default: Option<T>,
-}

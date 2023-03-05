@@ -1,6 +1,6 @@
 use core::marker::PhantomData;
 
-use scpi::{option::ScpiEnum, tree::prelude::*};
+use scpi::tree::prelude::*;
 
 use super::*;
 

@@ -53,29 +53,26 @@ impl Device for TestDevice {
     }
 }
 
-impl ScpiDevice for TestDevice {
+impl ScpiDevice for TestDevice {}
 
-}
-
-impl IEEE4882 for TestDevice{
-
+impl IEEE4882 for TestDevice {
     fn stb(&self) -> u8 {
         let mut stb = 0x00;
         if !self.is_empty() {
             stb |= scpi_contrib::StatusBit::ErrorEventQueue.mask();
-        } 
+        }
         if self.get_register_summary::<Questionable>() {
             stb |= scpi_contrib::StatusBit::Questionable.mask();
-        } 
+        }
         if self.get_register_summary::<Operation>() {
             stb |= scpi_contrib::StatusBit::Operation.mask();
-        } 
+        }
         // ESB
-        if self.esr() &  self.ese() != 0 {
+        if self.esr() & self.ese() != 0 {
             stb |= scpi_contrib::StatusBit::Esb.mask();
         }
         // MSS
-        if stb &  self.sre() != 0 {
+        if stb & self.sre() != 0 {
             stb |= scpi_contrib::StatusBit::RqsMss.mask();
         }
         stb

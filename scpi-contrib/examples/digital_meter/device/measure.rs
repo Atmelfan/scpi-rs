@@ -2,13 +2,16 @@ use scpi::{
     error::Result,
     parser::expression::channel_list::ChannelList,
     tree::prelude::*,
-    units::ElectricPotential,
+    units::{uom::si::electric_potential::volt, ElectricPotential},
 };
-use scpi_contrib::{NumericValue, measurement::{Configure, MeasurementFunction, Conf, Measure, Fetch, Read}};
+use scpi_contrib::{
+    measurement::{Conf, Configure, Fetch, Measure, MeasurementFunction, Read},
+    NumericValue,
+};
 
 use crate::device::FakeSensorMode;
 
-use super::{util::Auto, Voltmeter};
+use super::{util::Auto, ScalVoltAc, Voltmeter};
 
 #[derive(Debug, Clone, Copy)]
 pub enum MeasFunction {
@@ -83,13 +86,17 @@ impl Configure for Voltmeter {
         if source_list.is_some() {
             return Err(ErrorCode::ParameterNotAllowed.into());
         }
-        self.measurement.clone().ok_or_else(|| Error::new(ErrorCode::DataCorruptOrStale))
+        self.measurement
+            .clone()
+            .ok_or_else(|| Error::new(ErrorCode::DataCorruptOrStale))
     }
 }
 
-pub struct ScalVoltAc;
 impl MeasurementFunction for ScalVoltAc {
-    type ConfigureParameters = (NumericValue<Auto<ElectricPotential>>, NumericValue<ElectricPotential>);
+    type ConfigureParameters = (
+        NumericValue<Auto<ElectricPotential>>,
+        NumericValue<ElectricPotential>,
+    );
     type FetchData = Vec<f32>;
 }
 
@@ -99,7 +106,7 @@ impl Conf<ScalVoltAc> for Voltmeter {
         (expected_value, resolution): <ScalVoltAc as MeasurementFunction>::ConfigureParameters,
         _source_list: Option<ChannelList>,
     ) -> Result<()> {
-        dbg!(expected_value, resolution);
+        //dbg!(expected_value, resolution);
 
         self.sensor.mode = FakeSensorMode::VoltageAc;
         self.measfunc = MeasFunction::VoltageAc {
@@ -111,7 +118,11 @@ impl Conf<ScalVoltAc> for Voltmeter {
                 NumericValue::Default => Auto::Auto,
                 _ => return Err(ErrorCode::IllegalParameterValue.into()),
             },
-            resolution: resolution.build().finish()?.value,
+            resolution: resolution
+                .build()
+                .default(ElectricPotential::new::<volt>(0.001))
+                .finish()?
+                .value,
         };
         Ok(())
     }
@@ -124,13 +135,15 @@ impl Fetch<ScalVoltAc> for Voltmeter {
     ) -> Result<<ScalVoltAc as MeasurementFunction>::FetchData> {
         // Return measurment value if valid and function is the same
         if matches!(self.measfunc, MeasFunction::VoltageAc { .. }) {
-            self.measurement.clone().ok_or_else(|| Error::new(ErrorCode::DataCorruptOrStale))
+            self.measurement
+                .clone()
+                .ok_or_else(|| Error::new(ErrorCode::DataCorruptOrStale))
         } else {
             Err(ErrorCode::SettingsConflict.into())
         }
     }
 }
 
-// Default 
+// Default
 impl Read<ScalVoltAc> for Voltmeter {}
 impl Measure<ScalVoltAc> for Voltmeter {}

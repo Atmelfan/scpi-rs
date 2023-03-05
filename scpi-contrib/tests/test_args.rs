@@ -1,8 +1,8 @@
-use scpi_contrib::{
-    ieee488_cls, ieee488_ese, ieee488_esr, ieee488_idn, ieee488_opc, ieee488_rst,
-    ieee488_sre, ieee488_stb, ieee488_tst, ieee488_wai, scpi_status, scpi_system,
-};
 use scpi::{cmd_qonly, error::Result, tree::prelude::*};
+use scpi_contrib::{
+    ieee488_cls, ieee488_ese, ieee488_esr, ieee488_idn, ieee488_opc, ieee488_rst, ieee488_sre,
+    ieee488_stb, ieee488_tst, ieee488_wai, scpi_status, scpi_system,
+};
 
 use std::convert::TryFrom;
 use std::marker::PhantomData;

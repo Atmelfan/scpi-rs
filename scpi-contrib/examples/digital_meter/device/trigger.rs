@@ -1,9 +1,14 @@
-use scpi::{units, error::Result, prelude::ErrorCode};
+use scpi::{error::Result, prelude::ErrorCode, units};
 
-use scpi_contrib::{scpi1999::{
-    trigger::{abort::Abort, initiate::Initiate, Trigger, TriggerSource},
-    NumericValue,
-}, trg::CommonTrg, ScpiDevice, trigger::TriggerState};
+use scpi_contrib::{
+    scpi1999::{
+        trigger::{abort::Abort, initiate::Initiate, Trigger, TriggerSource},
+        NumericValue,
+    },
+    trg::CommonTrg,
+    trigger::TriggerState,
+    ScpiDevice,
+};
 
 use super::Voltmeter;
 
@@ -19,7 +24,7 @@ impl Trigger for Voltmeter {
         self.trigger_cnt
     }
 
-    fn delay(&mut self, delay: NumericValue<units::Time>) -> Result<()> {
+    fn delay(&mut self, _delay: NumericValue<units::Time>) -> Result<()> {
         todo!()
     }
 
@@ -33,7 +38,6 @@ impl Trigger for Voltmeter {
             _ => return Err(ErrorCode::IllegalParameterValue.into()),
         }
         Ok(())
-
     }
 
     fn get_source(&self) -> Self::Source {
@@ -75,14 +79,15 @@ impl Abort for Voltmeter {
 
 impl CommonTrg for Voltmeter {
     fn trig_bus(&mut self) -> Result<()> {
-        if self.trigger_src == TriggerSource::Bus && self.trigger_state == TriggerState::WaitingForTrigger {
+        if self.trigger_src == TriggerSource::Bus
+            && self.trigger_state == TriggerState::WaitingForTrigger
+        {
             // Take measurment immediately
             let meas = self.measurement.get_or_insert(Vec::new());
             meas.push(self.sensor.sense());
             if meas.len() == self.trigger_cnt {
                 self.trigger_state = TriggerState::Idle;
             }
-
         } else {
             // Log error
             self.push_error(ErrorCode::TriggerIgnored.into())

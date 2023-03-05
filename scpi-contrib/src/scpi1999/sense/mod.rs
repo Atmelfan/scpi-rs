@@ -33,6 +33,8 @@ pub trait Sense<const N: usize = 1> {
     fn get_function_on(&self) -> Result<Self::Function, FunctionError>;
 }
 
+pub trait Sens<Func: SenseFunction, const N: usize = 1>: Sense<N> {}
+
 #[derive(Debug, Clone, Copy)]
 pub enum FunctionError {
     /// Specified funcion is not supported
