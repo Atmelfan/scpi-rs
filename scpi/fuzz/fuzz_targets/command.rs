@@ -1,38 +1,42 @@
 #![no_main]
-
-#[path="../../tests/util/mod.rs"]
-mod util;
-
 use libfuzzer_sys::fuzz_target;
 
-use scpi::{
-    ieee488::commands::*, ieee488_cls, ieee488_ese, ieee488_esr, ieee488_idn, ieee488_opc,
-    ieee488_rst, ieee488_sre, ieee488_stb, ieee488_tst, ieee488_wai, prelude::*,
-    scpi1999::commands::*, scpi_status, scpi_system,
-};
+use scpi::{prelude::*, tree::prelude::*, Root, Leaf};
 
-const IEEE488_TREE: Node<util::TestDevice> = Branch {
-    name: b"",
-    sub: &[
-        // Create default IEEE488 mandated commands
-        ieee488_cls!(),
-        ieee488_ese!(),
-        ieee488_esr!(),
-        ieee488_idn!(b"GPA-Robotics", b"T800-101", b"0", b"0"),
-        ieee488_opc!(),
-        ieee488_rst!(),
-        ieee488_sre!(),
-        ieee488_stb!(),
-        ieee488_tst!(),
-        ieee488_wai!(),
-        scpi_status!(),
-        scpi_system!(),
-    ],
-};
+struct Dummy;
+impl<D> Command<D> for Dummy
+where
+    D: Device,
+{}
+
+pub(crate) struct TestDevice;
+
+impl TestDevice {
+    pub(crate) fn new() -> Self {
+        TestDevice
+    }
+}
+
+impl Device for TestDevice {
+    fn handle_error(&mut self, _err: Error) {}
+}
+
+
+const TREE: Node<TestDevice> = Root![
+    // Create default IEEE488 mandated commands
+    Leaf!(b"DUMB" => &Dummy)
+];
 
 fuzz_target!(|data: &[u8]| {
-    let mut dev = util::TestDevice::new();
+    let mut dev = TestDevice::new();
 
-    let _res = util::test_execute_str(&IEEE488_TREE, data, &mut dev);
+    let mut context = Context::default();
+    let mut buf = Vec::<u8>::new();
+    //Result
+    let res = TREE.run(data, &mut dev, &mut context, &mut buf);
+    // Don't care if it errors but a ErrorCode::DeviceSpecificError indicates a unexpected parser error
+    if let Err(err) = res {
+        assert!(err != ErrorCode::DeviceSpecificError)
 
+    }
 });

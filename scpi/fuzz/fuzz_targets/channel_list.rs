@@ -3,7 +3,7 @@ use libfuzzer_sys::fuzz_target;
 
 extern crate scpi;
 
-use scpi::expression::channel_list::{ChannelList};
+use scpi::parser::expression::channel_list::{ChannelList};
 
 
 fuzz_target!(|data: &[u8]| {

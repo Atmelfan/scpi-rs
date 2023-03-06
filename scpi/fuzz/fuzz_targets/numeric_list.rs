@@ -3,7 +3,7 @@ use libfuzzer_sys::fuzz_target;
 
 extern crate scpi;
 
-use scpi::expression::numeric_list::{NumericList};
+use scpi::parser::expression::numeric_list::{NumericList};
 
 
 fuzz_target!(|data: &[u8]| {
