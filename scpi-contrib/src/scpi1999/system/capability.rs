@@ -18,7 +18,7 @@ where
         &self,
         _device: &mut D,
         _context: &mut Context,
-        _args: Arguments,
+        _params: Parameters,
         mut response: ResponseUnit,
     ) -> Result<()> {
         response.data(D::instrument_specifier()).finish()

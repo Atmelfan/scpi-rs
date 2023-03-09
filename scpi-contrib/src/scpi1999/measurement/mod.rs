@@ -67,7 +67,7 @@ use scpi::{
 
 use crate::{
     trigger::{abort::Abort, initiate::Initiate, Trigger},
-    NumericValue, NumericValueQuery, ScpiDevice,
+    ScpiDevice,
 };
 
 pub trait MeasurementFunction {
@@ -111,10 +111,10 @@ where
         &self,
         device: &mut D,
         _context: &mut scpi::Context,
-        mut args: Arguments,
+        mut params: Parameters,
         mut response: scpi::tree::prelude::ResponseUnit,
     ) -> Result<()> {
-        let channel: Option<ChannelList> = args.optional_data()?;
+        let channel: Option<ChannelList> = params.next_optional_data()?;
         let resp = device.configure(channel)?;
         response.data(resp).finish()
     }
@@ -129,10 +129,10 @@ where
         &self,
         device: &mut D,
         _context: &mut scpi::Context,
-        mut args: Arguments,
+        mut params: Parameters,
         mut response: scpi::tree::prelude::ResponseUnit,
     ) -> Result<()> {
-        let channel: Option<ChannelList> = args.optional_data()?;
+        let channel: Option<ChannelList> = params.next_optional_data()?;
         let resp = device.fetch(channel)?;
         response.data(resp).finish()
     }
@@ -147,10 +147,10 @@ where
         &self,
         device: &mut D,
         _context: &mut scpi::Context,
-        mut args: Arguments,
+        mut params: Parameters,
         mut response: scpi::tree::prelude::ResponseUnit,
     ) -> Result<()> {
-        let channel: Option<ChannelList> = args.optional_data()?;
+        let channel: Option<ChannelList> = params.next_optional_data()?;
         let resp = device.fetch(channel)?;
         response.data(resp).finish()
     }
@@ -190,14 +190,14 @@ where
         &self,
         device: &mut D,
         _context: &mut scpi::Context,
-        mut args: Arguments,
+        mut params: Parameters,
     ) -> scpi::error::Result<()> {
         let mut t1: T1 = Default::default();
         let mut t2: T2 = Default::default();
 
         let source_list = 'block: {
             // Try to read a parameter, exit early if it's a channel list
-            t1 = match args.next_optional_token()? {
+            t1 = match params.next_optional_token()? {
                 Some(tok @ Token::ExpressionProgramData(expr)) if expr.starts_with(b"@") => {
                     break 'block Some(ChannelList::try_from(tok)?)
                 }
@@ -205,7 +205,7 @@ where
                 None => break 'block None,
             };
             // Try to read a parameter, exit early if it's a channel list
-            t2 = match args.next_optional_token()? {
+            t2 = match params.next_optional_token()? {
                 Some(tok @ Token::ExpressionProgramData(expr)) if expr.starts_with(b"@") => {
                     break 'block Some(ChannelList::try_from(tok)?)
                 }
@@ -214,7 +214,7 @@ where
             };
 
             // Next should be a channel list if anything
-            args.optional_data()?
+            params.next_optional_data()?
         };
 
         device.conf_function((t1, t2), source_list)
@@ -224,7 +224,7 @@ where
         &self,
         _device: &mut D,
         _context: &mut scpi::Context,
-        _args: Arguments,
+        _params: Parameters,
         _response: ResponseUnit,
     ) -> scpi::error::Result<()> {
         todo!()
@@ -265,7 +265,7 @@ where
         &self,
         device: &mut D,
         _context: &mut scpi::Context,
-        mut args: Arguments,
+        mut params: Parameters,
         mut response: ResponseUnit,
     ) -> scpi::error::Result<()> {
         let mut t1: T1 = Default::default();
@@ -273,7 +273,7 @@ where
 
         let source_list = 'block: {
             // Try to read a parameter, exit early if it's a channel list
-            t1 = match args.next_optional_token()? {
+            t1 = match params.next_optional_token()? {
                 Some(tok @ Token::ExpressionProgramData(expr)) if expr.starts_with(b"@") => {
                     break 'block Some(ChannelList::try_from(tok)?)
                 }
@@ -281,7 +281,7 @@ where
                 None => break 'block None,
             };
             // Try to read a parameter, exit early if it's a channel list
-            t2 = match args.next_optional_token()? {
+            t2 = match params.next_optional_token()? {
                 Some(tok @ Token::ExpressionProgramData(expr)) if expr.starts_with(b"@") => {
                     break 'block Some(ChannelList::try_from(tok)?)
                 }
@@ -290,7 +290,7 @@ where
             };
 
             // Next should be a channel list if anything
-            args.optional_data()?
+            params.next_optional_data()?
         };
 
         let data = device.fetch_function((t1, t2), source_list)?;
@@ -336,7 +336,7 @@ where
         &self,
         device: &mut D,
         _context: &mut scpi::Context,
-        mut args: Arguments,
+        mut params: Parameters,
         mut response: ResponseUnit,
     ) -> scpi::error::Result<()> {
         let mut t1: T1 = Default::default();
@@ -344,7 +344,7 @@ where
 
         let source_list = 'block: {
             // Try to read a parameter, exit early if it's a channel list
-            t1 = match args.next_optional_token()? {
+            t1 = match params.next_optional_token()? {
                 Some(tok @ Token::ExpressionProgramData(expr)) if expr.starts_with(b"@") => {
                     break 'block Some(ChannelList::try_from(tok)?)
                 }
@@ -352,7 +352,7 @@ where
                 None => break 'block None,
             };
             // Try to read a parameter, exit early if it's a channel list
-            t2 = match args.next_optional_token()? {
+            t2 = match params.next_optional_token()? {
                 Some(tok @ Token::ExpressionProgramData(expr)) if expr.starts_with(b"@") => {
                     break 'block Some(ChannelList::try_from(tok)?)
                 }
@@ -361,7 +361,7 @@ where
             };
 
             // Next should be a channel list if anything
-            args.optional_data()?
+            params.next_optional_data()?
         };
 
         let data = device.read_function((t1, t2), source_list)?;
@@ -407,7 +407,7 @@ where
         &self,
         device: &mut D,
         _context: &mut scpi::Context,
-        mut args: Arguments,
+        mut params: Parameters,
         mut response: ResponseUnit,
     ) -> scpi::error::Result<()> {
         let mut t1: T1 = Default::default();
@@ -415,7 +415,7 @@ where
 
         let source_list = 'block: {
             // Try to read a parameter, exit early if it's a channel list
-            t1 = match args.next_optional_token()? {
+            t1 = match params.next_optional_token()? {
                 Some(tok @ Token::ExpressionProgramData(expr)) if expr.starts_with(b"@") => {
                     break 'block Some(ChannelList::try_from(tok)?)
                 }
@@ -423,7 +423,7 @@ where
                 None => break 'block None,
             };
             // Try to read a parameter, exit early if it's a channel list
-            t2 = match args.next_optional_token()? {
+            t2 = match params.next_optional_token()? {
                 Some(tok @ Token::ExpressionProgramData(expr)) if expr.starts_with(b"@") => {
                     break 'block Some(ChannelList::try_from(tok)?)
                 }
@@ -432,7 +432,7 @@ where
             };
 
             // Next should be a channel list if anything
-            args.optional_data()?
+            params.next_optional_data()?
         };
 
         let data = device.measure_function((t1, t2), source_list)?;

@@ -1,11 +1,13 @@
+//! Response formatting
+
 use super::format::{Arbitrary, Binary, Character, Expression, Hex, Octal};
 use crate::error::{Error, ErrorCode, Result};
 
+#[cfg(feature = "arrayvec")]
 mod arrayformatter;
 #[cfg(feature = "alloc")]
 mod vecformatter;
 
-use arrayvec::ArrayVec;
 use lexical_core::FormattedSize;
 use lexical_core::NumberFormatBuilder;
 
@@ -14,6 +16,7 @@ const RESPONSE_HEADER_SEPARATOR: u8 = b' ';
 const RESPONSE_MESSAGE_UNIT_SEPARATOR: u8 = b';';
 const RESPONSE_MESSAGE_TERMINATOR: u8 = b'\n';
 
+/// A type which can be formatted for a SCPI response
 pub trait ResponseData {
     fn format_response_data(&self, formatter: &mut dyn Formatter) -> Result<()>;
 }
@@ -193,7 +196,7 @@ where
             .next()
             .ok_or_else(|| Error::new(ErrorCode::DeviceSpecificError))?;
         first.format_response_data(formatter)?;
-        while let Some(func) = it.next() {
+        for func in it {
             formatter.push_byte(b',')?;
             func.format_response_data(formatter)?;
         }
@@ -201,7 +204,8 @@ where
     }
 }
 
-impl<T, const N: usize> ResponseData for ArrayVec<T, N>
+#[cfg(feature = "arrayvec")]
+impl<T, const N: usize> ResponseData for arrayvec::ArrayVec<T, N>
 where
     T: ResponseData,
 {
@@ -273,6 +277,7 @@ pub trait Formatter {
     fn response_unit(&mut self) -> Result<ResponseUnit>;
 }
 
+/// A response unit returned by a query
 pub struct ResponseUnit<'a> {
     fmt: &'a mut dyn Formatter,
     result: Result<()>,
@@ -281,6 +286,9 @@ pub struct ResponseUnit<'a> {
 }
 
 impl<'a> ResponseUnit<'a> {
+    /// Response header
+    ///
+    /// **Warning**: Panics if called after [`Self::data`]
     pub fn header(&mut self, header: &[u8]) -> &mut Self {
         debug_assert!(!self.has_data, "Tried to put header after data");
         self.result = self.result.and_then(|_| {
@@ -293,6 +301,9 @@ impl<'a> ResponseUnit<'a> {
         self
     }
 
+    /// A piece of data be returned
+    ///
+    /// Can be called multiple times.
     pub fn data<U>(&mut self, data: U) -> &mut Self
     where
         U: ResponseData,
@@ -309,6 +320,7 @@ impl<'a> ResponseUnit<'a> {
         self
     }
 
+    /// Finish the response unit and return any error
     pub fn finish(&mut self) -> Result<()> {
         self.result
     }

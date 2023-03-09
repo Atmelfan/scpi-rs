@@ -51,16 +51,12 @@ impl From<FunctionError> for Error {
     fn from(err: FunctionError) -> Self {
         match err {
             FunctionError::FunctionNotSupported => {
-                Self::extended(ErrorCode::IllegalParameterValue, b"Function not supported")
+                Self::new(ErrorCode::IllegalParameterValue).extended(b"Function not supported")
             }
-            FunctionError::SuffixNotSupported => Self::extended(
-                ErrorCode::IllegalParameterValue,
-                b"Sensor function suffix not supported",
-            ),
-            FunctionError::PresentationNotSupported => Self::extended(
-                ErrorCode::IllegalParameterValue,
-                b"Sensor function presentation not supported",
-            ),
+            FunctionError::SuffixNotSupported => Self::new(ErrorCode::IllegalParameterValue)
+                .extended(b"Sensor function suffix not supported"),
+            FunctionError::PresentationNotSupported => Self::new(ErrorCode::IllegalParameterValue)
+                .extended(b"Sensor function presentation not supported"),
             FunctionError::Other => Self::new(ErrorCode::IllegalParameterValue),
         }
     }

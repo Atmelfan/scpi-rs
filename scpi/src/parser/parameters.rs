@@ -1,3 +1,5 @@
+//! Command parameters
+
 use core::iter::Peekable;
 use core::str;
 
@@ -9,16 +11,17 @@ use super::{
     tokenizer::{util, Token, Tokenizer},
 };
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! parser_unreachable {
     () => {
         if cfg!(debug_assertions) {
             unreachable!()
         } else {
-            Err($crate::error::Error::extended(
-                $crate::error::ErrorCode::DeviceSpecificError,
-                b"Internal parser error",
-            ))
+            Err(
+                $crate::error::Error::new($crate::error::ErrorCode::DeviceSpecificError)
+                    .extended(b"Internal parser error"),
+            )
         }
     };
     ($e:literal) => {
@@ -35,20 +38,20 @@ macro_rules! parser_unreachable {
 
 pub(crate) use parser_unreachable;
 
-/// Alias
-pub struct Arguments<'a, 'b>(&'a mut Peekable<Tokenizer<'b>>);
+/// Parameter iterator for a command
+pub struct Parameters<'a, 'b>(&'a mut Peekable<Tokenizer<'b>>);
 
-impl<'a, 'b> Arguments<'a, 'b> {
+impl<'a, 'b> Parameters<'a, 'b> {
+    /// Create a argument iterator from a tokenizer
     pub fn with(toka: &'a mut Peekable<Tokenizer<'b>>) -> Self {
         Self(toka)
     }
 }
 
-impl<'a, 'b> Arguments<'a, 'b> {
-    /// Attempts to consume a data object.
-    /// If no data is found, none if returned if optional=true else Error:MissingParam.
+impl<'a, 'b> Parameters<'a, 'b> {
+    /// Attempts to consume a data token.
+    /// If no data token is found, [None] is returned.
     ///
-    /// Note! Does not skip
     pub fn next_optional_token(&mut self) -> Result<Option<Token<'a>>, Error> {
         //Try to read a data object
 
@@ -75,6 +78,8 @@ impl<'a, 'b> Arguments<'a, 'b> {
         }
     }
 
+    /// Get next data token.
+    /// If no data is found a error with [ErrorCode::MissingParameter] is returned instead.
     pub fn next_token(&mut self) -> Result<Token<'a>, Error> {
         match self.next_optional_token() {
             Ok(Some(tok)) => Ok(tok),
@@ -83,14 +88,22 @@ impl<'a, 'b> Arguments<'a, 'b> {
         }
     }
 
-    pub fn data<T>(&mut self) -> Result<T, Error>
+    /// Same as [`Self::next_token`] but attempts to convert the data token into type T.
+    /// If no data is found a error with [ErrorCode::MissingParameter] is returned instead.
+    ///
+    /// If the data conversion fails a corresponding error is returned.
+    pub fn next_data<T>(&mut self) -> Result<T, Error>
     where
         T: TryFrom<Token<'a>, Error = Error>,
     {
         self.next_token()?.try_into()
     }
 
-    pub fn optional_data<T>(&mut self) -> Result<Option<T>, Error>
+    /// Same as [`Self::next_optional_token`] but attempts to convert the data token into type T.
+    /// If no data is found, [None] is returned instead.
+    ///
+    /// If the data conversion fails a corresponding error is returned.
+    pub fn next_optional_data<T>(&mut self) -> Result<Option<T>, Error>
     where
         T: TryFrom<Token<'a>, Error = Error>,
     {
@@ -256,7 +269,7 @@ impl<'a> TryFrom<Token<'a>> for channel_list::ChannelList<'a> {
     fn try_from(value: Token<'a>) -> Result<channel_list::ChannelList<'a>, Self::Error> {
         match value {
             Token::ExpressionProgramData(s) => channel_list::ChannelList::new(s).ok_or_else(|| {
-                Error::extended(ErrorCode::InvalidExpression, b"Invalid channel list")
+                Error::new(ErrorCode::InvalidExpression).extended(b"Invalid channel list")
             }),
             t => {
                 if t.is_data() {

@@ -31,10 +31,10 @@ where
         &self,
         _device: &mut TestDevice,
         _context: &mut Context,
-        mut args: Arguments,
+        mut params: Parameters,
         mut response: ResponseUnit,
     ) -> Result<()> {
-        let x: T = args.data()?;
+        let x: T = params.next_data()?;
         response.data(x).finish()
     }
 }
@@ -48,10 +48,10 @@ impl Command<TestDevice> for StrEchoCommand {
         &self,
         _device: &mut TestDevice,
         _context: &mut Context,
-        mut args: Arguments,
+        mut params: Parameters,
         mut response: ResponseUnit,
     ) -> Result<()> {
-        let x: &[u8] = args.data()?;
+        let x: &[u8] = params.next_data()?;
         response.data(x).finish()
     }
 }
@@ -65,10 +65,10 @@ impl Command<TestDevice> for ArbEchoCommand {
         &self,
         _device: &mut TestDevice,
         _context: &mut Context,
-        mut args: Arguments,
+        mut params: Parameters,
         mut response: ResponseUnit,
     ) -> Result<()> {
-        let x: Arbitrary = args.data()?;
+        let x: Arbitrary = params.next_data()?;
         response.data(x).finish()
     }
 }
@@ -82,10 +82,10 @@ impl Command<TestDevice> for ChrEchoCommand {
         &self,
         _device: &mut TestDevice,
         _context: &mut Context,
-        mut args: Arguments,
+        mut params: Parameters,
         mut response: ResponseUnit,
     ) -> Result<()> {
-        let x: Character = args.data()?;
+        let x: Character = params.next_data()?;
         response.data(x).finish()
     }
 }
@@ -134,10 +134,10 @@ where
         &self,
         _device: &mut TestDevice,
         _context: &mut Context,
-        mut args: Arguments,
+        mut params: Parameters,
         mut response: ResponseUnit,
     ) -> Result<()> {
-        let x: T = args.data()?;
+        let x: T = params.next_data()?;
         response.data(x.is_t_inf()).finish()
     }
 }
@@ -161,10 +161,10 @@ where
         &self,
         _device: &mut TestDevice,
         _context: &mut Context,
-        mut args: Arguments,
+        mut params: Parameters,
         mut response: ResponseUnit,
     ) -> Result<()> {
-        let x: T = args.data()?;
+        let x: T = params.next_data()?;
         response.data(x.is_t_nan()).finish()
     }
 }
@@ -475,10 +475,10 @@ impl Command<TestDevice> for Utf8Command {
         &self,
         _device: &mut TestDevice,
         _context: &mut Context,
-        mut args: Arguments,
+        mut params: Parameters,
         mut response: ResponseUnit,
     ) -> Result<()> {
-        let x: &str = args.data()?;
+        let x: &str = params.next_data()?;
         response.data(Arbitrary(x.as_bytes())).finish()
     }
 }

@@ -45,9 +45,9 @@ where
         &self,
         device: &mut D,
         _context: &mut Context,
-        mut args: Arguments,
+        mut params: Parameters,
     ) -> scpi::error::Result<()> {
-        let unit: UNIT = args.data()?;
+        let unit: UNIT = params.next_data()?;
         device.set_unit(unit)?;
         Ok(())
     }
@@ -56,7 +56,7 @@ where
         &self,
         device: &mut D,
         _context: &mut Context,
-        _args: Arguments,
+        _params: Parameters,
         mut response: ResponseUnit,
     ) -> scpi::error::Result<()> {
         let unit = device.get_unit();

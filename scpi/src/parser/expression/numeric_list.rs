@@ -53,18 +53,17 @@ impl<'a> Iterator for NumericList<'a> {
         Some(match char {
             b',' if !self.first => {
                 self.tokenizer.chars.next().unwrap();
-                self.read_numeric_data()
-                    .map_err(|err| Error::extended(ErrorCode::InvalidExpression, err.get_message()))
+                self.read_numeric_data().map_err(|err| {
+                    Error::new(ErrorCode::InvalidExpression).extended(err.get_message())
+                })
             }
             x if x.is_ascii_digit() || *x == b'-' || *x == b'+' && self.first => {
                 self.first = false;
-                self.read_numeric_data()
-                    .map_err(|err| Error::extended(ErrorCode::InvalidExpression, err.get_message()))
+                self.read_numeric_data().map_err(|err| {
+                    Error::new(ErrorCode::InvalidExpression).extended(err.get_message())
+                })
             }
-            _ => Err(Error::extended(
-                ErrorCode::InvalidExpression,
-                b"Invalid character",
-            )),
+            _ => Err(Error::new(ErrorCode::InvalidExpression).extended(b"Invalid character")),
         })
     }
 }
@@ -116,10 +115,7 @@ mod tests {
         let mut expr = NumericList::new(b",1,2:5");
         assert_eq!(
             expr.next().unwrap(),
-            Err(Error::extended(
-                ErrorCode::InvalidExpression,
-                b"Invalid character"
-            ))
+            Err(Error::new(ErrorCode::InvalidExpression).extended(b"Invalid character"))
         );
     }
 
@@ -132,10 +128,8 @@ mod tests {
         );
         assert_eq!(
             expr.next().unwrap(),
-            Err(Error::extended(
-                ErrorCode::InvalidExpression,
-                ErrorCode::NumericDataError.get_message()
-            ))
+            Err(Error::new(ErrorCode::InvalidExpression)
+                .extended(ErrorCode::NumericDataError.get_message()))
         );
     }
 }

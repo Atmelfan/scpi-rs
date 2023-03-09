@@ -98,10 +98,7 @@ impl<'a> TryFrom<ChannelSpec<'a>> for isize {
                 .unwrap_or(Err(ErrorCode::ExpressionError))?;
             Ok(i)
         } else {
-            Err(Error::extended(
-                ErrorCode::InvalidExpression,
-                b"Unexpected channel dimension",
-            ))
+            Err(Error::new(ErrorCode::InvalidExpression).extended(b"Unexpected channel dimension"))
         }
     }
 }
@@ -131,10 +128,7 @@ impl<'a> TryFrom<ChannelSpec<'a>> for (isize, isize) {
                 .unwrap_or(Err(ErrorCode::ExpressionError))?;
             Ok((i1, i2))
         } else {
-            Err(Error::extended(
-                ErrorCode::ExpressionError,
-                b"Unexpected channel dimension",
-            ))
+            Err(Error::new(ErrorCode::ExpressionError).extended(b"Unexpected channel dimension"))
         }
     }
 }
@@ -172,10 +166,7 @@ impl<'a> TryFrom<ChannelSpec<'a>> for (isize, isize, isize) {
                 .unwrap_or(Err(ErrorCode::ExpressionError))?;
             Ok((i1, i2, i3))
         } else {
-            Err(Error::extended(
-                ErrorCode::ExpressionError,
-                b"Unexpected channel dimension",
-            ))
+            Err(Error::new(ErrorCode::ExpressionError).extended(b"Unexpected channel dimension"))
         }
     }
 }

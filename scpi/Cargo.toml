@@ -15,7 +15,7 @@ readme = { workspace = true }
 
 [dependencies]
 document-features = { workspace = true }
-arrayvec = { version = "0.7", default-features = false }
+arrayvec = { version = "0.7", default-features = false, optional = true }
 
 [dependencies.scpi-derive]
 path = "../scpi-derive"
@@ -67,14 +67,17 @@ default = [
 ## Use alloc
 alloc = []
 
-## Use std
+## Use arrayvec
+arrayvec = ["dep:arrayvec"]
+
+## Use std (overrides alloc)
 std = ["lexical-core/std", "alloc"]
 
 ## Enable compact feature in lexical-core
 compact = ["lexical-core/compact"]
 
 #! ## Units of measurements
-#! Use [uom](https://crates.io/crates/uom) 
+#! Use [uom](https://crates.io/crates/uom) for automatic conversion of unit suffixes.
 uom = ["dep:uom"]
 ## Electric potential (Voltage)
 unit-electric-potential = ["uom"]

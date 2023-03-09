@@ -40,7 +40,7 @@ where
     D: ScpiDevice,
 {
     cmd_nquery!();
-    fn event(&self, device: &mut D, _context: &mut Context, _args: Arguments) -> Result<()> {
+    fn event(&self, device: &mut D, _context: &mut Context, _params: Parameters) -> Result<()> {
         device.preset()
     }
 }
@@ -66,7 +66,7 @@ where
         &self,
         device: &mut D,
         _context: &mut Context,
-        _args: Arguments,
+        _params: Parameters,
         mut response: ResponseUnit,
     ) -> Result<()> {
         response
@@ -96,7 +96,7 @@ where
         &self,
         device: &mut D,
         _context: &mut Context,
-        _args: Arguments,
+        _params: Parameters,
         mut response: ResponseUnit,
     ) -> Result<()> {
         //Always return first error (NoError if empty)
@@ -123,8 +123,8 @@ where
 {
     cmd_both!();
 
-    fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
-        device.register_mut().enable = args.data()?;
+    fn event(&self, device: &mut D, _context: &mut Context, mut params: Parameters) -> Result<()> {
+        device.register_mut().enable = params.next_data()?;
         Ok(())
     }
 
@@ -132,7 +132,7 @@ where
         &self,
         device: &mut D,
         _context: &mut Context,
-        _args: Arguments,
+        _params: Parameters,
         mut response: ResponseUnit,
     ) -> Result<()> {
         response.data(device.register().enable & 0x7FFFu16).finish()
@@ -156,8 +156,8 @@ where
 {
     cmd_both!();
 
-    fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
-        device.register_mut().ntr_filter = args.data()?;
+    fn event(&self, device: &mut D, _context: &mut Context, mut params: Parameters) -> Result<()> {
+        device.register_mut().ntr_filter = params.next_data()?;
         Ok(())
     }
 
@@ -165,7 +165,7 @@ where
         &self,
         device: &mut D,
         _context: &mut Context,
-        _args: Arguments,
+        _params: Parameters,
         mut response: ResponseUnit,
     ) -> Result<()> {
         response
@@ -191,8 +191,8 @@ where
 {
     cmd_both!();
 
-    fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
-        device.register_mut().ptr_filter = args.data()?;
+    fn event(&self, device: &mut D, _context: &mut Context, mut params: Parameters) -> Result<()> {
+        device.register_mut().ptr_filter = params.next_data()?;
         Ok(())
     }
 
@@ -200,7 +200,7 @@ where
         &self,
         device: &mut D,
         _context: &mut Context,
-        _args: Arguments,
+        _params: Parameters,
         mut response: ResponseUnit,
     ) -> Result<()> {
         response

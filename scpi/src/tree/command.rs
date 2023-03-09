@@ -4,7 +4,7 @@
 
 use crate::{
     error::{ErrorCode, Result},
-    parser::{parameters::Arguments, response::ResponseUnit},
+    parser::{parameters::Parameters, response::ResponseUnit},
     Context, Device,
 };
 
@@ -25,7 +25,7 @@ use crate::{
 ///         &self,
 ///         _device: &mut MyDevice,
 ///         _context: &mut Context,
-///         _args: Arguments,
+///         _params: Parameters,
 ///         _response: ResponseUnit,
 ///     ) -> Result<(), Error> {
 ///         // Do stuff
@@ -59,7 +59,7 @@ macro_rules! cmd_qonly {
 ///         &self,
 ///         _device: &mut MyDevice,
 ///         _context: &mut Context,
-///         _args: Arguments,
+///         _params: Parameters,
 ///     ) -> Result<(), Error> {
 ///         // Do stuff
 ///         Ok(())
@@ -92,7 +92,7 @@ macro_rules! cmd_nquery {
 ///         &self,
 ///         _device: &mut MyDevice,
 ///         _context: &mut Context,
-///         _args: Arguments,
+///         _params: Parameters,
 ///         _response: ResponseUnit,
 ///     ) -> Result<(), Error> {
 ///         // Do stuff
@@ -103,7 +103,7 @@ macro_rules! cmd_nquery {
 ///         &self,
 ///         _device: &mut MyDevice,
 ///         _context: &mut Context,
-///         _args: Arguments,
+///         _params: Parameters,
 ///     ) -> Result<(), Error> {
 ///         // Do stuff
 ///         Ok(())
@@ -133,7 +133,7 @@ macro_rules! cmd_both {
 ///     cmd_both!();
 ///
 ///     // `HELLo:WORLd`
-///     fn event(&self, _device: &mut D, _context: &mut Context, _args: Arguments) -> Result<()> {
+///     fn event(&self, _device: &mut D, _context: &mut Context, _params: Parameters) -> Result<()> {
 ///         //  Do stuff
 ///         println!("Hello world");
 ///         Ok(())
@@ -144,7 +144,7 @@ macro_rules! cmd_both {
 ///         &self,
 ///         _device: &mut D,
 ///         _context: &mut Context,
-///         _args: Arguments,
+///         _params: Parameters,
 ///         mut response: ResponseUnit,
 ///     ) -> Result<()> {
 ///         response.data(&b"Hello world"[..]).finish()
@@ -185,17 +185,21 @@ pub trait Command<D: Device> {
     }
 
     /// Called when the event form `COMmand` is used.
-    fn event(&self, _device: &mut D, _context: &mut Context, _args: Arguments) -> Result<()> {
+    ///
+    /// Default behaviour returns a [ErrorCode::UndefinedHeader] error.
+    fn event(&self, _device: &mut D, _context: &mut Context, _params: Parameters) -> Result<()> {
         Err(ErrorCode::UndefinedHeader.into())
     }
 
     ///Called when the query form `COMmand?` is used
+    ///
+    /// Default behaviour returns a [ErrorCode::UndefinedHeader] error.
     fn query(
         &self,
         _device: &mut D,
         _context: &mut Context,
-        _args: Arguments,
-        _response: ResponseUnit,
+        _params: Parameters,
+        _resp: ResponseUnit,
     ) -> Result<()> {
         Err(ErrorCode::UndefinedHeader.into())
     }
@@ -209,7 +213,7 @@ impl<D> Command<D> for Todo
 where
     D: Device,
 {
-    fn event(&self, _device: &mut D, _context: &mut Context, _args: Arguments) -> Result<()> {
+    fn event(&self, _device: &mut D, _context: &mut Context, _params: Parameters) -> Result<()> {
         todo!()
     }
 
@@ -217,7 +221,7 @@ where
         &self,
         _device: &mut D,
         _context: &mut Context,
-        _args: Arguments,
+        _params: Parameters,
         _response: ResponseUnit,
     ) -> Result<()> {
         todo!()
@@ -254,7 +258,7 @@ mod test_command {
             &self,
             _device: &mut TestCommandDevice,
             _context: &mut Context,
-            _args: Arguments,
+            _params: Parameters,
             _response: ResponseUnit,
         ) -> Result<()> {
             Ok(())
@@ -274,7 +278,7 @@ mod test_command {
             &self,
             _device: &mut TestCommandDevice,
             _context: &mut Context,
-            _args: Arguments,
+            _params: Parameters,
         ) -> Result<()> {
             Ok(())
         }
@@ -291,7 +295,7 @@ mod test_command {
             &self,
             _device: &mut TestCommandDevice,
             _context: &mut Context,
-            _args: Arguments,
+            _params: Parameters,
         ) -> Result<()> {
             Ok(())
         }
@@ -300,7 +304,7 @@ mod test_command {
             &self,
             _device: &mut TestCommandDevice,
             _context: &mut Context,
-            _args: Arguments,
+            _params: Parameters,
             _response: ResponseUnit,
         ) -> Result<()> {
             Ok(())

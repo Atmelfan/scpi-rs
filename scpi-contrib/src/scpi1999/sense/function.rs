@@ -168,7 +168,7 @@ impl SensorFunction {
                         // Maybe an additional specifier [DC/AC]?
                         Some(Ok(Token::ProgramMnemonic(current_func))) => {
                             CurrentFunction::from_mnemonic(current_func)
-                                .map(|x| Function::from(x))
+                                .map(Function::from)
                                 .unwrap_or(f)
                         }
                         // Something went wrong
@@ -182,7 +182,7 @@ impl SensorFunction {
                     match toks.next() {
                         Some(Ok(Token::ProgramMnemonic(power_func))) => {
                             PowerFunction::from_mnemonic(power_func)
-                                .map(|x| Function::from(x))
+                                .map(Function::from)
                                 .unwrap_or(f)
                         }
                         Some(Err(_)) => return None,
@@ -194,7 +194,7 @@ impl SensorFunction {
                     match toks.next() {
                         Some(Ok(Token::ProgramMnemonic(temp_func))) => {
                             TemperatureFunction::from_mnemonic(temp_func)
-                                .map(|x| Function::from(x))
+                                .map(Function::from)
                                 .unwrap_or(f)
                         }
                         Some(Err(_)) => return None,
@@ -206,7 +206,7 @@ impl SensorFunction {
                     match toks.next() {
                         Some(Ok(Token::ProgramMnemonic(voltage_func))) => {
                             VoltageFunction::from_mnemonic(voltage_func)
-                                .map(|x| Function::from(x))
+                                .map(Function::from)
                                 .unwrap_or(f)
                         }
                         Some(Err(_)) => return None,
@@ -239,10 +239,8 @@ impl<'a> TryFrom<Token<'a>> for SensorFunction {
             if let Some(func) = Self::new_from_str(string) {
                 Ok(func)
             } else {
-                Err(Error::extended(
-                    ErrorCode::IllegalParameterValue,
-                    b"Invalid sensor function",
-                ))
+                Err(Error::new(ErrorCode::IllegalParameterValue)
+                    .extended(b"Invalid sensor function"))
             }
         } else {
             Err(ErrorCode::DataTypeError.into())
@@ -298,8 +296,8 @@ where
         CommandTypeMeta::Both
     }
 
-    fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
-        let sensor_func = args.data::<D::Function>()?;
+    fn event(&self, device: &mut D, _context: &mut Context, mut params: Parameters) -> Result<()> {
+        let sensor_func = params.next_data::<D::Function>()?;
         device.function_on(sensor_func)?;
         Ok(())
     }
@@ -308,7 +306,7 @@ where
         &self,
         device: &mut D,
         _context: &mut Context,
-        _args: Arguments,
+        _params: Parameters,
         mut response: ResponseUnit,
     ) -> Result<()> {
         let sensor_func = device.get_function_on()?;
@@ -318,8 +316,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use scpi::arrayvec::ArrayVec;
-
     use super::*;
 
     #[test]
@@ -361,7 +357,7 @@ mod tests {
             presentation: Presentation::XNone,
             function: Function::Voltage(VoltageFunction::Dc),
         };
-        let mut buf = ArrayVec::<u8, 100>::new();
+        let mut buf = Vec::new();
         volt_dc.format_response_data(&mut buf).unwrap();
         assert_eq!(buf.as_slice(), b"\"VOLT:DC\"");
 
@@ -369,7 +365,7 @@ mod tests {
             presentation: Presentation::XTime,
             function: Function::Voltage(VoltageFunction::Ac),
         };
-        let mut buf = ArrayVec::<u8, 100>::new();
+        let mut buf = Vec::new();
         xtime_volt_ac.format_response_data(&mut buf).unwrap();
         assert_eq!(buf.as_slice(), b"\"XTIM:VOLT:AC\"");
     }

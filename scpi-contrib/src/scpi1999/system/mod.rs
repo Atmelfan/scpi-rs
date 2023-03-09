@@ -7,11 +7,11 @@ use scpi::{cmd_qonly, error::Result, tree::prelude::*};
 
 use crate::ScpiDevice;
 
-#[cfg(feature="unproven")]
+#[cfg(feature = "unproven")]
 // LFRequency requires frequency units
 pub mod lfrequency;
 
-#[cfg(feature="unproven")]
+#[cfg(feature = "unproven")]
 pub mod capability;
 
 pub mod error;
@@ -50,7 +50,7 @@ where
         &self,
         _device: &mut D,
         _context: &mut Context,
-        _args: Arguments,
+        _params: Parameters,
         mut response: ResponseUnit,
     ) -> Result<()> {
         response.data(self).finish()

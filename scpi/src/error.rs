@@ -2,11 +2,7 @@
 //!
 //! Each error variant has a corresponding error/event number as the enum discriminant.
 //!
-
-mod arrayqueue;
 use core::fmt::Display;
-
-pub use arrayqueue::*;
 
 /// A SCPI error
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
@@ -52,8 +48,9 @@ impl Error {
     }
 
     /// Create new error with specified error code with an extended message
-    pub fn extended(code: ErrorCode, msg: &'static [u8]) -> Self {
-        Self(code, Some(msg))
+    pub fn extended(mut self, msg: &'static [u8]) -> Self {
+        self.1 = Some(msg);
+        self
     }
 
     /// Get numeric error code of error
@@ -1011,7 +1008,7 @@ impl ErrorCode {
     }
 
     pub fn extended(self, msg: &'static [u8]) -> Error {
-        Error::extended(self, msg)
+        Error::new(self).extended(msg)
     }
 }
 
@@ -1034,5 +1031,110 @@ pub trait ErrorQueue {
     /// Is queue empty?
     fn is_empty(&self) -> bool {
         self.num_errors() == 0
+    }
+}
+
+/// Error queue based on a alloc-less [arrayvec::ArrayVec].
+#[cfg(feature = "arrayvec")]
+pub type ArrayErrorQueue<const CAP: usize> = arrayvec::ArrayVec<Error, CAP>;
+
+#[cfg(feature = "arrayvec")]
+impl<const CAP: usize> ErrorQueue for arrayvec::ArrayVec<Error, CAP> {
+    fn push_back_error(&mut self, err: Error) {
+        //Try to queue an error, replace last with QueueOverflow if full
+        if self.try_push(err).is_err() {
+            let _ = self.pop().unwrap();
+            self.try_push(ErrorCode::QueueOverflow.into()).unwrap();
+        }
+    }
+
+    fn pop_front_error(&mut self) -> Option<Error> {
+        self.pop_at(0)
+    }
+
+    fn num_errors(&self) -> usize {
+        self.len()
+    }
+
+    fn clear_errors(&mut self) {
+        self.clear()
+    }
+}
+
+/// Error queue based on [alloc::vec::Vec]
+#[cfg(feature = "alloc")]
+pub type VecErrorQueue = alloc::vec::Vec<Error>;
+
+#[cfg(feature = "alloc")]
+impl ErrorQueue for alloc::vec::Vec<Error> {
+    fn push_back_error(&mut self, err: Error) {
+        //Try to queue an error, replace last with QueueOverflow if full
+        self.push(err)
+    }
+
+    fn pop_front_error(&mut self) -> Option<Error> {
+        if self.is_empty() {
+            None
+        } else {
+            Some(self.remove(0))
+        }
+    }
+
+    fn num_errors(&self) -> usize {
+        self.len()
+    }
+
+    fn clear_errors(&mut self) {
+        self.clear()
+    }
+}
+
+#[cfg(all(test, feature = "arrayvec"))]
+mod test_arrayvec_error_queue {
+    use super::*;
+
+    #[test]
+    fn test_extended() {
+        // Check that errorqueue returns NoError when there are no errors
+        let mut errors = ArrayErrorQueue::<10>::new();
+        errors.push_back_error(Error::custom(1, b"Error").extended(b"Extended"));
+        assert_eq!(
+            errors.pop_front_error(),
+            Some(Error(ErrorCode::Custom(1, b"Error"), Some(b"Extended")))
+        );
+    }
+
+    #[test]
+    fn test_queue_noerror() {
+        // Check that errorqueue returns NoError when there are no errors
+        let mut errors = ArrayErrorQueue::<10>::new();
+        errors.push_back_error(ErrorCode::Custom(1, b"One").into());
+        errors.push_back_error(ErrorCode::Custom(2, b"Two").into());
+        assert_eq!(
+            errors.pop_front_error(),
+            Some(Error::new(ErrorCode::Custom(1, b"One")))
+        );
+        assert_eq!(
+            errors.pop_front_error(),
+            Some(Error::new(ErrorCode::Custom(2, b"Two")))
+        );
+        assert_eq!(errors.pop_front_error(), None);
+    }
+
+    #[test]
+    fn test_queue_overflow() {
+        // Check that errorqueue returns NoError when there are no errors
+        let mut errors = ArrayErrorQueue::<2>::new();
+        errors.push_back_error(ErrorCode::Custom(1, b"One").into());
+        errors.push_back_error(ErrorCode::Custom(2, b"Two").into());
+        errors.push_back_error(ErrorCode::Custom(3, b"Three").into());
+        assert_eq!(
+            errors.pop_front_error(),
+            Some(Error::new(ErrorCode::Custom(1, b"One")))
+        );
+        assert_eq!(
+            errors.pop_front_error(),
+            Some(Error::new(ErrorCode::QueueOverflow))
+        );
     }
 }

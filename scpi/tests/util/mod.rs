@@ -1,6 +1,5 @@
 use std::path::Path;
 
-use arrayvec::ArrayVec;
 use scpi::{error::Result, tree::prelude::*};
 use serde::Deserialize;
 
@@ -72,13 +71,10 @@ where
     }
 }
 
-pub fn test_execute_str<D: Device>(
-    tree: &Node<D>,
-    s: &[u8],
-    dev: &mut D,
-) -> Result<ArrayVec<u8, 256>> {
+#[cfg(feature = "alloc")]
+pub fn test_execute_str<D: Device>(tree: &Node<D>, s: &[u8], dev: &mut D) -> Result<Vec<u8>> {
     let mut context = Context::default();
-    let mut buf = ArrayVec::<u8, 256>::new();
+    let mut buf = Vec::new();
     //Result
     tree.run(s, dev, &mut context, &mut buf)?;
     Ok(buf)

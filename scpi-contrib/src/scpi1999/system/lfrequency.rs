@@ -41,8 +41,8 @@ where
         CommandTypeMeta::Both
     }
 
-    fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
-        let freq: NumericValue<Frequency> = args.data()?;
+    fn event(&self, device: &mut D, _context: &mut Context, mut params: Parameters) -> Result<()> {
+        let freq: NumericValue<Frequency> = params.next_data()?;
         // Set frequency or enable auto once as default
         match freq {
             NumericValue::Value(freq) => device.line_frequency(freq),
@@ -56,10 +56,10 @@ where
         &self,
         device: &mut D,
         _context: &mut Context,
-        mut args: Arguments,
+        mut params: Parameters,
         mut response: ResponseUnit,
     ) -> Result<()> {
-        let freq: Frequency = match args.optional_data::<NumericValueQuery>()? {
+        let freq: Frequency = match params.next_optional_data::<NumericValueQuery>()? {
             Some(NumericValueQuery::Maximum) => device.max_line_freq(),
             Some(NumericValueQuery::Minimum) => device.min_line_freq(),
             None => device.get_line_frequency(),
@@ -79,8 +79,8 @@ where
         CommandTypeMeta::Both
     }
 
-    fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
-        let auto: Auto = args.data()?;
+    fn event(&self, device: &mut D, _context: &mut Context, mut params: Parameters) -> Result<()> {
+        let auto: Auto = params.next_data()?;
         device.auto(auto);
         Ok(())
     }
@@ -89,7 +89,7 @@ where
         &self,
         device: &mut D,
         _context: &mut Context,
-        _args: Arguments,
+        _params: Parameters,
         mut response: ResponseUnit,
     ) -> Result<()> {
         response.data(device.get_auto()).finish()

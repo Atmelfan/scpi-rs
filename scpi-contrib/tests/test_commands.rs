@@ -69,9 +69,9 @@ impl Command<TestDevice> for ErrorCommand {
         &self,
         device: &mut TestDevice,
         _context: &mut Context,
-        mut args: Arguments,
+        mut params: Parameters,
     ) -> Result<()> {
-        let errcode: i16 = args.data()?;
+        let errcode: i16 = params.next_data()?;
         device.handle_error(
             ErrorCode::get_error(errcode)
                 .unwrap_or(ErrorCode::Custom(errcode, b"Custom Error"))
@@ -90,9 +90,9 @@ impl Command<TestDevice> for OperCommand {
         &self,
         device: &mut TestDevice,
         _context: &mut Context,
-        mut args: Arguments,
+        mut params: Parameters,
     ) -> Result<()> {
-        let condition: u16 = args.data()?;
+        let condition: u16 = params.next_data()?;
         device
             .get_register_mut::<Operation>()
             .set_condition(condition);
@@ -109,9 +109,9 @@ impl Command<TestDevice> for QuesCommand {
         &self,
         device: &mut TestDevice,
         _context: &mut Context,
-        mut args: Arguments,
+        mut params: Parameters,
     ) -> Result<()> {
-        let condition: u16 = args.data()?;
+        let condition: u16 = params.next_data()?;
         device
             .get_register_mut::<Questionable>()
             .set_condition(condition);
@@ -129,7 +129,7 @@ impl Command<TestDevice> for QueryCommand {
         &self,
         _device: &mut TestDevice,
         _context: &mut Context,
-        _args: Arguments,
+        _params: Parameters,
         mut response: ResponseUnit,
     ) -> Result<()> {
         response.data(0i32).finish()
@@ -145,7 +145,7 @@ impl Command<TestDevice> for EventCommand {
         &self,
         _device: &mut TestDevice,
         _context: &mut Context,
-        _args: Arguments,
+        _params: Parameters,
     ) -> Result<()> {
         Ok(())
     }

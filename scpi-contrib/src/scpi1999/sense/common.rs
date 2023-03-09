@@ -48,9 +48,9 @@ where
         &self,
         device: &mut D,
         _context: &mut scpi::Context,
-        mut args: Arguments,
+        mut params: Parameters,
     ) -> scpi::error::Result<()> {
-        let upper = args.data::<NumericValue<FUNC::Unit>>()?;
+        let upper = params.next_data::<NumericValue<FUNC::Unit>>()?;
         device.range_upper(upper)
     }
 
@@ -58,7 +58,7 @@ where
         &self,
         device: &mut D,
         _context: &mut scpi::Context,
-        _args: Arguments,
+        _params: Parameters,
         mut response: ResponseUnit,
     ) -> scpi::error::Result<()> {
         let upper = device.get_range_upper();
@@ -91,9 +91,9 @@ where
         &self,
         device: &mut D,
         _context: &mut scpi::Context,
-        mut args: Arguments,
+        mut params: Parameters,
     ) -> scpi::error::Result<()> {
-        let upper = args.data::<NumericValue<FUNC::Unit>>()?;
+        let upper = params.next_data::<NumericValue<FUNC::Unit>>()?;
         device.range_lower(upper)
     }
 
@@ -101,7 +101,7 @@ where
         &self,
         device: &mut D,
         _context: &mut scpi::Context,
-        _args: Arguments,
+        _params: Parameters,
         mut response: ResponseUnit,
     ) -> scpi::error::Result<()> {
         let upper = device.get_range_lower();
@@ -134,9 +134,9 @@ where
         &self,
         device: &mut D,
         _context: &mut scpi::Context,
-        mut args: Arguments,
+        mut params: Parameters,
     ) -> Result<()> {
-        let auto = args.data::<Auto>()?;
+        let auto = params.next_data::<Auto>()?;
         device.auto(auto)
     }
 
@@ -144,7 +144,7 @@ where
         &self,
         device: &mut D,
         _context: &mut scpi::Context,
-        _args: Arguments,
+        _params: Parameters,
         mut response: ResponseUnit,
     ) -> scpi::error::Result<()> {
         let auto = device.get_auto();
@@ -185,9 +185,9 @@ where
         &self,
         device: &mut D,
         _context: &mut scpi::Context,
-        mut args: Arguments,
+        mut params: Parameters,
     ) -> scpi::error::Result<()> {
-        let resolution = args.data::<NumericValue<FUNC::Unit>>()?;
+        let resolution = params.next_data::<NumericValue<FUNC::Unit>>()?;
         device.resolution(resolution)
     }
 
@@ -195,7 +195,7 @@ where
         &self,
         device: &mut D,
         _context: &mut scpi::Context,
-        _args: Arguments,
+        _params: Parameters,
         mut response: ResponseUnit,
     ) -> scpi::error::Result<()> {
         let resolution = device.get_resolution();
@@ -242,9 +242,9 @@ pub(crate) mod aperture {
             &self,
             device: &mut D,
             _context: &mut scpi::Context,
-            mut args: Arguments,
+            mut params: Parameters,
         ) -> scpi::error::Result<()> {
-            let aperture: NumericValue<Time> = args.data::<NumericValue<Time>>()?;
+            let aperture: NumericValue<Time> = params.data::<NumericValue<Time>>()?;
             device.aperture(aperture)
         }
 
@@ -252,7 +252,7 @@ pub(crate) mod aperture {
             &self,
             device: &mut D,
             _context: &mut scpi::Context,
-            _args: Arguments,
+            _params: Parameters,
             mut response: ResponseUnit,
         ) -> scpi::error::Result<()> {
             let aperture: Time = device.get_aperture();
@@ -300,9 +300,9 @@ pub(crate) mod nplc {
             &self,
             device: &mut D,
             _context: &mut scpi::Context,
-            mut args: Arguments,
+            mut params: Parameters,
         ) -> scpi::error::Result<()> {
-            let nplc: NumericValue<Ratio> = args.data()?;
+            let nplc: NumericValue<Ratio> = params.data()?;
             device.nplc(nplc)
         }
 
@@ -310,10 +310,10 @@ pub(crate) mod nplc {
             &self,
             device: &mut D,
             _context: &mut scpi::Context,
-            mut args: Arguments,
+            mut params: Parameters,
             mut response: ResponseUnit,
         ) -> scpi::error::Result<()> {
-            let nplc: Ratio = match args.optional_data::<NumericValue<()>>()? {
+            let nplc: Ratio = match params.optional_data::<NumericValue<()>>()? {
                 None => device.get_nplc(),
                 Some(NumericValue::Maximum) => todo!(),
                 Some(NumericValue::Minimum) => todo!(),

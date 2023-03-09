@@ -1,3 +1,5 @@
+//! Handle decimal-data suffixes
+
 #[allow(unused_imports)]
 use {
     crate::{
@@ -22,15 +24,21 @@ pub enum Db<V, UNIT> {
     Logarithmic(V, UNIT),
 }
 
-/// Amplitude specifier (
+/// Amplitude specifier
 pub enum Amplitude<UNIT> {
     /// No amplitude specifier
     None(UNIT),
-    /// <UNIT>PK
+    /// `<UNIT>PK`
+    ///
+    /// Example: `VPK`
     Peak(UNIT),
-    /// <UNIT>PP
+    /// `<UNIT>PP`
+    ///
+    /// Example: `VPP`
     PeakToPeak(UNIT),
-    /// <UNIT>RMS
+    /// `<UNIT>RMS`
+    ///
+    /// Example: `VRMS`
     Rms(UNIT),
 }
 

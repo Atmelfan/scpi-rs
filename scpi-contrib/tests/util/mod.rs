@@ -1,6 +1,5 @@
 use std::{collections::VecDeque, path::Path};
 
-use scpi::arrayvec::ArrayVec;
 use scpi::{error::Result, tree::prelude::*};
 use serde::Deserialize;
 
@@ -217,9 +216,9 @@ pub fn test_execute_str<D: Device>(
     tree: &Node<D>,
     s: &[u8],
     dev: &mut D,
-) -> Result<ArrayVec<u8, 256>> {
+) -> Result<Vec<u8>> {
     let mut context = Context::default();
-    let mut buf = ArrayVec::<u8, 256>::new();
+    let mut buf = Vec::new();
     //Result
     tree.run(s, dev, &mut context, &mut buf)?;
     Ok(buf)

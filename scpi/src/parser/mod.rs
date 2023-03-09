@@ -1,3 +1,6 @@
+//! SCPI Parser and response formatter
+//!
+
 pub mod expression;
 pub mod parameters;
 pub mod response;

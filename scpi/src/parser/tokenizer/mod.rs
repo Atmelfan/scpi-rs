@@ -1,3 +1,6 @@
+//! The tokenizer splits a SCPI command into more managable tokens.
+//!   
+
 use crate::error::ErrorCode;
 
 use core::slice::Iter;
@@ -22,7 +25,7 @@ impl<'a> Tokenizer<'a> {
         Tokenizer::from_byte_iter(buf.iter())
     }
 
-    pub fn new_args(buf: &'a [u8]) -> Self {
+    pub fn new_params(buf: &'a [u8]) -> Self {
         let mut toks = Tokenizer::from_byte_iter(buf.iter());
         toks.in_header = false;
         toks

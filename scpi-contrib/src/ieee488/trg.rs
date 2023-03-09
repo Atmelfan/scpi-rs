@@ -22,7 +22,7 @@ where
 {
     cmd_nquery!();
 
-    fn event(&self, device: &mut D, _context: &mut Context, _args: Arguments) -> Result<()> {
+    fn event(&self, device: &mut D, _context: &mut Context, _params: Parameters) -> Result<()> {
         device.trig_bus()
     }
 }

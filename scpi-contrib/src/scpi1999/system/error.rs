@@ -18,7 +18,7 @@ where
         &self,
         device: &mut D,
         _context: &mut Context,
-        _args: Arguments,
+        _params: Parameters,
         mut response: ResponseUnit,
     ) -> Result<()> {
         //Always return first error (NoError if empty)
@@ -46,7 +46,7 @@ where
         &self,
         device: &mut D,
         _context: &mut Context,
-        _args: Arguments,
+        _params: Parameters,
         mut response: ResponseUnit,
     ) -> Result<()> {
         //Always return first error (NoError if empty)
@@ -70,7 +70,7 @@ where
         &self,
         device: &mut D,
         _context: &mut Context,
-        _args: Arguments,
+        _params: Parameters,
         mut response: ResponseUnit,
     ) -> Result<()> {
         //Always return first error (NoError if empty)

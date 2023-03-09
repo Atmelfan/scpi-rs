@@ -63,7 +63,7 @@ pub mod command;
 use command::Command;
 
 use crate::error::{Error, ErrorCode, Result};
-use crate::parser::parameters::Arguments;
+use crate::parser::parameters::Parameters;
 use crate::parser::response::Formatter;
 use crate::parser::tokenizer::{Token, Tokenizer};
 use crate::{Context, Device};
@@ -78,7 +78,7 @@ pub mod prelude {
         error::{Error, ErrorCode},
         parser::{
             format::*,
-            parameters::Arguments,
+            parameters::Parameters,
             response::{Formatter, ResponseData, ResponseUnit},
             tokenizer::{Token, Tokenizer},
         },
@@ -113,6 +113,9 @@ pub enum Node<'a, D> {
 }
 
 impl<'a, D> Node<'a, D> {
+    /// Create a leaf node
+    ///
+    /// Alternatively use [crate::Leaf!]
     pub const fn leaf(name: &'static [u8], handler: &'a dyn Command<D>) -> Self {
         Self::Leaf {
             name,
@@ -121,6 +124,9 @@ impl<'a, D> Node<'a, D> {
         }
     }
 
+    /// Create a default leaf node
+    ///
+    /// Alternatively use [crate::Leaf!]
     pub const fn default_leaf(name: &'static [u8], handler: &'a dyn Command<D>) -> Self {
         Self::Leaf {
             name,
@@ -129,6 +135,9 @@ impl<'a, D> Node<'a, D> {
         }
     }
 
+    /// Create a branch node
+    ///
+    /// Alternatively use [crate::Branch!]
     pub const fn branch(name: &'static [u8], sub: &'a [Node<'a, D>]) -> Self {
         Self::Branch {
             name,
@@ -137,6 +146,9 @@ impl<'a, D> Node<'a, D> {
         }
     }
 
+    /// Create a default branch node
+    ///
+    /// Alternatively use [crate::Branch!]
     pub const fn default_branch(name: &'static [u8], sub: &'a [Node<'a, D>]) -> Self {
         Self::Branch {
             name,
@@ -144,11 +156,20 @@ impl<'a, D> Node<'a, D> {
             sub,
         }
     }
+
+    /// Create a root node
+    ///
+    /// Alternatively use [crate::Root!]
+    pub const fn root(sub: &'a [Node<'a, D>]) -> Self {
+        Self::Branch {
+            name: b"",
+            default: false,
+            sub,
+        }
+    }
 }
 
 /// A utility to create a [Node::Leaf].
-///
-///
 #[macro_export]
 macro_rules! Leaf {
     ($name:literal => $handler:expr) => {
@@ -167,6 +188,7 @@ macro_rules! Leaf {
     };
 }
 
+/// A utility to create a [Node::Branch].
 #[macro_export]
 macro_rules! Branch {
     ($name:literal; $($child:expr),+) => {
@@ -199,6 +221,7 @@ macro_rules! Branch {
     };
 }
 
+/// A utility to create the root [Node] of a command tree.
 #[macro_export]
 macro_rules! Root {
     ($($child:expr),+) => {
@@ -350,7 +373,7 @@ where
                         tokens.next_if(|t| matches!(t, Ok(Token::ProgramHeaderSeparator)));
 
                         // Execute handler
-                        handler.event(device, context, Arguments::with(tokens))
+                        handler.event(device, context, Parameters::with(tokens))
                     }
                     // Branch?..
                     Some(Token::HeaderQuerySuffix) => {
@@ -362,7 +385,7 @@ where
 
                         // Execute handler
                         let response_unit = response.response_unit()?;
-                        handler.query(device, context, Arguments::with(tokens), response_unit)
+                        handler.query(device, context, Parameters::with(tokens), response_unit)
                     }
                     // This is a leaf node, cannot traverse further
                     Some(Token::HeaderMnemonicSeparator | Token::ProgramMnemonic(..)) => {
@@ -383,7 +406,7 @@ where
                         // Get mnemonic
                         let mnemonic = match tokens.peek() {
                             Some(Ok(mnemonic @ Token::ProgramMnemonic(..))) => mnemonic,
-                            Some(Err(err)) => return Err(err.clone().into()),
+                            Some(Err(err)) => return Err((*err).into()),
                             _ => return Err(ErrorCode::CommandHeaderError.into()),
                         };
 
@@ -403,7 +426,7 @@ where
                             .iter()
                             .find(|child| matches!(child, Node::Branch { default: true, .. }))
                         {
-                            return child.exec(leaf, device, context, tokens, response);
+                            child.exec(leaf, device, context, tokens, response)
                         } else {
                             Err(ErrorCode::UndefinedHeader.into())
                         }

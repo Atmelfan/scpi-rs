@@ -13,70 +13,53 @@
 //!
 //! It does not require the std library (ie it's `no_std` compatible) or a system allocator (useful for embedded).
 //!
-//! **API is unstable (as of 0.2.\*)**
 //!
 //! # Scope
 //! The crate does not support any transport layer, it only reads ascii-strings (`[u8]`) and writes ascii responses.
 //!
-//! It does not implement any higher level functions/error handling other than SCPI parsing and mandated registers/commands(optional).
+//! It does not implement any higher level functions/error handling other than SCPI parsing and response generation.
+//! See [scpi-contrib](https://crates.io/crates/scpi) for higher level abstractions.
 //!
 //! # Using this crate
 //! Add `scpi` to your dependencies:
 //! ```toml
 //! [dependencies]
-//! scpi = "0.x"
+//! scpi = "1.0"
 //! ```
-//! The API is still work in progress so the minor version should be specified.
 //!
 //! # Features
 #![doc = document_features::document_features!()]
+//! (See rustdoc/docs.rs for available features)
 //!
 //! # Getting started
 //! Look at the [`example`](https://github.com/Atmelfan/scpi-rs/tree/master/example) for how to create a tree and run commands.
 //!
-//! Here's a good resource general SCPI style and good practices: `<https://www.keysight.com/us/en/assets/9921-01873/miscellaneous/SCPITrainingSlides.pdf>`
+//! Here's a good resource general SCPI style and good practices: [Keysight SCPI Training slides](https://www.keysight.com/us/en/assets/9921-01873/miscellaneous/SCPITrainingSlides.pdf)
 //!
 //! # Character coding
 //! SCPI is strictly ASCII and will throw a error InvalidCharacter if any non-ascii `(>127)` characters are encountered (Exception: Arbitrary data blocks).
-//! This library uses ASCII `[u8]` and not Rust UTF-8 `str`, use `to/from_bytes()` to convert in between them.
 //!
-//! String/arbitrary-block data may be converted to str with the try_into trait which will throw a SCPI error if the data is not valid UTF8.
+//! String parameters and reponse data should use byte-slices (`&[u8]`) with valid ASCII data.
+//!
+//! The str type can be decoded from either a string parameter or arbitrary block and will automatically be checked for UTF8 encoding.
+//! When used as response data a str will always return an arbitrary block.
 //!
 //! # Error handling
-//! The `Context::run(...)` function aborts execution and returns on the first error it encounters.
-//! Execution may be resumed where it aborted by calling exec again with the same tokenizer.
+//! The `Node::run(...)` function aborts execution and returns on the first error it encounters.
 //!
 //! User commands will often use functions which may return an error, these should mostly be propagated down to the parser by rusts `?` operator.
 //!
-//! _The documentation often uses the term 'throw' for returning an error, this should not be confused with exceptions etc which are not used._
 //!
 //! # Limitations and differences
-//! These are the current limitations and differences from SCPI-99 specs (that I can remember) that needs to be addressed before version 1.0.0.
-//! They are listed in the rough order of which I care to fix them.
-//!
-//!  * [x] Response data formatting, currently each command is responsible for formatting their response. __Done__
-//!  * [x] Better command data operators with automatic error checking. __TryInto and TrayFrom traits are implemented for Integer, float and string types__
-//!  * [x] Automatic suffix/special number handling. __Supports all SCPI-99 simple suffixes and decibel__
-//!  * [x] Provide working implementation of all IEEE 488.2 and SCPI-99 mandated commands. __All IEEE488.2/SCPI-99 mandated commands have default implementations.__
-//!  * [x] Quotation marks inside string data, the parser cannot handle escaping `'` and `"` inside their respective block (eg "bla ""quoted"" bla"). __The parser properly handle `''` and `""` but it's up to user to handle the duplicate__
-//!  * [x] Expression data, not handled at all. __Supports non-nested numeric-/channel-list expressions__
-//!  * [ ] Provide a reference instrument class implementation
-//!  * [ ] Error codes returned by the parser does not follow SCPI-99 accurately (because there's a fucking lot of them!).
-//!  * [x] Working test suite. __Better than nothing I suppose__
-//!
-//! # Nice to have
-//! Not necessary for a 1.0.0 version but would be nice to have in no particular order.
-//!
-//!  * [x] Double-precision float (`f64`) support.
+//! * Overlapping commands are not supported, [Github issue](https://github.com/Atmelfan/scpi-rs/issues/23).
 //!
 //! # Contribution
-//! Contributions are welcome because I don't know what the fuck I'm doing.
+//! Contributions are welcome.
 //!
-//! Project organisation:
-//!
-//!  * `example` - A simple example application used for testing
-//!  * `scpi` - Main library
-//!  * `scpi_derive` - Internal macro support library, used by `scpi` to generate error messages and suffixes (enter at own risk)
+//! # Project organisation:
+//!  * `scpi` - Core parser crate
+//!  * `scpi-contrib` - Mandatory command implementations and higher level abstractions
+//!  * `scpi-derive` - Macro derive library, manly used to generate enum type parameters (see [option::ScpiEnum]).
 //!
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]
@@ -101,7 +84,7 @@ pub mod prelude {
     };
 }
 
-/// Re-export uom if enabled
+/// Re-export supported uom types if enabled
 #[cfg(feature = "uom")]
 pub mod units {
     #[doc(no_inline)]
@@ -136,15 +119,16 @@ pub mod units {
     #[cfg(feature = "unit-time")]
     pub use uom::si::f32::Time;
 }
-pub use arrayvec;
 
 /// A basic device capable of executing commands and not much else
 pub trait Device {
+    /// Called when the parser encounters a syntax error or a command handler returns an error.
     fn handle_error(&mut self, err: Error);
 }
 
 /// Context in which to execute a message.
 ///
+/// Useful when multiple sources can execute commands.
 #[derive(Debug)]
 pub struct Context<'a> {
     /// Does output buffer contain data?
@@ -155,7 +139,8 @@ pub struct Context<'a> {
     /// **Do not use this to pass application data!**
     /// Use traits instead. It's only intended to pass along data from whatever context is running a command.
     ///
-    /// For example: User authentication information if the call comes from an authenticated interface.
+    /// For example: User authentication information if the call comes from an authenticated interface
+    /// or port number if the call comes from a serial port.
     pub user: &'a dyn Any,
 }
 
@@ -186,6 +171,7 @@ impl<'a> Context<'a> {
         self.user.downcast_ref()
     }
 
+    /// Returns true if output buffer contains data
     pub fn mav(&self) -> bool {
         self.mav
     }

@@ -20,11 +20,11 @@ impl Command<util::TestDevice> for NumCommand {
         &self,
         _device: &mut util::TestDevice,
         _context: &mut Context,
-        mut args: Arguments,
+        mut params: Parameters,
         mut response: ResponseUnit,
     ) -> Result<()> {
         // Parse a <numeric>
-        let x: NumericValue<f32> = args.data()?;
+        let x: NumericValue<f32> = params.next_data()?;
 
         // Use builder to resolve special values
         let value = x
@@ -62,10 +62,10 @@ impl Command<util::TestDevice> for ChannelListCommand {
         &self,
         _device: &mut util::TestDevice,
         _context: &mut Context,
-        mut args: Arguments,
+        mut params: Parameters,
         mut response: ResponseUnit,
     ) -> Result<()> {
-        let numbers: channel_list::ChannelList = args.data()?;
+        let numbers: channel_list::ChannelList = params.next_data()?;
         for item in numbers {
             match item? {
                 channel_list::Token::ChannelSpec(t) => {
@@ -98,10 +98,10 @@ impl Command<util::TestDevice> for NumericListCommand {
         &self,
         _device: &mut util::TestDevice,
         _context: &mut Context,
-        mut args: Arguments,
+        mut params: Parameters,
         mut response: ResponseUnit,
     ) -> Result<()> {
-        let numbers: numeric_list::NumericList = args.data()?;
+        let numbers: numeric_list::NumericList = params.next_data()?;
         for item in numbers {
             match item? {
                 numeric_list::Token::Numeric(a) => {
@@ -126,7 +126,7 @@ impl Command<util::TestDevice> for IdCommand {
         &self,
         _device: &mut util::TestDevice,
         _context: &mut Context,
-        _args: Arguments,
+        _params: Parameters,
         mut response: ResponseUnit,
     ) -> Result<()> {
         response.data(self.0).finish()

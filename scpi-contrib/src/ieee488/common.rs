@@ -47,7 +47,7 @@ where
 {
     cmd_nquery!();
 
-    fn event(&self, device: &mut D, _context: &mut Context, _args: Arguments) -> Result<()> {
+    fn event(&self, device: &mut D, _context: &mut Context, _params: Parameters) -> Result<()> {
         // Clear any device specific status
         device.cls()
     }
@@ -67,8 +67,8 @@ where
 {
     cmd_both!();
 
-    fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
-        let ese = args.data()?;
+    fn event(&self, device: &mut D, _context: &mut Context, mut params: Parameters) -> Result<()> {
+        let ese = params.next_data()?;
         device.set_ese(ese);
         Ok(())
     }
@@ -77,7 +77,7 @@ where
         &self,
         device: &mut D,
         _context: &mut Context,
-        _args: Arguments,
+        _params: Parameters,
         mut response: ResponseUnit,
     ) -> Result<()> {
         response.data(device.ese()).finish()
@@ -100,7 +100,7 @@ where
         &self,
         device: &mut D,
         _context: &mut Context,
-        _args: Arguments,
+        _params: Parameters,
         mut response: ResponseUnit,
     ) -> Result<()> {
         let esr = device.esr();
@@ -153,7 +153,7 @@ where
         &self,
         _device: &mut D,
         _context: &mut Context,
-        _args: Arguments,
+        _params: Parameters,
         mut response: ResponseUnit,
     ) -> Result<()> {
         response
@@ -182,7 +182,7 @@ where
 {
     cmd_both!();
 
-    fn event(&self, device: &mut D, _context: &mut Context, _args: Arguments) -> Result<()> {
+    fn event(&self, device: &mut D, _context: &mut Context, _params: Parameters) -> Result<()> {
         device.opc()
     }
 
@@ -190,7 +190,7 @@ where
         &self,
         _device: &mut D,
         _context: &mut Context,
-        _args: Arguments,
+        _params: Parameters,
         mut response: ResponseUnit,
     ) -> Result<()> {
         response.data(true).finish()
@@ -233,7 +233,7 @@ where
 {
     cmd_nquery!();
 
-    fn event(&self, device: &mut D, _context: &mut Context, _args: Arguments) -> Result<()> {
+    fn event(&self, device: &mut D, _context: &mut Context, _params: Parameters) -> Result<()> {
         device.rst()
     }
 }
@@ -252,8 +252,8 @@ where
 {
     cmd_both!();
 
-    fn event(&self, device: &mut D, _context: &mut Context, mut args: Arguments) -> Result<()> {
-        let sre = args.data()?;
+    fn event(&self, device: &mut D, _context: &mut Context, mut params: Parameters) -> Result<()> {
+        let sre = params.next_data()?;
         device.set_sre(sre);
         Ok(())
     }
@@ -262,7 +262,7 @@ where
         &self,
         device: &mut D,
         _context: &mut Context,
-        _args: Arguments,
+        _params: Parameters,
         mut response: ResponseUnit,
     ) -> Result<()> {
         response.data(device.sre()).finish()
@@ -284,7 +284,7 @@ where
         &self,
         device: &mut D,
         context: &mut Context,
-        _args: Arguments,
+        _params: Parameters,
         mut response: ResponseUnit,
     ) -> Result<()> {
         let mut stb = device.stb();
@@ -322,7 +322,7 @@ where
         &self,
         device: &mut D,
         _context: &mut Context,
-        _args: Arguments,
+        _params: Parameters,
         mut response: ResponseUnit,
     ) -> Result<()> {
         response
@@ -349,7 +349,7 @@ where
     D: Device + IEEE4882,
 {
     cmd_nquery!();
-    fn event(&self, _device: &mut D, _context: &mut Context, _args: Arguments) -> Result<()> {
+    fn event(&self, _device: &mut D, _context: &mut Context, _params: Parameters) -> Result<()> {
         Ok(())
     }
 }
