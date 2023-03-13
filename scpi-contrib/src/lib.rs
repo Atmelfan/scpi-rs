@@ -17,7 +17,3 @@ pub mod scpi1999;
 
 #[cfg(feature = "unproven")]
 pub mod classes;
-
-pub use ieee488::*;
-pub use scpi1999::*;
-

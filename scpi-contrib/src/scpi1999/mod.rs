@@ -7,7 +7,7 @@ use core::fmt::Display;
 use scpi::error::{Error, ErrorCode, ErrorQueue, Result};
 use scpi::Device;
 
-use crate::IEEE4882;
+use crate::ieee488::{StatusBit, IEEE4882};
 
 use self::status::{operation::Operation, questionable::Questionable};
 
@@ -17,14 +17,14 @@ mod numeric;
 pub use numeric::{NumericBuilder, NumericValue, NumericValueDefaults, NumericValueQuery};
 
 // Subsystems
-pub mod input;
-pub mod measurement;
-pub mod output;
-pub mod sense;
+//pub mod input;
+//pub mod measurement;
+//pub mod output;
+//pub mod sense;
 pub mod status;
 pub mod system;
-pub mod trigger;
-pub mod unit;
+//pub mod trigger;
+//pub mod unit;
 
 pub mod prelude {
     pub use super::{
@@ -50,8 +50,31 @@ pub trait ScpiDevice:
         Ok(())
     }
 
+    /// Calculate STB byte according to SCPI standard
+    fn scpi_stb(&self) -> u8 {
+        let mut stb = 0x00;
+        if !self.is_empty() {
+            stb |= StatusBit::ErrorEventQueue.mask();
+        }
+        if self.get_register_summary::<Questionable>() {
+            stb |= StatusBit::Questionable.mask();
+        }
+        if self.get_register_summary::<Operation>() {
+            stb |= StatusBit::Operation.mask();
+        }
+        // ESB
+        if self.esr() & self.ese() != 0 {
+            stb |= StatusBit::Esb.mask();
+        }
+        // MSS
+        if stb & self.sre() != 0 {
+            stb |= StatusBit::RqsMss.mask();
+        }
+        stb
+    }
+
     /// See [crate::ieee488::IEEE488Device::exec_opc]
-    fn opc_standard(&mut self) -> Result<()> {
+    fn scpi_opc(&mut self) -> Result<()> {
         let esr = self.esr() | ErrorCode::OperationComplete.esr_mask();
         self.push_back_error(ErrorCode::OperationComplete.into());
         self.set_esr(esr);
@@ -59,7 +82,7 @@ pub trait ScpiDevice:
     }
 
     /// See [crate::ieee488::IEEE488Device::exec_cls]
-    fn cls_standard(&mut self) -> Result<()> {
+    fn scpi_cls(&mut self) -> Result<()> {
         // Clear ESR
         self.set_esr(0);
         // Clear event registers
@@ -94,7 +117,7 @@ pub trait ScpiDevice:
         <Self as GetEventRegister<REG>>::register_mut(self)
     }
 
-    /// Get event register as mutable
+    /// Preset event register
     fn preset_register<REG>(&mut self)
     where
         Self: GetEventRegister<REG>,
@@ -103,7 +126,7 @@ pub trait ScpiDevice:
         <Self as GetEventRegister<REG>>::register_mut(self).preset()
     }
 
-    /// Get event register as mutable
+    /// Get event register summary
     fn get_register_summary<REG>(&self) -> bool
     where
         Self: GetEventRegister<REG>,
@@ -289,101 +312,4 @@ pub mod util {
             matches!(self, Self::Once | Self::Bool(true))
         }
     }
-}
-
-#[cfg(test)]
-mod tests {
-    // Test fixture
-    macro_rules! fixture_scpi_device {
-        ($dev:ident) => {
-            impl scpi::Device for $dev {
-                fn handle_error(&mut self, _err: Error) {}
-            }
-
-            impl $crate::IEEE4882 for $dev {
-                fn stb(&self) -> u8 {
-                    todo!()
-                }
-
-                fn sre(&self) -> u8 {
-                    todo!()
-                }
-
-                fn set_sre(&mut self, _value: u8) {
-                    todo!()
-                }
-
-                fn esr(&self) -> u8 {
-                    todo!()
-                }
-
-                fn set_esr(&mut self, _value: u8) {
-                    todo!()
-                }
-
-                fn ese(&self) -> u8 {
-                    todo!()
-                }
-
-                fn set_ese(&mut self, _value: u8) {
-                    todo!()
-                }
-
-                fn tst(&mut self) -> scpi::error::Result<()> {
-                    todo!()
-                }
-
-                fn rst(&mut self) -> scpi::error::Result<()> {
-                    todo!()
-                }
-
-                fn cls(&mut self) -> scpi::error::Result<()> {
-                    todo!()
-                }
-
-                fn opc(&mut self) -> scpi::error::Result<()> {
-                    todo!()
-                }
-            }
-
-            impl $crate::scpi1999::GetEventRegister<$crate::scpi1999::Questionable> for $dev {
-                fn register(&self) -> &$crate::scpi1999::EventRegister {
-                    unimplemented!()
-                }
-
-                fn register_mut(&mut self) -> &mut $crate::scpi1999::EventRegister {
-                    unimplemented!()
-                }
-            }
-
-            impl $crate::scpi1999::GetEventRegister<$crate::scpi1999::Operation> for $dev {
-                fn register(&self) -> &$crate::scpi1999::EventRegister {
-                    unimplemented!()
-                }
-
-                fn register_mut(&mut self) -> &mut $crate::scpi1999::EventRegister {
-                    unimplemented!()
-                }
-            }
-
-            impl scpi::error::ErrorQueue for $dev {
-                fn push_back_error(&mut self, _err: scpi::error::Error) {
-                    unimplemented!()
-                }
-
-                fn pop_front_error(&mut self) -> Option<scpi::error::Error> {
-                    unimplemented!()
-                }
-
-                fn num_errors(&self) -> usize {
-                    unimplemented!()
-                }
-
-                fn clear_errors(&mut self) {
-                    unimplemented!()
-                }
-            }
-        };
-    }
-    pub(crate) use fixture_scpi_device;
 }

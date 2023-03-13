@@ -5,16 +5,18 @@
 
 use scpi::{cmd_qonly, error::Result, tree::prelude::*};
 
-use crate::ScpiDevice;
+use super::ScpiDevice;
 
-#[cfg(feature = "unproven")]
+//#[cfg(feature = "unproven")]
 // LFRequency requires frequency units
-pub mod lfrequency;
+//pub mod lfrequency;
 
-#[cfg(feature = "unproven")]
-pub mod capability;
+//#[cfg(feature = "unproven")]
+//pub mod capability;
 
 pub mod error;
+
+pub const BRANCH_NAME: &[u8] = b"SYSTem";
 
 ///## 21.21 :VERSion?
 ///> `SYSTem:VERSion?` query returns an <NR2> formatted numeric value corresponding to the SCPI version

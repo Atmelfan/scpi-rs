@@ -3,7 +3,7 @@ use std::{collections::VecDeque, path::Path};
 use scpi::{error::Result, tree::prelude::*};
 use serde::Deserialize;
 
-use scpi_contrib::{scpi1999::prelude::*, IEEE4882};
+use scpi_contrib::{ieee488::prelude::*, scpi1999::prelude::*};
 
 // #[macro_export]
 // macro_rules! check_esr {
@@ -58,21 +58,21 @@ impl IEEE4882 for TestDevice {
     fn stb(&self) -> u8 {
         let mut stb = 0x00;
         if !self.is_empty() {
-            stb |= scpi_contrib::StatusBit::ErrorEventQueue.mask();
+            stb |= scpi_contrib::ieee488::StatusBit::ErrorEventQueue.mask();
         }
         if self.get_register_summary::<Questionable>() {
-            stb |= scpi_contrib::StatusBit::Questionable.mask();
+            stb |= scpi_contrib::ieee488::StatusBit::Questionable.mask();
         }
         if self.get_register_summary::<Operation>() {
-            stb |= scpi_contrib::StatusBit::Operation.mask();
+            stb |= scpi_contrib::ieee488::StatusBit::Operation.mask();
         }
         // ESB
         if self.esr() & self.ese() != 0 {
-            stb |= scpi_contrib::StatusBit::Esb.mask();
+            stb |= scpi_contrib::ieee488::StatusBit::Esb.mask();
         }
         // MSS
         if stb & self.sre() != 0 {
-            stb |= scpi_contrib::StatusBit::RqsMss.mask();
+            stb |= scpi_contrib::ieee488::StatusBit::RqsMss.mask();
         }
         stb
     }
@@ -110,11 +110,11 @@ impl IEEE4882 for TestDevice {
     }
 
     fn cls(&mut self) -> Result<()> {
-        self.cls_standard()
+        self.scpi_cls()
     }
 
     fn opc(&mut self) -> Result<()> {
-        self.opc_standard()
+        self.scpi_opc()
     }
 }
 
@@ -212,11 +212,7 @@ where
     }
 }
 
-pub fn test_execute_str<D: Device>(
-    tree: &Node<D>,
-    s: &[u8],
-    dev: &mut D,
-) -> Result<Vec<u8>> {
+pub fn test_execute_str<D: Device>(tree: &Node<D>, s: &[u8], dev: &mut D) -> Result<Vec<u8>> {
     let mut context = Context::default();
     let mut buf = Vec::new();
     //Result

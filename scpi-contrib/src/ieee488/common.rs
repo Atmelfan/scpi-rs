@@ -27,9 +27,7 @@ use scpi::error::Result;
 use scpi::tree::prelude::*;
 use scpi::{cmd_both, cmd_nquery, cmd_qonly};
 
-use crate::StatusBit;
-
-use super::IEEE4882;
+use super::{StatusBit, IEEE4882};
 
 ///## 10.3 *CLS, Clear Status Command
 ///> The Clear Status command clears status data structures, see 11.1.2, and forces the device to the Operation Complete
@@ -40,6 +38,19 @@ use super::IEEE4882;
 ///> TERMINATOR> clears the Output Queue, see 6.3.2.3.
 #[derive(Debug, Clone, Copy)]
 pub struct ClsCommand;
+
+impl ClsCommand {
+    pub const fn node<'a, D>() -> Node<'a, D>
+    where
+        D: IEEE4882 + Device,
+    {
+        Leaf {
+            name: b"*CLS",
+            default: false,
+            handler: &ClsCommand,
+        }
+    }
+}
 
 impl<D> Command<D> for ClsCommand
 where
@@ -379,6 +390,17 @@ macro_rules! ieee488_cls {
             handler: &$crate::ieee488::common::ClsCommand,
         }
     };
+}
+
+pub const fn cls<'a, D>() -> Node<'a, D>
+where
+    D: IEEE4882 + Device,
+{
+    Leaf {
+        name: b"*CLS",
+        default: false,
+        handler: &ClsCommand,
+    }
 }
 
 #[macro_export]

@@ -1,6 +1,6 @@
 use scpi::{cmd_qonly, error::Result, tree::prelude::*};
 
-use crate::ScpiDevice;
+use super::ScpiDevice;
 
 ///## 21.8.8 \[NEXT\]?
 ///> `SYSTem:ERRor:NEXT?` queries the error/event queue for the next item and removes it

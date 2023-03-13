@@ -6,6 +6,10 @@ use scpi::error::Result;
 pub mod common;
 pub mod trg;
 
+pub mod prelude {
+    pub use super::{EventStatusBit, StatusBit, IEEE4882};
+}
+
 /// Event status/enable register bits
 #[derive(Debug, Clone, Copy)]
 pub enum EventStatusBit {
@@ -61,7 +65,7 @@ impl StatusBit {
 }
 
 pub trait IEEE4882 {
-    // Status byte register
+    /// Read Status byte register
     fn stb(&self) -> u8 {
         let mut stb = 0x00;
         // ESB
