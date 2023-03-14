@@ -365,6 +365,7 @@ where
     }
 }
 
+/// Create a command node for `*IDN?`. See [IdnCommand]
 #[macro_export]
 macro_rules! ieee488_idn {
     ($manufacturer:expr, $model:expr, $serial:expr, $firmware:expr) => {
@@ -381,6 +382,7 @@ macro_rules! ieee488_idn {
     };
 }
 
+/// Create a command node for `*CLS`. See [ClsCommand]
 #[macro_export]
 macro_rules! ieee488_cls {
     () => {
@@ -392,6 +394,7 @@ macro_rules! ieee488_cls {
     };
 }
 
+/// Create a command node for `*ESE`. See [EseCommand]
 #[macro_export]
 macro_rules! ieee488_ese {
     () => {
@@ -403,6 +406,7 @@ macro_rules! ieee488_ese {
     };
 }
 
+/// Create a command node for `*ESR`. See [EsrCommand]
 #[macro_export]
 macro_rules! ieee488_esr {
     () => {
@@ -414,6 +418,7 @@ macro_rules! ieee488_esr {
     };
 }
 
+/// Create a command node for `*OPC`. See [OpcCommand]
 #[macro_export]
 macro_rules! ieee488_opc {
     () => {
@@ -425,6 +430,7 @@ macro_rules! ieee488_opc {
     };
 }
 
+/// Create a command node for `*RST`. See [RstCommand]
 #[macro_export]
 macro_rules! ieee488_rst {
     () => {
@@ -436,6 +442,7 @@ macro_rules! ieee488_rst {
     };
 }
 
+/// Create a command node for `*SRE`. See [SreCommand]
 #[macro_export]
 macro_rules! ieee488_sre {
     () => {
@@ -447,6 +454,7 @@ macro_rules! ieee488_sre {
     };
 }
 
+/// Create a command node for `*STB?`. See [StbCommand]
 #[macro_export]
 macro_rules! ieee488_stb {
     () => {
@@ -458,6 +466,7 @@ macro_rules! ieee488_stb {
     };
 }
 
+/// Create a command node for `*TST?`.  See [TstCommand]
 #[macro_export]
 macro_rules! ieee488_tst {
     () => {
@@ -469,6 +478,7 @@ macro_rules! ieee488_tst {
     };
 }
 
+/// Create a command node for `*WAI`. See [WaiCommand]
 #[macro_export]
 macro_rules! ieee488_wai {
     () => {

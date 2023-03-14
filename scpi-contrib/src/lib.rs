@@ -27,5 +27,6 @@ extern crate std as alloc;
 pub mod ieee488;
 pub mod scpi1999;
 
+/// Standard SCPI instrument classes
 #[cfg(feature = "unproven")]
 pub mod classes;

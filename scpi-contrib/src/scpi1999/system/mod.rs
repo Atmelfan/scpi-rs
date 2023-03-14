@@ -57,7 +57,7 @@ where
     }
 }
 
-/// Create a `SYSTem:` tree branch
+/// Create a `SYSTem:` tree branch with mandatory commands.
 #[macro_export]
 macro_rules! scpi_system {
     ($($node:expr),*) => {

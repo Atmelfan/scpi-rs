@@ -27,6 +27,9 @@ where
     }
 }
 
+/// Create a command node for `*TRG`. See [TrgCommand]
+///
+/// Optional, not required by IEEE488.2 (unless DT1 capability) / SCPI.
 #[macro_export]
 macro_rules! ieee488_trg {
     () => {

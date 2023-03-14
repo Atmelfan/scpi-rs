@@ -253,7 +253,7 @@ macro_rules! scpi_register {
     };
 }
 
-/// Create a `STATus:` tree branch
+/// Create a `STATus:` tree branch with mandatory commands.
 #[macro_export]
 macro_rules! scpi_status {
     ($($node:expr),*) => {
