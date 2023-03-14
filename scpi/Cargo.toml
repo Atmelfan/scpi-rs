@@ -1,99 +1,109 @@
 [package]
 name = "scpi"
-version = "0.4.3"
-authors = ["Atmelfan <gustavp@gpa-robotics.com>"]
-edition = "2021"
-license = "MIT"
-
+version = "1.0.0"
 description = "SCPI/IEEE488.2 parser library"
-keywords = ["SCPI", "parser", "Instrumentation", "Embedded", "Multimeter"]
-categories = ["command-line-interface", "embedded", "parsing", "no-std"]
 
-homepage = "https://github.com/Atmelfan/scpi-rs"
-documentation = "https://docs.rs/crate/scpi"
-repository = "https://github.com/Atmelfan/scpi-rs"
-readme = "README.md"
-
-[badges]
-maintenance = { status = "actively-developed" }
+# Inherit from workspace workspace
+authors = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+readme = { workspace = true }
 
 [dependencies]
-scpi_derive = { path = "../scpi_derive", version= "0.4.3"}
-lexical-core = { version="0.8.3", features=["parse-floats", "parse-integers", "write-floats", "write-integers", "power-of-two"], default-features=false }
-arrayvec = { version = "0.7", default-features = false }
+document-features = { workspace = true }
+arrayvec = { version = "0.7", default-features = false, optional = true }
+
+[dependencies.scpi-derive]
+path = "../scpi-derive"
+version = "1.0"
+features = ["_private"]
+
+[dependencies.lexical-core]
+version = "0.8"
+default-features = false
+features = [
+    "parse-floats",
+    "parse-integers",
+    "write-floats",
+    "write-integers",
+    "power-of-two",
+]
 
 [dependencies.uom]
 version = "0.33.0"
 default-features = false
 optional = true
-features = [
-    "autoconvert",
-    "usize", "u8", "u16", "u32", "u64",
-    "isize", "i8", "i16", "i32", "i64",
-    "f32", "f64",
-    "si",
-    "try-from"
-]
+features = ["autoconvert", "f32", "f64", "si", "try-from"]
+
+[dev-dependencies]
+csv = "1.1"
+serde = { version = "1", features = ["derive"] }
 
 [features]
 default = [
+    "alloc",
     # Units
-    "unit-length",
-    "unit-velocity",
-    "unit-acceleration",
     "unit-electric-potential",
     "unit-electric-current",
-    "unit-electric-conductance",
-    "unit-electric-resistance",
+    "unit-electrical-conductance",
+    "unit-electrical-resistance",
     "unit-electric-charge",
-    "unit-electric-capacitance",
-    "unit-electric-inductance",
+    "unit-capacitance",
+    "unit-inductance",
     "unit-energy",
     "unit-power",
     "unit-angle",
-    "unit-amount-of-substance",
-    "unit-magnetic-flux",
-    "unit-magnetic-flux-density",
     "unit-ratio",
-    "unit-temperature",
+    "unit-thermodynamic-temperature",
     "unit-time",
-    "unit-pressure",
-    "unit-volume"
+    "unit-frequency",
 ]
 
-# Use std
-std = ["lexical-core/std"]
+#! Common features
+## Use alloc
+alloc = []
 
+## Use arrayvec
+arrayvec = ["dep:arrayvec"]
+
+## Use std (overrides alloc)
+std = ["lexical-core/std", "alloc"]
+
+## Enable compact feature in lexical-core
 compact = ["lexical-core/compact"]
 
-# Support extender errors (example -100,"Command error;extended")
-extended-error = []
-
-###################################### UNITS ######################################
-# Individual units
-unit-length = ["uom"]
-unit-velocity = ["uom"]
-unit-acceleration = ["uom"]
+#! ## Units of measurements
+#! Use [uom](https://crates.io/crates/uom) for automatic conversion of unit suffixes.
+uom = ["dep:uom"]
+## Electric potential (Voltage)
 unit-electric-potential = ["uom"]
+## Electric current
 unit-electric-current = ["uom"]
-unit-electric-conductance = ["uom"]
-unit-electric-resistance = ["uom"]
+## Electric conductance (inverse resistance)
+unit-electrical-conductance = ["uom"]
+## Electric resistance
+unit-electrical-resistance = ["uom"]
+## Electric charge
 unit-electric-charge = ["uom"]
-unit-electric-capacitance = ["uom"]
-unit-electric-inductance = ["uom"]
+## Electric capacitance
+unit-capacitance = ["uom"]
+## Electric inductance
+unit-inductance = ["uom"]
+## Energy
 unit-energy = ["uom"]
+## Power
 unit-power = ["uom"]
+## Angle
 unit-angle = ["uom"]
-unit-amount-of-substance = ["uom"]
-unit-magnetic-flux = ["uom"]
-unit-magnetic-flux-density = ["uom"]
+## Ratio / percentage / unitless
 unit-ratio = ["uom"]
-unit-temperature = ["uom"]
+## Temperature
+unit-thermodynamic-temperature = ["uom"]
+## Time
 unit-time = ["uom"]
-unit-pressure = ["uom"]
-unit-volume = ["uom"]
+## Frequency
 unit-frequency = ["uom"]
-
-
-
-

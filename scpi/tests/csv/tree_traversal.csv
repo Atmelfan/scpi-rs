@@ -1,0 +1,20 @@
+command,error,response
+
+# Check that execution continues from last branch except for common commands and manual branch reset
+"syst:version?;err:next?;count?",0,"10;13;12\n"
+"syst:version?;:syst:err:next?;count?",0,"10;13;12\n"
+"syst:version?;*com?;err:next?",0,"10;100;13\n"
+"syst:version?;err?;version?",0,"10;13;10\n"
+
+# Check that a branch can have a default handler
+"conf?",0,"1\n"
+"conf:scal:volt:dc?",0,"3\n"
+"conf:scal:volt:ac?",0,"2\n"
+"conf:scal:volt?",0,"3\n"
+"conf:volt?",0,"3\n"
+
+# Check that multiple default nodes works
+"initiate?",0,"0\n"
+"init:immediate?",0,"0\n"
+"init:imm:all?",0,"0\n"
+

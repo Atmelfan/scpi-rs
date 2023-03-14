@@ -1,2 +1,17 @@
 [workspace]
-members = ["example", "scpi", "scpi_derive"]
+members = ["scpi", "scpi-derive", "scpi-contrib"]
+
+[workspace.package]
+authors = ["Atmelfan <gustavp@gpa-robotics.com>"]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+keywords = ["SCPI", "parser", "Instrumentation", "Embedded", "Multimeter"]
+categories = ["command-line-interface", "embedded", "parsing", "no-std"]
+
+homepage = "http://Atmelfan.github.io/scpi-rs"
+repository = "https://github.com/Atmelfan/scpi-rs"
+readme = "README.md"
+
+[workspace.dependencies]
+document-features = "0.2"

@@ -10,7 +10,11 @@ edition = "2018"
 cargo-fuzz = true
 
 [dependencies]
-libfuzzer-sys = "0.3"
+libfuzzer-sys = "0.4"
+
+# Required for tests/util
+csv = "1.1"
+serde = { version = "1", features = ["derive"] }
 
 [dependencies.scpi]
 path = ".."
@@ -20,19 +24,19 @@ path = ".."
 members = ["."]
 
 [[bin]]
-name = "fuzz_target_parser"
-path = "fuzz_targets/fuzz_target_parser.rs"
+name = "numeric_list"
+path = "fuzz_targets/numeric_list.rs"
 test = false
 doc = false
 
 [[bin]]
-name = "fuzz_target_numeric_list"
-path = "fuzz_targets/fuzz_target_numeric_list.rs"
+name = "channel_list"
+path = "fuzz_targets/channel_list.rs"
 test = false
 doc = false
 
 [[bin]]
-name = "fuzz_target_channel_list"
-path = "fuzz_targets/fuzz_target_channel_list.rs"
+name = "command"
+path = "fuzz_targets/command.rs"
 test = false
 doc = false

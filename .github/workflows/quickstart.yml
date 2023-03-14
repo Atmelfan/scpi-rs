@@ -82,12 +82,11 @@ jobs:
           override: true
           components: rustfmt, clippy
 
-      # TODO: Broken
-      #- name: Run cargo fmt
-      #  uses: actions-rs/cargo@v1
-      #  with:
-      #    command: fmt
-      #    args: --all -- --check
+      - name: Run cargo fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
 
       - name: Run cargo clippy
         uses: actions-rs/cargo@v1

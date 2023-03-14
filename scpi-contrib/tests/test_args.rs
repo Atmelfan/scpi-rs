@@ -1,11 +1,14 @@
-mod util;
-
-use scpi::cmd_qonly;
-use scpi::{error::Result, tree::prelude::*};
-use util::TestDevice;
+use scpi::{cmd_qonly, error::Result, tree::prelude::*};
+use scpi_contrib::{
+    ieee488_cls, ieee488_ese, ieee488_esr, ieee488_idn, ieee488_opc, ieee488_rst, ieee488_sre,
+    ieee488_stb, ieee488_tst, ieee488_wai, scpi_status, scpi_system,
+};
 
 use std::convert::TryFrom;
 use std::marker::PhantomData;
+
+mod util;
+use util::TestDevice;
 
 extern crate std;
 
@@ -166,46 +169,6 @@ where
     }
 }
 
-#[cfg(feature = "alloc")]
-struct VecData;
-
-#[cfg(feature = "alloc")]
-impl Command<TestDevice> for VecData {
-    cmd_qonly!();
-
-    fn query(
-        &self,
-        _device: &mut TestDevice,
-        _context: &mut Context,
-        _params: Parameters,
-        mut response: ResponseUnit,
-    ) -> Result<()> {
-        let x = vec![1, 2, 3];
-        response.data(x).finish()
-    }
-}
-
-#[cfg(feature = "arrayvec")]
-struct ArrayVecData;
-
-#[cfg(feature = "arrayvec")]
-impl Command<TestDevice> for ArrayVecData {
-    cmd_qonly!();
-
-    fn query(
-        &self,
-        _device: &mut TestDevice,
-        _context: &mut Context,
-        _params: Parameters,
-        mut response: ResponseUnit,
-    ) -> Result<()> {
-        use arrayvec::ArrayVec;
-
-        let x = ArrayVec::from([1, 2, 3]);
-        response.data(x).finish()
-    }
-}
-
 macro_rules! add_numeric_command {
     ($cmd:literal : $name:expr ) => {
         Leaf {
@@ -222,9 +185,9 @@ macro_rules! test_integer {
             use super::*;
             #[test]
             fn test_integer() {
-                let mut dev = TestDevice;
+                let mut dev = TestDevice::new();
                 let res = util::test_execute_str(
-                    &TEST_TREE,
+                    &IEEE488_TREE,
                     format!("{cmd} 42", cmd = $cmd).as_bytes(),
                     &mut dev,
                 )
@@ -235,7 +198,7 @@ macro_rules! test_integer {
             fn test_rounding() {
                 let mut dev = TestDevice::new();
                 let res = util::test_execute_str(
-                    &TEST_TREE,
+                    &IEEE488_TREE,
                     format!("{cmd} 0.4;{cmd} 0.6", cmd = $cmd).as_bytes(),
                     &mut dev,
                 )
@@ -246,7 +209,7 @@ macro_rules! test_integer {
             fn test_max_min() {
                 let mut dev = TestDevice::new();
                 let res = util::test_execute_str(
-                    &TEST_TREE,
+                    &IEEE488_TREE,
                     format!("{cmd} MAX;{cmd} MIN", cmd = $cmd).as_bytes(),
                     &mut dev,
                 )
@@ -260,7 +223,7 @@ macro_rules! test_integer {
             fn test_hex() {
                 let mut dev = TestDevice::new();
                 let res = util::test_execute_str(
-                    &TEST_TREE,
+                    &IEEE488_TREE,
                     format!("{cmd} #H002A", cmd = $cmd).as_bytes(),
                     &mut dev,
                 )
@@ -271,7 +234,7 @@ macro_rules! test_integer {
             fn test_octal() {
                 let mut dev = TestDevice::new();
                 let res = util::test_execute_str(
-                    &TEST_TREE,
+                    &IEEE488_TREE,
                     format!("{cmd} #Q52", cmd = $cmd).as_bytes(),
                     &mut dev,
                 )
@@ -282,7 +245,7 @@ macro_rules! test_integer {
             fn test_binary() {
                 let mut dev = TestDevice::new();
                 let res = util::test_execute_str(
-                    &TEST_TREE,
+                    &IEEE488_TREE,
                     format!("{cmd} #B101010", cmd = $cmd).as_bytes(),
                     &mut dev,
                 )
@@ -293,7 +256,7 @@ macro_rules! test_integer {
             fn test_datatype_error() {
                 let mut dev = TestDevice::new();
                 let err = util::test_execute_str(
-                    &TEST_TREE,
+                    &IEEE488_TREE,
                     format!("{cmd} '42'", cmd = $cmd).as_bytes(),
                     &mut dev,
                 )
@@ -321,7 +284,8 @@ macro_rules! test_real {
                 ];
                 for s in &valid {
                     let cmd = format!("{cmd} {value}", cmd = $cmd, value = s.0);
-                    let res = util::test_execute_str(&TEST_TREE, cmd.as_bytes(), &mut dev).unwrap();
+                    let res =
+                        util::test_execute_str(&IEEE488_TREE, cmd.as_bytes(), &mut dev).unwrap();
                     println!("{}=>{}", s.0, std::str::from_utf8(res.as_slice()).unwrap());
                     assert_eq!(res.as_slice(), s.1.as_bytes());
                 }
@@ -334,12 +298,13 @@ macro_rules! test_real {
                 let infinite = ["inf", "ninf", "INFINITY", "NINFINITY"];
                 for s in &infinite {
                     let cmd = format!("{cmd} {value}", cmd = $inf, value = s);
-                    let res = util::test_execute_str(&TEST_TREE, cmd.as_bytes(), &mut dev).unwrap();
+                    let res =
+                        util::test_execute_str(&IEEE488_TREE, cmd.as_bytes(), &mut dev).unwrap();
                     assert_eq!(res.as_slice(), b"1\n");
                 }
 
                 let cmd = format!("{cmd} 1.0", cmd = $nan);
-                let res = util::test_execute_str(&TEST_TREE, cmd.as_bytes(), &mut dev).unwrap();
+                let res = util::test_execute_str(&IEEE488_TREE, cmd.as_bytes(), &mut dev).unwrap();
                 assert_eq!(res.as_slice(), b"0\n");
             }
 
@@ -348,7 +313,7 @@ macro_rules! test_real {
                 let mut dev = TestDevice::new();
 
                 let cmd = format!("{cmd} NAN;{cmd} 1.0", cmd = $nan);
-                let res = util::test_execute_str(&TEST_TREE, cmd.as_bytes(), &mut dev).unwrap();
+                let res = util::test_execute_str(&IEEE488_TREE, cmd.as_bytes(), &mut dev).unwrap();
                 assert_eq!(res.as_slice(), b"1;0\n");
             }
 
@@ -358,22 +323,35 @@ macro_rules! test_real {
 
                 let cmd1 = format!("{cmd} 'STRING'", cmd = $nan);
                 let res =
-                    util::test_execute_str(&TEST_TREE, cmd1.as_bytes(), &mut dev).unwrap_err();
+                    util::test_execute_str(&IEEE488_TREE, cmd1.as_bytes(), &mut dev).unwrap_err();
                 assert_eq!(res, Error::from(ErrorCode::DataTypeError));
 
                 let cmd2 = format!("{cmd} INVALID", cmd = $nan);
                 let res =
-                    util::test_execute_str(&TEST_TREE, cmd2.as_bytes(), &mut dev).unwrap_err();
+                    util::test_execute_str(&IEEE488_TREE, cmd2.as_bytes(), &mut dev).unwrap_err();
                 assert_eq!(res, Error::from(ErrorCode::DataTypeError));
             }
         }
     };
 }
 
-const TEST_TREE: &Node<TestDevice> = &Branch {
+const IEEE488_TREE: &Node<TestDevice> = &Branch {
     name: b"",
     default: false,
     sub: &[
+        // Create default IEEE488 mandated commands
+        ieee488_cls!(),
+        ieee488_ese!(),
+        ieee488_esr!(),
+        ieee488_idn!(b"GPA-Robotics", b"T800-101", b"0", b"0"),
+        ieee488_opc!(),
+        ieee488_rst!(),
+        ieee488_sre!(),
+        ieee488_stb!(),
+        ieee488_tst!(),
+        ieee488_wai!(),
+        scpi_status!(),
+        scpi_system!(),
         add_numeric_command!(b"*STR": &StrEchoCommand),
         add_numeric_command!(b"*ARB": &ArbEchoCommand),
         add_numeric_command!(b"*CHR": &ChrEchoCommand),
@@ -395,10 +373,6 @@ const TEST_TREE: &Node<TestDevice> = &Branch {
         add_numeric_command!(b"*I8": &EchoCommand::<i8>::new()),
         add_numeric_command!(b"*USIZE": &EchoCommand::<usize>::new()),
         add_numeric_command!(b"*ISIZE": &EchoCommand::<isize>::new()),
-        #[cfg(feature = "alloc")]
-        add_numeric_command!(b"*VEC": &VecData),
-        #[cfg(feature = "arrayvec")]
-        add_numeric_command!(b"*ARRAYVEC": &ArrayVecData),
     ],
 };
 
@@ -432,14 +406,16 @@ mod string {
     fn test_str() {
         let mut dev = TestDevice::new();
 
-        let res = util::test_execute_str(TEST_TREE, "*STR? 'STRING'".as_bytes(), &mut dev).unwrap();
+        let res =
+            util::test_execute_str(IEEE488_TREE, "*STR? 'STRING'".as_bytes(), &mut dev).unwrap();
         assert_eq!(res.as_slice(), b"\"STRING\"\n");
 
         let res =
-            util::test_execute_str(TEST_TREE, "*STR? CHRDATA".as_bytes(), &mut dev).unwrap_err();
+            util::test_execute_str(IEEE488_TREE, "*STR? CHRDATA".as_bytes(), &mut dev).unwrap_err();
         assert_eq!(res, Error::from(ErrorCode::DataTypeError));
 
-        let res = util::test_execute_str(TEST_TREE, "*STR? 1.0".as_bytes(), &mut dev).unwrap_err();
+        let res =
+            util::test_execute_str(IEEE488_TREE, "*STR? 1.0".as_bytes(), &mut dev).unwrap_err();
         assert_eq!(res, Error::from(ErrorCode::DataTypeError));
     }
 }
@@ -450,14 +426,16 @@ mod arbitrary {
     fn test_arb() {
         let mut dev = TestDevice::new();
 
-        let res = util::test_execute_str(TEST_TREE, "*ARB? #203ABC".as_bytes(), &mut dev).unwrap();
+        let res =
+            util::test_execute_str(IEEE488_TREE, "*ARB? #203ABC".as_bytes(), &mut dev).unwrap();
         assert_eq!(res.as_slice(), b"#13ABC\n");
 
         let res =
-            util::test_execute_str(TEST_TREE, "*ARB? CHRDATA".as_bytes(), &mut dev).unwrap_err();
+            util::test_execute_str(IEEE488_TREE, "*ARB? CHRDATA".as_bytes(), &mut dev).unwrap_err();
         assert_eq!(res, Error::from(ErrorCode::DataTypeError));
 
-        let res = util::test_execute_str(TEST_TREE, "*ARB? 1.0".as_bytes(), &mut dev).unwrap_err();
+        let res =
+            util::test_execute_str(IEEE488_TREE, "*ARB? 1.0".as_bytes(), &mut dev).unwrap_err();
         assert_eq!(res, Error::from(ErrorCode::DataTypeError));
     }
 }
@@ -468,14 +446,16 @@ mod character {
     fn test_chr() {
         let mut dev = TestDevice::new();
 
-        let res = util::test_execute_str(TEST_TREE, "*CHR? CHRDATA".as_bytes(), &mut dev).unwrap();
+        let res =
+            util::test_execute_str(IEEE488_TREE, "*CHR? CHRDATA".as_bytes(), &mut dev).unwrap();
         assert_eq!(res.as_slice(), b"CHRDATA\n");
 
-        let res =
-            util::test_execute_str(TEST_TREE, "*CHR? 'CHRDATA'".as_bytes(), &mut dev).unwrap_err();
+        let res = util::test_execute_str(IEEE488_TREE, "*CHR? 'CHRDATA'".as_bytes(), &mut dev)
+            .unwrap_err();
         assert_eq!(res, Error::from(ErrorCode::DataTypeError));
 
-        let res = util::test_execute_str(TEST_TREE, "*CHR? 1.0".as_bytes(), &mut dev).unwrap_err();
+        let res =
+            util::test_execute_str(IEEE488_TREE, "*CHR? 1.0".as_bytes(), &mut dev).unwrap_err();
         assert_eq!(res, Error::from(ErrorCode::DataTypeError));
     }
 }
@@ -512,14 +492,15 @@ mod utf8 {
         let mut dev = TestDevice::new();
 
         let res =
-            util::test_execute_str(TEST_TREE, "*UTF8? 'STRING'".as_bytes(), &mut dev).unwrap();
+            util::test_execute_str(IEEE488_TREE, "*UTF8? 'STRING'".as_bytes(), &mut dev).unwrap();
         assert_eq!(res.as_slice(), b"#16STRING\n");
 
         let res =
-            util::test_execute_str(TEST_TREE, "*UTF8? #206STRING".as_bytes(), &mut dev).unwrap();
+            util::test_execute_str(IEEE488_TREE, "*UTF8? #206STRING".as_bytes(), &mut dev).unwrap();
         assert_eq!(res.as_slice(), b"#16STRING\n");
 
-        let res = util::test_execute_str(TEST_TREE, "*UTF8? 1.0".as_bytes(), &mut dev).unwrap_err();
+        let res =
+            util::test_execute_str(IEEE488_TREE, "*UTF8? 1.0".as_bytes(), &mut dev).unwrap_err();
         assert_eq!(res, Error::from(ErrorCode::DataTypeError));
     }
 }
@@ -531,7 +512,7 @@ mod boolean {
         let mut dev = TestDevice::new();
 
         let res = util::test_execute_str(
-            TEST_TREE,
+            IEEE488_TREE,
             "*BOOL? 0;*BOOL? 1;*BOOL? -1;*BOOL? 1.0".as_bytes(),
             &mut dev,
         )
@@ -543,46 +524,16 @@ mod boolean {
     fn test_bool_character() {
         let mut dev = TestDevice::new();
 
-        let res =
-            util::test_execute_str(TEST_TREE, "*BOOL? ON;*BOOL? OFF".as_bytes(), &mut dev).unwrap();
+        let res = util::test_execute_str(IEEE488_TREE, "*BOOL? ON;*BOOL? OFF".as_bytes(), &mut dev)
+            .unwrap();
         assert_eq!(res.as_slice(), b"1;0\n");
 
         let res =
-            util::test_execute_str(TEST_TREE, "*BOOL? POTATO".as_bytes(), &mut dev).unwrap_err();
+            util::test_execute_str(IEEE488_TREE, "*BOOL? POTATO".as_bytes(), &mut dev).unwrap_err();
         assert_eq!(res, Error::from(ErrorCode::IllegalParameterValue));
 
         let res =
-            util::test_execute_str(TEST_TREE, "*BOOL? (@1)".as_bytes(), &mut dev).unwrap_err();
+            util::test_execute_str(IEEE488_TREE, "*BOOL? (@1)".as_bytes(), &mut dev).unwrap_err();
         assert_eq!(res, Error::from(ErrorCode::DataTypeError));
-    }
-}
-
-#[cfg(feature = "alloc")]
-mod test_vec {
-    //! Test parsing of UTF8 str type
-    //! Parser will accept either a IEEE488 string type or arbitray data and check if the data is valid Utf8
-
-    use super::*;
-    #[test]
-    fn test_vec() {
-        let mut dev = TestDevice::new();
-
-        let res = util::test_execute_str(TEST_TREE, "*VEC?".as_bytes(), &mut dev).unwrap();
-        assert_eq!(res.as_slice(), b"1,2,3\n");
-    }
-}
-
-#[cfg(feature = "arrayvec")]
-mod test_arrayvec {
-    //! Test parsing of UTF8 str type
-    //! Parser will accept either a IEEE488 string type or arbitray data and check if the data is valid Utf8
-
-    use super::*;
-    #[test]
-    fn test_vec() {
-        let mut dev = TestDevice::new();
-
-        let res = util::test_execute_str(TEST_TREE, "*ARRAYVEC?".as_bytes(), &mut dev).unwrap();
-        assert_eq!(res.as_slice(), b"1,2,3\n");
     }
 }

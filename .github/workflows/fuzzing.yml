@@ -15,9 +15,9 @@ jobs:
     strategy:
       matrix:
         fuzz-targets:
-          - fuzz_target_parser
-          - fuzz_target_channel_list
-          - fuzz_target_numeric_list
+          - command
+          - channel_list
+          - numeric_list
 
     steps:
       - name: Checkout repository
