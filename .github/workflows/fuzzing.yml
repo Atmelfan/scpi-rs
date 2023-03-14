@@ -27,7 +27,7 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
 
       - name: Install cargo-fuzz
-        run: cargo install cargo-fuzz
+        run: cargo install cargo-fuzz && cargo install cargo-binutils
 
       - name: Fuzz ${{ matrix.fuzz-targets }}
         run: |

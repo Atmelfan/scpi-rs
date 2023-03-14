@@ -5,6 +5,7 @@ scpi-99.pdf
 # Coverage
 *.gcda
 *.gcno
+lcov.info
 
 # Created by https://www.toptal.com/developers/gitignore/api/visualstudiocode,python,rust
 # Edit at https://www.toptal.com/developers/gitignore?templates=visualstudiocode,python,rust
