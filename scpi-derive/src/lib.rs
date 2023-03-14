@@ -70,7 +70,7 @@ fn find_prop_bint<'a>(meta: &'a Meta, attr: &str, property: &str) -> Option<&'a 
     None
 }
 
-fn find_prop_path<'a>(meta: &'a Meta, attr: &str, property: &str) -> bool {
+fn find_prop_path(meta: &Meta, attr: &str, property: &str) -> bool {
     if let Meta::List(list) = meta {
         if list.path.is_ident(attr) {
             //println!("{:?}", list);
