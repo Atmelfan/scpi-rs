@@ -166,6 +166,48 @@ where
     }
 }
 
+#[cfg(feature = "alloc")]
+struct VecData;
+
+#[cfg(feature = "alloc")]
+impl Command<TestDevice> for VecData
+{
+    cmd_qonly!();
+
+    fn query(
+        &self,
+        _device: &mut TestDevice,
+        _context: &mut Context,
+        _params: Parameters,
+        mut response: ResponseUnit,
+    ) -> Result<()> {
+        let x = vec![1, 2, 3];
+        response.data(x).finish()
+    }
+}
+
+#[cfg(feature = "arrayvec")]
+struct ArrayVecData;
+
+#[cfg(feature = "arrayvec")]
+impl Command<TestDevice> for ArrayVecData
+{
+    cmd_qonly!();
+
+    fn query(
+        &self,
+        _device: &mut TestDevice,
+        _context: &mut Context,
+        _params: Parameters,
+        mut response: ResponseUnit,
+    ) -> Result<()> {
+        use arrayvec::ArrayVec;
+
+        let x = ArrayVec::from([1, 2, 3]);
+        response.data(x).finish()
+    }
+}
+
 macro_rules! add_numeric_command {
     ($cmd:literal : $name:expr ) => {
         Leaf {
@@ -355,6 +397,9 @@ const TEST_TREE: &Node<TestDevice> = &Branch {
         add_numeric_command!(b"*I8": &EchoCommand::<i8>::new()),
         add_numeric_command!(b"*USIZE": &EchoCommand::<usize>::new()),
         add_numeric_command!(b"*ISIZE": &EchoCommand::<isize>::new()),
+        add_numeric_command!(b"*VEC": &VecData),
+        add_numeric_command!(b"*ARRAYVEC": &ArrayVecData),
+
     ],
 };
 
@@ -510,5 +555,37 @@ mod boolean {
         let res =
             util::test_execute_str(TEST_TREE, "*BOOL? (@1)".as_bytes(), &mut dev).unwrap_err();
         assert_eq!(res, Error::from(ErrorCode::DataTypeError));
+    }
+}
+
+#[cfg(feature = "alloc")]
+mod test_vec {
+    //! Test parsing of UTF8 str type
+    //! Parser will accept either a IEEE488 string type or arbitray data and check if the data is valid Utf8
+
+    use super::*;
+    #[test]
+    fn test_vec() {
+        let mut dev = TestDevice::new();
+
+        let res =
+            util::test_execute_str(TEST_TREE, "*VEC?".as_bytes(), &mut dev).unwrap();
+        assert_eq!(res.as_slice(), b"1,2,3\n");
+    }
+}
+
+#[cfg(feature = "arrayvec")]
+mod test_arrayvec {
+    //! Test parsing of UTF8 str type
+    //! Parser will accept either a IEEE488 string type or arbitray data and check if the data is valid Utf8
+
+    use super::*;
+    #[test]
+    fn test_vec() {
+        let mut dev = TestDevice::new();
+
+        let res =
+            util::test_execute_str(TEST_TREE, "*ARRAYVEC?".as_bytes(), &mut dev).unwrap();
+        assert_eq!(res.as_slice(), b"1,2,3\n");
     }
 }
