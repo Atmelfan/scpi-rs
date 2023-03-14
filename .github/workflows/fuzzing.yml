@@ -31,7 +31,7 @@ jobs:
 
       - name: Fuzz ${{ matrix.fuzz-targets }}
         run: |
-          cd scpi && cargo +nightly fuzz run ${{ matrix.fuzz-targets }} -- -max_total_time=300
+          cd scpi && cargo fuzz run ${{ matrix.fuzz-targets }} -- -max_total_time=300
 
       - name: Upload failing inputs for Tokenizer
         uses: actions/upload-artifact@v2
@@ -40,7 +40,7 @@ jobs:
           path: scpi/fuzz/artifacts/${{ matrix.fuzz-targets }}/*
         
       - name: Generate coverage data
-        run: cargo fuzz coverage ${{ matrix.fuzz-targets }}
+        run: cd scpi && cargo fuzz coverage ${{ matrix.fuzz-targets }}
       
       - name: Upload to codecov.io
         uses: codecov/codecov-action@v3
