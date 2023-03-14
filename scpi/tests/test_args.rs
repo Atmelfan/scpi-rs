@@ -170,8 +170,7 @@ where
 struct VecData;
 
 #[cfg(feature = "alloc")]
-impl Command<TestDevice> for VecData
-{
+impl Command<TestDevice> for VecData {
     cmd_qonly!();
 
     fn query(
@@ -190,8 +189,7 @@ impl Command<TestDevice> for VecData
 struct ArrayVecData;
 
 #[cfg(feature = "arrayvec")]
-impl Command<TestDevice> for ArrayVecData
-{
+impl Command<TestDevice> for ArrayVecData {
     cmd_qonly!();
 
     fn query(
@@ -397,9 +395,10 @@ const TEST_TREE: &Node<TestDevice> = &Branch {
         add_numeric_command!(b"*I8": &EchoCommand::<i8>::new()),
         add_numeric_command!(b"*USIZE": &EchoCommand::<usize>::new()),
         add_numeric_command!(b"*ISIZE": &EchoCommand::<isize>::new()),
+        #[cfg(feature = "alloc")]
         add_numeric_command!(b"*VEC": &VecData),
+        #[cfg(feature = "arrayvec")]
         add_numeric_command!(b"*ARRAYVEC": &ArrayVecData),
-
     ],
 };
 
@@ -568,8 +567,7 @@ mod test_vec {
     fn test_vec() {
         let mut dev = TestDevice::new();
 
-        let res =
-            util::test_execute_str(TEST_TREE, "*VEC?".as_bytes(), &mut dev).unwrap();
+        let res = util::test_execute_str(TEST_TREE, "*VEC?".as_bytes(), &mut dev).unwrap();
         assert_eq!(res.as_slice(), b"1,2,3\n");
     }
 }
@@ -584,8 +582,7 @@ mod test_arrayvec {
     fn test_vec() {
         let mut dev = TestDevice::new();
 
-        let res =
-            util::test_execute_str(TEST_TREE, "*ARRAYVEC?".as_bytes(), &mut dev).unwrap();
+        let res = util::test_execute_str(TEST_TREE, "*ARRAYVEC?".as_bytes(), &mut dev).unwrap();
         assert_eq!(res.as_slice(), b"1,2,3\n");
     }
 }
