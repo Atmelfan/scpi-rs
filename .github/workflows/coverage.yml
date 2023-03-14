@@ -19,13 +19,13 @@ jobs:
       - name: Install nightly toolchain
         uses: dtolnay/rust-toolchain@nightly
 
-      - name: Install Tarpaulin
+      - name: Install cargo-cov
         run: |
           cargo install cargo-cov
 
       - name: Generate code coverage
         run: |
-          cargo cov --all-features
+          cargo cov test --all-features
 
       - name: Upload to codecov.io
         uses: codecov/codecov-action@v3

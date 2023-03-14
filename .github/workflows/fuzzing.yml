@@ -26,7 +26,7 @@ jobs:
       - name: Install nightly toolchain
         uses: dtolnay/rust-toolchain@nightly
 
-      - name: Install fuzz
+      - name: Install cargo-fuzz
         run: cargo install cargo-fuzz
 
       - name: Fuzz ${{ matrix.fuzz-targets }}
@@ -47,5 +47,5 @@ jobs:
         with:
           # token: ${{secrets.CODECOV_TOKEN}} # not required for public repos
           flags: fuzzing-${{ matrix.fuzz-targets }}
-          files: scpi/fuzz/artifacts/${{ matrix.fuzz-targets }}/*
+          files: scpi/fuzz/coverage/${{ matrix.fuzz-targets }}/*
           fail_ci_if_error: true
