@@ -392,17 +392,6 @@ macro_rules! ieee488_cls {
     };
 }
 
-pub const fn cls<'a, D>() -> Node<'a, D>
-where
-    D: IEEE4882 + Device,
-{
-    Leaf {
-        name: b"*CLS",
-        default: false,
-        handler: &ClsCommand,
-    }
-}
-
 #[macro_export]
 macro_rules! ieee488_ese {
     () => {

@@ -51,6 +51,8 @@ pub trait ScpiDevice:
     }
 
     /// Calculate STB byte according to SCPI standard
+    ///
+    /// Should be called from [crate::ieee488::IEEE4882::stb]
     fn scpi_stb(&self) -> u8 {
         let mut stb = 0x00;
         if !self.is_empty() {
@@ -73,7 +75,9 @@ pub trait ScpiDevice:
         stb
     }
 
-    /// See [crate::ieee488::IEEE488Device::exec_opc]
+    /// Handle OPC command
+    ///
+    /// Should be called from [crate::ieee488::IEEE4882::opc]
     fn scpi_opc(&mut self) -> Result<()> {
         let esr = self.esr() | ErrorCode::OperationComplete.esr_mask();
         self.push_back_error(ErrorCode::OperationComplete.into());
@@ -81,7 +85,9 @@ pub trait ScpiDevice:
         Ok(())
     }
 
-    /// See [crate::ieee488::IEEE488Device::exec_cls]
+    /// Handle CLS command
+    ///
+    /// Should be called from [crate::ieee488::IEEE4882::cls]
     fn scpi_cls(&mut self) -> Result<()> {
         // Clear ESR
         self.set_esr(0);

@@ -209,7 +209,7 @@ where
     }
 }
 
-/// Create command nodes for a SCPI register like OPERation and QUEStionable
+/// Create command nodes for a SCPI registers like `OPERation`, `QUEStionable`, or custom event registers.
 #[macro_export]
 macro_rules! scpi_register {
     ($name:literal, $register:path) => {

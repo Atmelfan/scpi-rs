@@ -1,6 +1,6 @@
 [package]
 name = "scpi-contrib"
-version = "0.1.0"
+version = "1.0.0"
 description = "SCPI/IEEE488.2 contrib library"
 
 # Inherit from workspace workspace
@@ -16,8 +16,8 @@ readme = { workspace = true }
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-scpi = { path = "../scpi", version = "0.10", default-features = false, features = ["unit-time", "unit-frequency"]}
-scpi-derive = { path = "../scpi-derive", version = "0.10" }
+scpi = { path = "../scpi", version = "1.0", default-features = false, features = ["unit-time", "unit-frequency"]}
+scpi-derive = { path = "../scpi-derive", version = "1.0" }
 document-features = { workspace = true }
 
 [build-dependencies]
@@ -26,15 +26,14 @@ clap = {version = "4.0", features = ["derive"]}
 [dev-dependencies]
 csv = "1.1"
 serde = { version = "1", features = ["derive"] }
-rustyline = "10.0"
 rand = "0.8"
 
 [features]
 default = []
 
-## Use std
+## Use std (overrides alloc)
 std = ["scpi/std"]
-## 
+## Use alloc
 alloc = ["scpi/alloc"]
 
 unproven = []

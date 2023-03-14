@@ -1,3 +1,18 @@
+//! This crate provides scpi derive macros
+//!```
+//! # use scpi_derive::ScpiEnum;
+//! #
+//! #[derive(ScpiEnum)]
+//! # enum MyEnum {
+//! #    #[scpi(mnemonic = b"A")]
+//! #    A
+//! # }
+//! # fn main() {}
+//! ```
+//! 
+//! See [scpi - ScpiEnum](https://docs.rs/scpi/latest/scpi/option/trait.ScpiEnum.html) for details.
+//! 
+
 extern crate proc_macro;
 
 use quote::{quote, quote_spanned};
@@ -171,6 +186,7 @@ pub fn derive_scpi_enum(input: proc_macro::TokenStream) -> proc_macro::TokenStre
     proc_macro::TokenStream::from(expanded)
 }
 
+/// Internal macro for scpi crate use only.
 #[cfg(feature = "_private")]
 #[proc_macro_derive(ScpiError, attributes(error))]
 pub fn derive_error_messages(input: proc_macro::TokenStream) -> proc_macro::TokenStream {

@@ -16,8 +16,6 @@ use super::ScpiDevice;
 
 pub mod error;
 
-pub const BRANCH_NAME: &[u8] = b"SYSTem";
-
 ///## 21.21 :VERSion?
 ///> `SYSTem:VERSion?` query returns an <NR2> formatted numeric value corresponding to the SCPI version
 ///> number for which the instrument complies. The response shall have the form YYYY.V where

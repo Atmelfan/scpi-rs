@@ -1,6 +1,6 @@
 [package]
 name = "scpi"
-version = "0.10.0"
+version = "1.0.0"
 description = "SCPI/IEEE488.2 parser library"
 
 # Inherit from workspace workspace
@@ -19,7 +19,7 @@ arrayvec = { version = "0.7", default-features = false, optional = true }
 
 [dependencies.scpi-derive]
 path = "../scpi-derive"
-version = "0.10"
+version = "1.0"
 features = ["_private"]
 
 [dependencies.lexical-core]

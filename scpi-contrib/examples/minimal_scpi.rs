@@ -1,13 +1,18 @@
+//! This is an example of a minimal SCPI complient device.
+//! It supports all required status registers and commands as specified in SCPI-99 standard.
+//!
+//!
+
 use std::{
     collections::VecDeque,
     io::{self, BufRead, Write},
 };
 
-use scpi::{tree::Node, Context, Device, Leaf, Root};
+use scpi::{tree::Node, Context, Device, Root};
+use scpi_contrib::{ieee488::prelude::*, scpi1999::prelude::*};
 use scpi_contrib::{
-    ieee488::{self, prelude::*},
-    scpi1999::{self, prelude::*},
-    scpi_status, scpi_system,
+    ieee488_cls, ieee488_ese, ieee488_esr, ieee488_idn, ieee488_opc, ieee488_rst, ieee488_sre,
+    ieee488_stb, ieee488_tst, ieee488_wai, scpi_status, scpi_system,
 };
 
 struct MinimalScpiDevice {
@@ -142,17 +147,19 @@ impl ScpiDevice for MinimalScpiDevice {}
 // Create a minimal command tree
 const MINIMAL_TREE: Node<MinimalScpiDevice> = Root![
     // Create default IEEE488 mandated commands
-    Leaf!(b"*CLS" => &ieee488::common::ClsCommand),
-    Leaf!(b"*ESE" => &ieee488::common::EseCommand),
-    Leaf!(b"*ESR" => &ieee488::common::EsrCommand),
-    Leaf!(b"*IDN" => &ieee488::common::IdnCommand { manufacturer: b"Demo inc", model: b"T800-101", serial: b"0", firmware: b"0" }),
-    Leaf!(b"*OPC" => &ieee488::common::OpcCommand),
-    Leaf!(b"*RST" => &ieee488::common::RstCommand),
-    Leaf!(b"*SRE" => &ieee488::common::SreCommand),
-    Leaf!(b"*STB" => &ieee488::common::StbCommand),
-    Leaf!(b"*TST" => &ieee488::common::TstCommand),
-    Leaf!(b"*WAI" => &ieee488::common::WaiCommand),
+    ieee488_cls!(),
+    ieee488_ese!(),
+    ieee488_esr!(),
+    ieee488_idn!(b"Example Inc", b"T800-101", b"0", b"0"),
+    ieee488_opc!(),
+    ieee488_rst!(),
+    ieee488_sre!(),
+    ieee488_stb!(),
+    ieee488_tst!(),
+    ieee488_wai!(),
+    // Create default SCPI mandated STATus commands
     scpi_status!(),
+    // Create default SCPI mandated SYSTem commands
     scpi_system!()
 ];
 
