@@ -1,5 +1,5 @@
 [package]
-name = "scpi-derive"
+name = "scpi_derive"
 version = "1.0.0"
 description = "SCPI/IEEE488.2 parser support library"
 

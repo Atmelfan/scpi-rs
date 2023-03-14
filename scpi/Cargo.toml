@@ -17,7 +17,7 @@ readme = { workspace = true }
 document-features = { workspace = true }
 arrayvec = { version = "0.7", default-features = false, optional = true }
 
-[dependencies.scpi-derive]
+[dependencies.scpi_derive]
 path = "../scpi-derive"
 version = "1.0"
 features = ["_private"]
