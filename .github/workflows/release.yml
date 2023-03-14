@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Install nightly toolchain
         uses: actions-rs/toolchain@v1
@@ -38,7 +38,7 @@ jobs:
           - thumbv7em-none-eabihf
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Install nightly toolchain
         uses: actions-rs/toolchain@v1
@@ -63,7 +63,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Install nightly toolchain
         uses: actions-rs/toolchain@v1
@@ -86,7 +86,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - id: get_version
         uses: battila7/get-version-action@v2
