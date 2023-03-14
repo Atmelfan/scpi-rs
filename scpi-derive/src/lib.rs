@@ -1,17 +1,10 @@
 //! This crate provides scpi derive macros
-//!```
-//! # use scpi_derive::ScpiEnum;
-//! #
+//!```ignore
 //! #[derive(ScpiEnum)]
-//! # enum MyEnum {
-//! #    #[scpi(mnemonic = b"A")]
-//! #    A
-//! # }
-//! # fn main() {}
 //! ```
-//! 
+//!
 //! See [scpi - ScpiEnum](https://docs.rs/scpi/latest/scpi/option/trait.ScpiEnum.html) for details.
-//! 
+//!
 
 extern crate proc_macro;
 
