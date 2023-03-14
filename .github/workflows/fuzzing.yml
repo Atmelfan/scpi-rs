@@ -27,7 +27,10 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
 
       - name: Install cargo-fuzz
-        run: cargo install cargo-fuzz && cargo install cargo-binutils
+        run: cargo install cargo-fuzz
+      
+      - name: Install llvm-tools-preview
+        run: rustup toolchain install nightly --component llvm-tools-preview
 
       - name: Fuzz ${{ matrix.fuzz-targets }}
         run: |
