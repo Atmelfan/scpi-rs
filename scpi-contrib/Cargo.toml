@@ -17,7 +17,7 @@ readme = { workspace = true }
 
 [dependencies]
 scpi = { path = "../scpi", version = "1.0", default-features = false, features = ["unit-time", "unit-frequency"]}
-scpi-derive = { path = "../scpi-derive", version = "1.0" }
+scpi_derive = { path = "../scpi-derive", version = "1.0" }
 document-features = { workspace = true }
 
 [build-dependencies]
