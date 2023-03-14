@@ -38,3 +38,14 @@ jobs:
         with:
           name: fuzz_target_1
           path: scpi/fuzz/artifacts/${{ matrix.fuzz-targets }}/*
+        
+      - name: Generate coverage data
+        run: cargo fuzz coverage ${{ matrix.fuzz-targets }}
+      
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v3
+        with:
+          # token: ${{secrets.CODECOV_TOKEN}} # not required for public repos
+          flags: fuzzing-${{ matrix.fuzz-targets }}
+          files: scpi/fuzz/artifacts/${{ matrix.fuzz-targets }}/*
+          fail_ci_if_error: true

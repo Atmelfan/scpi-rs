@@ -2,6 +2,10 @@
 ieee488.2-92.pdf
 scpi-99.pdf
 
+# Coverage
+*.gcda
+*.gcno
+
 # Created by https://www.toptal.com/developers/gitignore/api/visualstudiocode,python,rust
 # Edit at https://www.toptal.com/developers/gitignore?templates=visualstudiocode,python,rust
 

@@ -21,14 +21,15 @@ jobs:
 
       - name: Install Tarpaulin
         run: |
-          cargo install cargo-tarpaulin
+          cargo install cargo-cov
 
       - name: Generate code coverage
         run: |
-          cargo +nightly tarpaulin --verbose --all-features --workspace --timeout 120 --out Xml
+          cargo cov --all-features
 
       - name: Upload to codecov.io
-        uses: codecov/codecov-action@v1
+        uses: codecov/codecov-action@v3
         with:
           # token: ${{secrets.CODECOV_TOKEN}} # not required for public repos
+          flags: unittests
           fail_ci_if_error: true
