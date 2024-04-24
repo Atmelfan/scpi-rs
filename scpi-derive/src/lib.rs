@@ -36,51 +36,47 @@ pub fn derive_scpi_enum(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 
         // Iter over the attributes (#[repr]) of the variant
         for attr in variant.attrs.iter() {
-            attr.parse_nested_meta(|meta| {
+            // We are interested only in 'scpi' attributes
+            if attr.path().is_ident("scpi") {
+                attr.parse_nested_meta(|meta| {
 
-                // We are interested only in 'scpi' attributes
-                if meta.path.is_ident("scpi") {
-                    meta.parse_nested_meta(|nmeta| {
+                    // For scpi attributes we look for a mnemonic name value pair as literal byte string
+                    if meta.path.is_ident("mnemonic") {
+                        let mnemonic: LitByteStr = meta.value()?.parse()?;
 
-                        // For scpi attributes we look for a mnemonic name value pair as literal byte string
-                        if nmeta.path.is_ident("mnemonic") {
-                            let mnemonic: LitByteStr = nmeta.value()?.parse()?;
-
-                            // We build a token stream to implement the enum creation from a mnemonic
-                            let x = match &variant.fields {
-                                syn::Fields::Unnamed(x) if x.unnamed.len() == 1 => quote! {
-                                    x if scpi::parser::mnemonic_match(#mnemonic, x) => Some(#name::#variant_name(Default::default()))
-                                },
-                                syn::Fields::Unit => quote! {
-                                    x if scpi::parser::mnemonic_match(#mnemonic, x) => Some(#name::#variant_name)
-                                },
-                                _ => quote_spanned! {
-                                    variant_name.span() => compile_error!("Variant must be unit or single unnamed field implementing default")
-                                },
-                            };
-                            from_mnemonic_matches.push(x);
-
-                            // We build a token stream to implement the enum conversion to a mnemonic
-                            let mnemonic_return = LitByteStr::new(&mnemonic.value(), variant_name.span());
-
-                            let x2 = match &variant.fields {
-                                syn::Fields::Unnamed(x) if x.unnamed.len() == 1 => quote! {
-                                    #name::#variant_name(..) => #mnemonic_return
-                                },
-                                syn::Fields::Unit => quote! {
-                                    #name::#variant_name => #mnemonic_return
-                                },
-                                _ => quote_spanned! {
-                                    variant_name.span() => compile_error!("Variant must be unit or single unnamed field implementing default")
-                                },
-                            };
-                            to_mnemonic_matches.push(x2);
+                        // We build a token stream to implement the enum creation from a mnemonic
+                        let x = match &variant.fields {
+                            syn::Fields::Unnamed(x) if x.unnamed.len() == 1 => quote! {
+                                x if scpi::parser::mnemonic_match(#mnemonic, x) => Some(#name::#variant_name(Default::default()))
+                            },
+                            syn::Fields::Unit => quote! {
+                                x if scpi::parser::mnemonic_match(#mnemonic, x) => Some(#name::#variant_name)
+                            },
+                            _ => quote_spanned! {
+                                variant_name.span() => compile_error!("Variant must be unit or single unnamed field implementing default")
+                            },
                         };
-                        Ok(())
-                    })?
-                };
-                Ok(())
-            }).unwrap();
+                        from_mnemonic_matches.push(x);
+
+                        // We build a token stream to implement the enum conversion to a mnemonic
+                        let mnemonic_return = LitByteStr::new(&mnemonic.value(), variant_name.span());
+
+                        let x2 = match &variant.fields {
+                            syn::Fields::Unnamed(x) if x.unnamed.len() == 1 => quote! {
+                                #name::#variant_name(..) => #mnemonic_return
+                            },
+                            syn::Fields::Unit => quote! {
+                                #name::#variant_name => #mnemonic_return
+                            },
+                            _ => quote_spanned! {
+                                variant_name.span() => compile_error!("Variant must be unit or single unnamed field implementing default")
+                            },
+                        };
+                        to_mnemonic_matches.push(x2);
+                    };
+                    Ok(())
+                }).unwrap()
+            }
         }
     }
 
@@ -144,61 +140,58 @@ pub fn derive_error_messages(input: proc_macro::TokenStream) -> proc_macro::Toke
 
         // Iter over all the attributes of each variant of the enum
         for attr in variant.attrs.iter() {
-            attr.parse_nested_meta(|meta| {
-                // We are only interested in 'error' attributes
-                if meta.path.is_ident("error") {
-                    meta.parse_nested_meta(|nmeta| {
-                        // We look for three distinct type of name value pairs
+            // We are only interested in 'error' attributes
+            if attr.path().is_ident("error") {
+                attr.parse_nested_meta(|meta| {
+                    // We look for three distinct type of name value pairs
 
-                        // 'message' with a byte string value
-                        if nmeta.path.is_ident("message") {
-                            let message: LitByteStr = nmeta.value()?.parse()?;
+                    // 'message' with a byte string value
+                    if meta.path.is_ident("message") {
+                        let message: LitByteStr = meta.value()?.parse()?;
 
-                            let x = quote! {
-                                #name::#variant_name => #message
-                            };
-                            variant_matches.push(x);
-                            return Ok(());
-                        }
+                        let x = quote! {
+                            #name::#variant_name => #message
+                        };
+                        variant_matches.push(x);
+                        return Ok(());
+                    }
 
-                        // 'code' with an integer value
-                        if nmeta.path.is_ident("code") {
-                            let code: LitInt = nmeta.value()?.parse()?;
+                    // 'code' with an integer value
+                    if meta.path.is_ident("code") {
+                        let code: LitInt = meta.value()?.parse()?;
 
-                            let cx = quote! {
-                                #name::#variant_name => #code
-                            };
-                            //println!("--- {}", cx);
-                            //compile_error!("bint");
-                            code_variant_matches.push(cx);
+                        let cx = quote! {
+                            #name::#variant_name => #code
+                        };
+                        //println!("--- {}", cx);
+                        //compile_error!("bint");
+                        code_variant_matches.push(cx);
 
-                            let ccx = quote! {
-                                #code => Some(#name::#variant_name)
-                            };
-                            variant_code_matches.push(ccx);
-                            return Ok(());
-                        }
+                        let ccx = quote! {
+                            #code => Some(#name::#variant_name)
+                        };
+                        variant_code_matches.push(ccx);
+                        return Ok(());
+                    }
 
-                        // 'custom' with arbitrary tokens
-                        if nmeta.path.is_ident("custom") {
-                            let x = quote! {
-                                #name::#variant_name(_,msg) => msg
-                            };
-                            variant_matches.push(x);
-                            let cx = quote! {
-                                #name::#variant_name(code,_) => code
-                            };
-                            //println!("--- {}", cx);
-                            code_variant_matches.push(cx);
-                            return Ok(());
-                        }
+                    // 'custom' with arbitrary tokens
+                    if meta.path.is_ident("custom") {
+                        let x = quote! {
+                            #name::#variant_name(_,msg) => msg
+                        };
+                        variant_matches.push(x);
+                        let cx = quote! {
+                            #name::#variant_name(code,_) => code
+                        };
+                        //println!("--- {}", cx);
+                        code_variant_matches.push(cx);
+                        return Ok(());
+                    }
 
-                        Ok(())
-                    })?
-                }
-                Ok(())
-            })
-            .unwrap();
+                    Ok(())
+                })
+                .expect(&format!("{:?}", variant_name.to_string()));
+            }
         }
     }
 

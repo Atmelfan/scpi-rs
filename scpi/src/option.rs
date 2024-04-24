@@ -48,7 +48,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    // Required for ScpiEnum to work witin the crate
+    // Required for ScpiEnum to work within the crate
     extern crate self as scpi;
 
     use super::*;
