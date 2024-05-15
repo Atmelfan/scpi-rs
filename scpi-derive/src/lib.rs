@@ -9,84 +9,11 @@
 extern crate proc_macro;
 
 use quote::{quote, quote_spanned};
-use syn::{
-    parse_macro_input, Data, DeriveInput, Lit, LitByteStr, LitInt, Meta, MetaList, MetaNameValue,
-    NestedMeta,
-};
-
-fn get_inner_meta(list: &MetaList) -> Vec<&Meta> {
-    list.nested
-        .iter()
-        .filter_map(|nested| match *nested {
-            NestedMeta::Meta(ref meta) => Some(meta),
-            _ => None,
-        })
-        .collect()
-}
-
-fn find_prop_bstr<'a>(meta: &'a Meta, attr: &str, property: &str) -> Option<&'a LitByteStr> {
-    if let Meta::List(list) = meta {
-        if list.path.is_ident(attr) {
-            //println!("{:?}", list);
-            let inner = get_inner_meta(list);
-
-            for name_value in inner {
-                if let Meta::NameValue(MetaNameValue {
-                    ref path,
-                    lit: Lit::ByteStr(ref s),
-                    ..
-                }) = name_value
-                {
-                    if path.is_ident(property) {
-                        return Some(s);
-                    }
-                }
-            }
-        }
-    }
-    None
-}
-
-fn find_prop_bint<'a>(meta: &'a Meta, attr: &str, property: &str) -> Option<&'a LitInt> {
-    if let Meta::List(list) = meta {
-        if list.path.is_ident(attr) {
-            //println!("{:?}", list);
-            let inner = get_inner_meta(list);
-
-            for name_value in inner {
-                if let Meta::NameValue(MetaNameValue {
-                    ref path,
-                    lit: Lit::Int(ref s),
-                    ..
-                }) = name_value
-                {
-                    if path.is_ident(property) {
-                        return Some(s);
-                    }
-                }
-            }
-        }
-    }
-    None
-}
-
-fn find_prop_path(meta: &Meta, attr: &str, property: &str) -> bool {
-    if let Meta::List(list) = meta {
-        if list.path.is_ident(attr) {
-            //println!("{:?}", list);
-            let inner = get_inner_meta(list);
-
-            for name_value in inner {
-                if let Meta::Path(path) = name_value {
-                    return path.is_ident(property);
-                }
-            }
-        }
-    }
-    false
-}
+use syn::{parse_macro_input, Data, DeriveInput, LitByteStr, LitInt};
 
 /// Derive the necessary logic to convert a enum to and from a mnemonic.
+///
+/// For each variant we look into the attributes looking for entry of the form #[scpi(mnemonic=b""")]
 #[proc_macro_derive(ScpiEnum, attributes(scpi))]
 pub fn derive_scpi_enum(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // Parse the input tokens into a syntax tree.
@@ -103,45 +30,57 @@ pub fn derive_scpi_enum(input: proc_macro::TokenStream) -> proc_macro::TokenStre
     let mut from_mnemonic_matches = Vec::new();
     let mut to_mnemonic_matches = Vec::new();
 
+    // Iter over the enum variants
     for variant in variants {
         let variant_name = &variant.ident;
-        //println!(" - {} : ", variant_name.to_string());
+
+        // Iter over the attributes (#[repr]) of the variant
         for attr in variant.attrs.iter() {
-            let meta = attr.parse_meta().unwrap();
-            if let Some(mnemonic) = find_prop_bstr(&meta, "scpi", "mnemonic") {
-                // Check that mnemonic is not empty and start with a uppercase character
-                let x = match &variant.fields {
-                    syn::Fields::Unnamed(x) if x.unnamed.len() == 1 => quote! {
-                        x if scpi::parser::mnemonic_match(#mnemonic, x) => Some(#name::#variant_name(Default::default()))
-                    },
-                    syn::Fields::Unit => quote! {
-                        x if scpi::parser::mnemonic_match(#mnemonic, x) => Some(#name::#variant_name)
-                    },
-                    _ => quote_spanned! {
-                        variant_name.span() => compile_error!("Variant must be unit or single unnamed field implementing default")
-                    },
-                };
-                from_mnemonic_matches.push(x);
+            // We are interested only in 'scpi' attributes
+            if attr.path().is_ident("scpi") {
+                attr.parse_nested_meta(|meta| {
 
-                let mnemonic_return = LitByteStr::new(&mnemonic.value(), variant_name.span());
+                    // For scpi attributes we look for a mnemonic name value pair as literal byte string
+                    if meta.path.is_ident("mnemonic") {
+                        let mnemonic: LitByteStr = meta.value()?.parse()?;
 
-                let x2 = match &variant.fields {
-                    syn::Fields::Unnamed(x) if x.unnamed.len() == 1 => quote! {
-                        #name::#variant_name(..) => #mnemonic_return
-                    },
-                    syn::Fields::Unit => quote! {
-                        #name::#variant_name => #mnemonic_return
-                    },
-                    _ => quote_spanned! {
-                        variant_name.span() => compile_error!("Variant must be unit or single unnamed field implementing default")
-                    },
-                };
-                //println!("{}", x2);
-                to_mnemonic_matches.push(x2);
+                        // We build a token stream to implement the enum creation from a mnemonic
+                        let x = match &variant.fields {
+                            syn::Fields::Unnamed(x) if x.unnamed.len() == 1 => quote! {
+                                x if scpi::parser::mnemonic_match(#mnemonic, x) => Some(#name::#variant_name(Default::default()))
+                            },
+                            syn::Fields::Unit => quote! {
+                                x if scpi::parser::mnemonic_match(#mnemonic, x) => Some(#name::#variant_name)
+                            },
+                            _ => quote_spanned! {
+                                variant_name.span() => compile_error!("Variant must be unit or single unnamed field implementing default")
+                            },
+                        };
+                        from_mnemonic_matches.push(x);
+
+                        // We build a token stream to implement the enum conversion to a mnemonic
+                        let mnemonic_return = LitByteStr::new(&mnemonic.value(), variant_name.span());
+
+                        let x2 = match &variant.fields {
+                            syn::Fields::Unnamed(x) if x.unnamed.len() == 1 => quote! {
+                                #name::#variant_name(..) => #mnemonic_return
+                            },
+                            syn::Fields::Unit => quote! {
+                                #name::#variant_name => #mnemonic_return
+                            },
+                            _ => quote_spanned! {
+                                variant_name.span() => compile_error!("Variant must be unit or single unnamed field implementing default")
+                            },
+                        };
+                        to_mnemonic_matches.push(x2);
+                    };
+                    Ok(())
+                }).unwrap()
             }
         }
     }
 
+    // Generated the impl from the collected token streams
     let expanded = quote! {
         // The generated impl.
         impl scpi::option::ScpiEnum for #name {
@@ -173,8 +112,6 @@ pub fn derive_scpi_enum(input: proc_macro::TokenStream) -> proc_macro::TokenStre
         }
     };
 
-    //println!("{}", expanded);
-
     // Hand the output tokens back to the compiler.
     proc_macro::TokenStream::from(expanded)
 }
@@ -200,52 +137,60 @@ pub fn derive_error_messages(input: proc_macro::TokenStream) -> proc_macro::Toke
 
     for variant in variants.iter() {
         let variant_name = &variant.ident;
-        //let (_, Expr::Lit(x)) = &variant.discriminant.unwrap();
 
-        //        let code = if let Lit::Int(x) = x.lit {
-        //            x.to_string()
-        //        }else{
-        //            panic!("Discriminant must be an integer!")
-        //        };
-        //println!(" - {} : ", variant_name.to_string());
-        //let mut doc: Option<String> = None;
+        // Iter over all the attributes of each variant of the enum
         for attr in variant.attrs.iter() {
-            let meta = attr.parse_meta().unwrap();
-            if let Some(message) = find_prop_bstr(&meta, "error", "message") {
-                //doc = Some(format!("{:?}, \"{}\"", code, String::from_utf8(message.value()).unwrap()));
-                //let multiplier = find_prop_f(&meta, "error", "multiplier").unwrap_or(1.0f32);
-                //println!("\tb\"{}\" => ({}, {}), ", String::from_utf8(suffix.value()).unwrap(), variant_name, multiplier);
+            // We are only interested in 'error' attributes
+            if attr.path().is_ident("error") {
+                attr.parse_nested_meta(|meta| {
+                    // We look for three distinct type of name value pairs
 
-                let x = quote! {
-                    #name::#variant_name => #message
-                };
-                variant_matches.push(x);
-            }
-            if let Some(code) = find_prop_bint(&meta, "error", "code") {
-                //doc = Some(format!("{:?}, \"{}\"", code, String::from_utf8(message.value()).unwrap()));
-                //let multiplier = find_prop_f(&meta, "error", "multiplier").unwrap_or(1.0f32);
-                let cx = quote! {
-                    #name::#variant_name => #code
-                };
-                //println!("--- {}", cx);
-                //compile_error!("bint");
-                code_variant_matches.push(cx);
+                    // 'message' with a byte string value
+                    if meta.path.is_ident("message") {
+                        let message: LitByteStr = meta.value()?.parse()?;
 
-                let ccx = quote! {
-                    #code => Some(#name::#variant_name)
-                };
-                variant_code_matches.push(ccx);
-            }
-            if find_prop_path(&meta, "error", "custom") {
-                let x = quote! {
-                    #name::#variant_name(_,msg) => msg
-                };
-                variant_matches.push(x);
-                let cx = quote! {
-                    #name::#variant_name(code,_) => code
-                };
-                //println!("--- {}", cx);
-                code_variant_matches.push(cx);
+                        let x = quote! {
+                            #name::#variant_name => #message
+                        };
+                        variant_matches.push(x);
+                        return Ok(());
+                    }
+
+                    // 'code' with an integer value
+                    if meta.path.is_ident("code") {
+                        let code: LitInt = meta.value()?.parse()?;
+
+                        let cx = quote! {
+                            #name::#variant_name => #code
+                        };
+                        //println!("--- {}", cx);
+                        //compile_error!("bint");
+                        code_variant_matches.push(cx);
+
+                        let ccx = quote! {
+                            #code => Some(#name::#variant_name)
+                        };
+                        variant_code_matches.push(ccx);
+                        return Ok(());
+                    }
+
+                    // 'custom' with arbitrary tokens
+                    if meta.path.is_ident("custom") {
+                        let x = quote! {
+                            #name::#variant_name(_,msg) => msg
+                        };
+                        variant_matches.push(x);
+                        let cx = quote! {
+                            #name::#variant_name(code,_) => code
+                        };
+                        //println!("--- {}", cx);
+                        code_variant_matches.push(cx);
+                        return Ok(());
+                    }
+
+                    Ok(())
+                })
+                .expect(&format!("{:?}", variant_name.to_string()));
             }
         }
     }
