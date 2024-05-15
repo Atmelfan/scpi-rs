@@ -1,6 +1,6 @@
 [package]
 name = "scpi-contrib"
-version = "1.0.0"
+version = "1.0.1"
 description = "SCPI/IEEE488.2 contrib library"
 
 # Inherit from workspace workspace

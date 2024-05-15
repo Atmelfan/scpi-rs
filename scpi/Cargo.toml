@@ -1,6 +1,6 @@
 [package]
 name = "scpi"
-version = "1.0.0"
+version = "1.0.1"
 description = "SCPI/IEEE488.2 parser library"
 
 # Inherit from workspace workspace
@@ -34,7 +34,7 @@ features = [
 ]
 
 [dependencies.uom]
-version = "0.33.0"
+version = "0.36.0"
 default-features = false
 optional = true
 features = ["autoconvert", "f32", "f64", "si", "try-from"]

@@ -55,6 +55,12 @@ impl<T> EventCommand<T> {
     }
 }
 
+impl<T> Default for EventCommand<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<D, T> Command<D> for EventCommand<T>
 where
     T: EventRegisterName,
@@ -82,6 +88,12 @@ pub struct ConditionCommand<T>(PhantomData<T>);
 impl<T> ConditionCommand<T> {
     pub const fn new() -> Self {
         Self(PhantomData)
+    }
+}
+
+impl<T> Default for ConditionCommand<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -113,6 +125,12 @@ pub struct EnableCommand<T>(PhantomData<T>);
 impl<T> EnableCommand<T> {
     pub const fn new() -> Self {
         Self(PhantomData)
+    }
+}
+
+impl<T> Default for EnableCommand<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -149,6 +167,12 @@ impl<T> NTransitionCommand<T> {
     }
 }
 
+impl<T> Default for NTransitionCommand<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<D, T> Command<D> for NTransitionCommand<T>
 where
     T: EventRegisterName,
@@ -181,6 +205,12 @@ pub struct PTransitionCommand<T>(PhantomData<T>);
 impl<T> PTransitionCommand<T> {
     pub const fn new() -> Self {
         Self(PhantomData)
+    }
+}
+
+impl<T> Default for PTransitionCommand<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
