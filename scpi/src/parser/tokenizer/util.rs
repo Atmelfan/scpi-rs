@@ -88,8 +88,6 @@ pub fn mnemonic_match(mnemonic: &[u8], s: &[u8]) -> bool {
         }
 }
 
-///
-///
 pub(crate) fn ascii_to_digit(digit: u8, radix: u8) -> Option<u32> {
     let lowercase = digit.to_ascii_lowercase();
 
