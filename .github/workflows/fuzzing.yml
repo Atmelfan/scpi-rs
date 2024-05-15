@@ -21,25 +21,34 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Install nightly toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
-          override: true
+        uses: dtolnay/rust-toolchain@nightly
 
-      - name: Install fuzz
-        run: |
-          cargo install cargo-fuzz
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz
+      
+      - name: Install llvm-tools-preview
+        run: rustup toolchain install nightly --component llvm-tools-preview
 
       - name: Fuzz ${{ matrix.fuzz-targets }}
         run: |
-          cd scpi && cargo +nightly fuzz run ${{ matrix.fuzz-targets }} -- -max_total_time=300
+          cd scpi && cargo fuzz run ${{ matrix.fuzz-targets }} -- -max_total_time=300
 
       - name: Upload failing inputs for Tokenizer
         uses: actions/upload-artifact@v2
         with:
           name: fuzz_target_1
           path: scpi/fuzz/artifacts/${{ matrix.fuzz-targets }}/*
+        
+      - name: Generate coverage data
+        run: cd scpi && cargo fuzz coverage ${{ matrix.fuzz-targets }}
+      
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v3
+        with:
+          # token: ${{secrets.CODECOV_TOKEN}} # not required for public repos
+          flags: fuzzing-${{ matrix.fuzz-targets }}
+          files: scpi/fuzz/coverage/${{ matrix.fuzz-targets }}/*
+          fail_ci_if_error: true
