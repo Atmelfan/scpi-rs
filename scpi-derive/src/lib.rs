@@ -190,7 +190,7 @@ pub fn derive_error_messages(input: proc_macro::TokenStream) -> proc_macro::Toke
 
                     Ok(())
                 })
-                .expect(&format!("{:?}", variant_name.to_string()));
+                .unwrap()
             }
         }
     }
