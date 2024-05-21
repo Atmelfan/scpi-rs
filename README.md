@@ -7,7 +7,7 @@
 
 These crates attempts to implement the IEE488.2 / SCPI protocol commonly used by measurement instruments and tools.
 
-* [SCPI-1999](http://www.ivifoundation.org/docs/scpi-99.pdf)
+* [SCPI-1999](https://www.ivifoundation.org/downloads/SCPI/scpi-99.pdf)
 * [IEEE 488.2](http://dx.doi.org/10.1109/IEEESTD.2004.95390) *Non-free standard, SCPI-1999 above repeats most of the important stuff*
 
 ## Scope
