@@ -23,7 +23,7 @@ version = "1.0"
 features = ["_private"]
 
 [dependencies.lexical-core]
-version = "0.8"
+version = "1.0"
 default-features = false
 features = [
     "parse-floats",
