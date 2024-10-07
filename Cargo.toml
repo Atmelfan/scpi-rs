@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["SCPI", "parser", "Instrumentation", "Embedded", "Multimeter"]
 categories = ["command-line-interface", "embedded", "parsing", "no-std"]
 
-homepage = "http://Atmelfan.github.io/scpi-rs"
+homepage = "https://github.com/Atmelfan/scpi-rs"
 repository = "https://github.com/Atmelfan/scpi-rs"
 readme = "README.md"
 
