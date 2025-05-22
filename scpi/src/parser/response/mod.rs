@@ -241,26 +241,17 @@ pub trait Formatter {
     ///Push single byte to output
     fn push_byte(&mut self, b: u8) -> Result<()>;
 
-    /// Get underlying buffer as a byte slice
-    fn as_slice(&self) -> &[u8];
-
-    /// Clear buffer
-    fn clear(&mut self);
-
-    /// Returns length of buffer
-    fn len(&self) -> usize;
-
-    fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-
     /* Control */
 
     /// Start a response message
-    fn message_start(&mut self) -> Result<()>;
+    fn message_start(&mut self) -> Result<()> {
+        Ok(())
+    }
 
     /// End a response message
-    fn message_end(&mut self) -> Result<()>;
+    fn message_end(&mut self) -> Result<()> {
+        self.push_byte(RESPONSE_MESSAGE_TERMINATOR)
+    }
 
     /* Formatters */
 
@@ -274,7 +265,15 @@ pub trait Formatter {
         self.push_byte(RESPONSE_HEADER_SEPARATOR)
     }
 
-    fn response_unit(&mut self) -> Result<ResponseUnit>;
+    /// Insert a new [RESPONSE_MESSAGE_UNIT_SEPARATOR].
+    fn message_unit_separator(&mut self) -> Result<()> {
+        self.push_byte(RESPONSE_MESSAGE_UNIT_SEPARATOR)
+    } 
+
+    /// Create a new [ResponseUnit].
+    fn response_unit(&mut self) -> Result<ResponseUnit> where Self: Sized {
+        Ok(ResponseUnit::new(self))
+    }
 }
 
 /// A response unit returned by a query
@@ -286,6 +285,15 @@ pub struct ResponseUnit<'a> {
 }
 
 impl<'a> ResponseUnit<'a> {
+    pub fn new(fmt: &'a mut dyn Formatter) -> Self {
+        ResponseUnit {
+            fmt,
+            result: Ok(()),
+            has_header: false,
+            has_data: false,
+        }
+    }
+
     /// Response header
     ///
     /// **Warning**: Panics if called after [`Self::data`]

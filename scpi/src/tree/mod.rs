@@ -266,7 +266,12 @@ where
     where
         FMT: Formatter,
     {
+        // Start a new message
+        context.output = false;
+
+        // Tokenize string
         let mut tokenizer = Tokenizer::new(command).peekable();
+        // Execute
         let res = self.run_tokens(device, context, &mut tokenizer, response);
         if let Err(err) = &res {
             device.handle_error(*err);
@@ -288,7 +293,7 @@ where
 
         //Start response message
         response.message_start()?;
-        loop {
+        let res = loop {
             // Execute header
             match tokens.peek() {
                 // :header..
@@ -320,9 +325,6 @@ where
             match tokens.next() {
                 // EOM
                 None => {
-                    if !response.is_empty() {
-                        response.message_end()?;
-                    }
                     break Ok(());
                 }
                 // New unit
@@ -340,7 +342,14 @@ where
                 // Error
                 Some(Err(err)) => break Err(Error::new(err)),
             }
+        };
+
+        // Terminate any partial message
+        if context.output {
+            response.message_end()?;
         }
+
+        res
     }
 
     pub(crate) fn exec<FMT>(
@@ -383,8 +392,16 @@ where
                         // Consume header seperator
                         tokens.next_if(|t| matches!(t, Ok(Token::ProgramHeaderSeparator)));
 
+                        // Start a new response unit with a seperator if not the first query.
+                        let response_unit = if context.output {
+                            response.message_unit_separator()?;
+                            response.response_unit()?
+                        } else {
+                            context.output = true;
+                            response.response_unit()?
+                        };
+
                         // Execute handler
-                        let response_unit = response.response_unit()?;
                         handler.query(device, context, Parameters::with(tokens), response_unit)
                     }
                     // This is a leaf node, cannot traverse further
