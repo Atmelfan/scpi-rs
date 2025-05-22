@@ -5,8 +5,6 @@ use scpi::{
 
 use std::io::{self, BufRead, Write};
 
-use scpi::{cmd_qonly, Branch, Leaf, Root};
-
 struct MyDevice;
 impl Device for MyDevice {
     fn handle_error(&mut self, err: Error) {

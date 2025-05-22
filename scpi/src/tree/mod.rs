@@ -82,7 +82,7 @@ pub mod prelude {
             response::{Formatter, ResponseData, ResponseUnit},
             tokenizer::{Token, Tokenizer},
         },
-        Context, Device,
+        Branch, Context, Device, Leaf, Root, cmd_qonly, cmd_nquery, cmd_both
     };
 }
 

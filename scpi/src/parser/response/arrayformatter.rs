@@ -33,6 +33,7 @@ mod tests {
             .finish()
             .unwrap();
         // Second unit
+        array.message_unit_separator().unwrap();
         array.response_unit().unwrap().data(42i16).finish().unwrap();
         array.message_end().unwrap();
         assert_eq!(array.as_slice(), b"\"potato\",0;42\n");
