@@ -2,12 +2,9 @@ use arrayvec::ArrayVec;
 
 use crate::error::{ErrorCode, Result};
 
-use super::{
-    Formatter, ResponseUnit, RESPONSE_MESSAGE_TERMINATOR, RESPONSE_MESSAGE_UNIT_SEPARATOR,
-};
+use super::Formatter;
 
 impl<const CAP: usize> Formatter for ArrayVec<u8, CAP> {
-    /// Internal use
     fn push_str(&mut self, s: &[u8]) -> Result<()> {
         self.try_extend_from_slice(s)
             .map_err(|_| ErrorCode::OutOfMemory.into())
@@ -15,38 +12,6 @@ impl<const CAP: usize> Formatter for ArrayVec<u8, CAP> {
 
     fn push_byte(&mut self, b: u8) -> Result<()> {
         self.try_push(b).map_err(|_| ErrorCode::OutOfMemory.into())
-    }
-
-    fn as_slice(&self) -> &[u8] {
-        self.as_slice()
-    }
-
-    fn clear(&mut self) {
-        self.clear();
-    }
-
-    fn len(&self) -> usize {
-        self.len()
-    }
-
-    fn message_start(&mut self) -> Result<()> {
-        Ok(())
-    }
-
-    fn message_end(&mut self) -> Result<()> {
-        self.push_byte(RESPONSE_MESSAGE_TERMINATOR)
-    }
-
-    fn response_unit(&mut self) -> Result<ResponseUnit> {
-        if !self.is_empty() {
-            self.push_byte(RESPONSE_MESSAGE_UNIT_SEPARATOR)?;
-        }
-        Ok(ResponseUnit {
-            fmt: self,
-            result: Ok(()),
-            has_header: false,
-            has_data: false,
-        })
     }
 }
 
@@ -68,6 +33,7 @@ mod tests {
             .finish()
             .unwrap();
         // Second unit
+        array.message_unit_separator().unwrap();
         array.response_unit().unwrap().data(42i16).finish().unwrap();
         array.message_end().unwrap();
         assert_eq!(array.as_slice(), b"\"potato\",0;42\n");

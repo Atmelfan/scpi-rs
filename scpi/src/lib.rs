@@ -134,6 +134,8 @@ pub struct Context<'a> {
     /// Does output buffer contain data?
     pub mav: bool,
 
+    pub output: bool,
+
     /// User context data.
     ///
     /// **Do not use this to pass application data!**
@@ -156,12 +158,13 @@ impl<'a> Context<'a> {
         Context {
             mav: false,
             user: &(),
+            output: false,
         }
     }
 
     // Create a new context with user data
     pub fn new_with_user(user: &'a dyn Any) -> Self {
-        Context { mav: false, user }
+        Context { user, ..Default::default() }
     }
 
     /// Get user context data.

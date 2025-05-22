@@ -26,7 +26,7 @@ clap = {version = "4.0", features = ["derive"]}
 [dev-dependencies]
 csv = "1.1"
 serde = { version = "1", features = ["derive"] }
-rand = "0.8"
+rand = "0.9"
 
 [features]
 default = []
